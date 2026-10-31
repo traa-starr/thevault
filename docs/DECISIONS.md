@@ -31,6 +31,11 @@ Newest at the bottom. Hard-to-undo entries list options, choice and why.
 | Sideload route to try | iTunes + iloader + SideStore, leaving Microsoft Store iCloud alone. Options were: this / AltStore's documented steps (temporarily removes iCloud) / wait. If it fails, ask again before touching iCloud | Avoid any risk to music sync |
 | BandLab preferences | Some songs need older revisions; cover art is low priority | Interview. Method still needs approval: `BANDLAB-OPTIONS.md` |
 | Workflow | Chat manages, Code builds, I type `/next` (`WORKFLOW.md`). Same as Untethered: chat writes `docs/NEXT.md` straight to the laptop. No map, board, lanes or inbox | I asked for chat to run Code's work so I don't get lost. Pasted-block version dropped 2026-10-31: chat can write to the laptop, and I asked for the Untethered loop |
+| D4a, D4b, D5 | Passed on the phone | My test results |
+| Log results before the build run | Yes (chat-default) | Results are fresh; cheap to write first |
+| `doctor` script | Deferred until after D4c (chat-default) | Not blocking; parked in STATUS queue |
+| Who writes what | Chat at review writes NEXT, STATUS, DECISIONS and my phone results; Code at `/wrap` writes REPORT, STATUS, DECISIONS, measured results. STATUS has a `Next up` line for whose move it is | I asked for docs that never go stale and a seamless loop. Before this, chat's Log lines only reached DECISIONS on a pasted brief, and STATUS went stale after review |
+| Chat instructions | The Project box only points to `docs/CHAT-INSTRUCTIONS.md`; chat keeps that file current | One source of truth, no re-pasting when the loop changes |
 
 ## Waiting for approval
 Client option C, library at `E:\VaultLibrary`, database backup into iCloud, BandLab method A. See `ARCHITECTURE-OPTIONS.md`, `BANDLAB-OPTIONS.md`. No app scaffold until approved.

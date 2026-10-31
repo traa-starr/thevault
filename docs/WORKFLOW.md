@@ -11,20 +11,35 @@ make the few calls only I can make. Adapted from Untethered, without its heavy p
 - **Me:** phone tests, the few decisions, git buttons, carrying the line.
 
 ## The files
-| File | Written by | What it is |
+Each file has one writer at each moment: Code at the end of a step (`/wrap`), chat at review. Nobody writes while the
+other is mid-turn.
+
+| File | Code writes (at `/wrap`) | Chat writes (at `Review.`) |
 |---|---|---|
-| `docs/NEXT.md` | Chat, written straight to the laptop | The ONE current task. Overwritten each step |
-| `docs/REPORT.md` | Code | What the last session did, phone checks, decisions needed. Overwritten each step |
-| `docs/STATUS.md` | Code | Where we are, the queue after NEXT, open questions. Under 40 lines |
-| `docs/DECISIONS.md` | Code | Settled, never re-ask |
+| `docs/NEXT.md` | Only on `/next pass` (from a fast-lane queue item) | The ONE current task. Overwritten each step |
+| `docs/REPORT.md` | What the session did, phone checks, decisions needed. Overwritten. Under 40 lines | Never. Review reads it |
+| `docs/STATUS.md` | Done, In progress, Next up, queue, open questions | Clears In progress, sets Next up and queue, closes answered questions and reported phone checks. Under 40 lines |
+| `docs/DECISIONS.md` | Calls made during the session | My answers and chat's calls. Settled, never re-ask |
+| Result docs (`SPIKE-RESULTS.md`, options memos) | Measured results | My phone results, one line each |
+
+**`Next up` line in STATUS** says whose move it is: `Code: /next`, `me: phone checks, then Review.`, or `me: answer in chat`.
+Whoever writes last sets it. `/where` reads it first.
+
+Full chat duties: `CHAT-INSTRUCTIONS.md` ("Files you manage").
 
 ## The loop
-1. **Code:** `/next` does the task, then wraps: REPORT, STATUS, and a one-line commit message.
+1. **Code:** `/next` does the task, then wraps: REPORT, STATUS, DECISIONS, and a one-line commit message.
 2. **Me:** VS Code buttons: commit, push. Do any phone checks.
 3. **Chat:** new chat in the Project, type `Review.` plus my phone results. It reads the docs straight from the laptop
    folder (no push needed for chat to see them).
-4. **Chat answers** with what it decided and what needs me (max 3), and writes the next task straight into `docs/NEXT.md`.
-5. **Me:** new Code session, type `/next`. Code logs the decisions in NEXT.md and starts. Same as Untethered.
+4. **Chat** checks the work, logs decisions and phone results, updates STATUS, writes the next task into `docs/NEXT.md`,
+   and tells me what it decided and what needs me (max 3).
+5. **Me:** new Code session, type `/next`. Code starts the task. (If chat's Log lines are missing from DECISIONS, Code
+   adds them first.) Same as Untethered.
+
+## Outside the loop
+I can bring chat anything (an idea, a worry, a question). Chat answers, and parks work-changing ideas in the STATUS queue
+or open questions. It rewrites NEXT only if the idea should beat the current task and Code isn't mid-step.
 
 ## Lines to type
 | Where | Line | What happens |
@@ -52,4 +67,6 @@ something hard to undo. A NEXT may have a stop line: parts after it happen only 
 - New Code session per step, new chat per review. Past about 150k (`/context`), finish the part and `/wrap`.
 - Sonnet for docs-only and `/wrap`-only sessions. Opus at medium effort for building. High effort only for hard-to-undo design.
 - Docs stay short. If one needs a "don't read it whole" warning, it has outgrown its job.
+- Trimming: STATUS and REPORT cap at 40 lines (the repo check warns). DECISIONS is one row per call; when a phase closes,
+  chat folds its rows into a short summary block.
 - Numbers are Code's, feel is mine: Code doesn't loop on screenshots or wait around on runs.
