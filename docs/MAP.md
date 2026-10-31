@@ -19,13 +19,14 @@ From the interview and read-only scans, 2026-10-31. No Tailscale hostnames or IP
 | Untethered (other project) | `C:\Users\illus\Desktop\untethered\Untethered` | Read-only reference |
 | Vault library + database | Not decided | Goes in the architecture memo |
 
-Installed: Python 3.13, SQLite 3.50 (FTS5 works), Node, ffmpeg (includes Chromaprint), Microsoft Store iCloud. Missing: Tailscale, iTunes, gh.
+Installed: Python 3.13, SQLite 3.50 (FTS5 works), Node, ffmpeg (includes Chromaprint), Microsoft Store iCloud, Tailscale (not on PATH), iTunes (Apple's installer), iloader. Missing: gh.
 
 ## iPhone
 | What | Where | Notes |
 |---|---|---|
 | BandLab | App, Google sign-in (mine only) | 50-100 songs, many only as projects, not exported |
 | BandLab exports | Downloaded in the app, saved to iCloud `Music` | Same folder as FL bounces |
+| Vault Spike | Installed through SideStore, spare Apple account | Refresh within 7 days. Steps: `SIDELOAD-GUIDE.md` |
 
 ## Accounts
 GitHub: `traa-starr`. Apple: free Apple ID, no developer account. Passwords are never stored or handled here.

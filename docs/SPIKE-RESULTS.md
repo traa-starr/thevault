@@ -53,7 +53,10 @@ Scripts are in `spike/`. Output with song names stays in `spike/output/` (gitign
   The spike keeps tags in memory only, so this does not show tags surviving a force-quit. The real app needs a database for that.
 - Laptop side works locally: list, seeking (correct partial responses), bad requests refused.
 - Expo app type-checks, passes 20/20 Expo checks, and its config includes the background-audio setting.
-- The build workflow is written but has never run.
+- Build workflow: first run passed 2026-10-31 (unsigned `.ipa`, 8.0 MB). Installed on the phone: D4c.
+- **D4c Sideload (phone): PASS (2026-10-31).** Vault Spike opened from the home screen, list loads, song plays; audio keeps going with the phone locked (lock-screen controls show) and in another app; SideStore Refresh works and the app still opens. SideStore shows 2 apps active (SideStore + Vault Spike), both expire in 7 days, 10 App IDs remaining.
+  Install: spare free Apple account, iloader 2.4.1, iTunes 12.10.11 (Apple's installer) and SideStore; Microsoft Store iCloud still installed. Steps: `SIDELOAD-GUIDE.md`.
+  **7-day limit:** free accounts need a refresh in SideStore within 7 days, on Wi-Fi with LocalDevVPN connected. Tags are in memory only, so whether app data survives a re-sign stays open for the real app.
 
 ## D5 Open in FL Studio: PASS (2026-10-31)
 The server opens one fixed `.flp`, nothing taken from the phone. Tapping the button on the phone opened the test project on the laptop.

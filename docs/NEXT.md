@@ -1,18 +1,18 @@
-# NEXT: Log D4/D5 results + first build run
+# NEXT: D4c sideload (iTunes + iloader + SideStore)
 Written by chat, 2026-10-31.
-Log: D4a, D4b and D5 passed on phone (user). Results logging before the build: chat-default. Doctor script deferred until after D4c: chat-default. (logged by chat)
-Queue after this: D4c sideload (iTunes + iloader + SideStore, lock screen, background, re-sign); then finish ARCHITECTURE-OPTIONS.md for my approval.
-Read: `docs/SPIKE-RESULTS.md` D4 and D5; the build workflow file in `.github/workflows/`.
+Log: Build run reviewed and accepted, bb0e498 .ipa is current (chat). Full Xcode log always saved as an artifact on failure, not just first build: queued, fast-lane (chat-default). (logged by chat)
+Queue after this: finish `ARCHITECTURE-OPTIONS.md` with spike results for my approval; then the Xcode-log workflow tweak (fast-lane OK: on a failed build, upload the full Xcode log as a run artifact; no other workflow changes).
+Read: DECISIONS row "Sideload route to try"; `SPIKE-RESULTS.md` D4; the build workflow.
 
 ## Parts
-0. Workflow update from chat (2 minutes): copy each `docs/pending-skills/<name>-SKILL.md` over `.claude/skills/<name>/SKILL.md`
-   (next, wrap, where, review), then delete `docs/pending-skills/`. Check: `git diff --stat .claude/skills` shows 4 files.
-   Use the new versions from here on.
-a. Write the D4a, D4b and D5 passes into `SPIKE-RESULTS.md`: Wi-Fi, cellular, FL open, Expo list/play/tag, and tag kept after reopening. No Tailscale names or IPs. Confirm the server and `tailscale serve` are shut down. Update REPORT and STATUS.
-b. Get the build workflow ready for its first run on a standard macOS runner, producing an unsigned `.ipa` as an artifact. Check it locally as far as possible. Tell me exactly what to push and how to start it.
-c. After I start it, read the run result. If it fails, make at most 2 fixes, then write it up. Run the repo safety check.
+a. Prep: get the `.ipa` onto the laptop (download the artifact, or re-run the workflow if it's gone). Write me a short, numbered install guide for iTunes (Apple's own installer, NOT the Microsoft Store one, and do not touch my Microsoft Store iCloud), iloader, then SideStore, checked against their current official pages. Say which steps need my Apple ID typed by me. Never handle my password.
+b. Walk me through it live: I do each step, you check the result. Then install the Vault `.ipa` through SideStore. Start the spike server and `tailscale serve` for the test, and shut both down after. If the route needs iCloud removed or changed, STOP and ask me (logged rule).
+c. Log results in `SPIKE-RESULTS.md` as D4c (no Tailscale names, IPs or Apple ID). Note the 7-day re-sign limit and how many app slots are used. Update REPORT and STATUS. Repo check.
 
-**Stop line:** if the session runs long, part c becomes the head of the next NEXT.
+**Stop line:** if setup eats the session, part b's install + phone check becomes the head of the next NEXT.
 
 ## Phone check
-1. In the GitHub app or on github.com on the phone, go to Actions. Passing: the build run is green and an `.ipa` artifact is listed.
+1. Open the Vault app from the home screen (not Expo Go). Passing: the song list loads and a song plays.
+2. Lock the phone while it plays. Passing: audio keeps going and lock-screen controls show.
+3. Switch to another app for a minute. Passing: audio keeps going.
+4. In SideStore, tap Refresh on the Vault app. Passing: it refreshes without error and the app still opens (tags are in memory only, so data surviving a re-sign stays an open question for the real app).

@@ -1,28 +1,24 @@
 # Report
 
-**Step:** Log D4/D5 results + first build run, 2026-10-31. All parts done.
+**Step:** D4c sideload (iTunes + iloader + SideStore), 2026-10-31. All parts done.
 
 **Verified by running:**
-- Build run on GitHub (public API): "Build iOS (unsigned)", run 41246381167, finished with success on `macos-latest` in about 3.5 minutes. All steps passed, including the Xcode compile and packaging.
-- Artifact: `unsigned-ipa`, 8.0 MB, expires 2026-11-07.
-- `git diff --stat bb0e498 HEAD`: the run built `bb0e498`. Only skills and docs changed since, so the `.ipa` matches the current app.
-- Shutdown: no node or python processes, nothing listening on ports 3000, 5000, 8000, 8080, 8081, 19000 or 19001, and `tailscale serve status` says "No serve config".
-- `docs/pending-skills/` is gone, and the commit records its deletion.
-- Repo check: clean.
+- Installed on the laptop: iloader 2.4.1, iTunes 12.10.11.2, Apple Mobile Device Support 14.5.0.7. Microsoft Store iCloud 15.10.39.0 is still installed.
+- Repo check: clean. No Tailscale names or IPs found in `docs/`.
+- Shutdown: no python or node processes, nothing listening on ports 8787 or 8788, and `tailscale serve status` says "No serve config".
 
-**Needs the phone:** None. NEXT's phone check asks for a green run and a listed `.ipa`, and both were read directly from GitHub.
+**Needs the phone:** None. All four phone checks passed and chat logged them. `SPIKE-RESULTS.md` has the app slots: 2 apps active, 10 App IDs remaining.
 
-**Changed:** `docs/REPORT.md`, `docs/STATUS.md`.
+**Changed:** `docs/DECISIONS.md`, `docs/MAP.md`, `docs/NEXT.md`, `docs/REPORT.md`, `docs/SPIKE-RESULTS.md`, `docs/STATUS.md`, `docs/SIDELOAD-GUIDE.md` (new).
 
 **Differed from NEXT.md:**
-- The run built `bb0e498`, not the latest commit. No rebuild is needed because nothing build-related changed.
-- `gh` isn't installed here, so the run was read through GitHub's public API.
-- The port check covers common dev ports only, alongside the process check.
+- Code's shutdown of the two servers and `tailscale serve` was refused by Claude Code's permission check. They stopped outside Code's commands afterward, and Code only confirmed they are off.
+- The install details come from the installed-software list, the guide and chat's logged results. This session did not watch the install.
 
-**Not done:** Nothing in this step. The `.ipa` has not been installed on a phone yet; that is D4c.
+**Not done:** Nothing in this step.
 
-**Decisions needed:** None. No new settled calls, so nothing added to DECISIONS.
+**Decisions needed:** None.
 
-**Proposed next step:** D4c sideload. Download the artifact before 2026-11-07, or re-run the workflow to get a fresh one.
+**Proposed next step:** Finish `ARCHITECTURE-OPTIONS.md` with the spike results for my approval.
 
-**Pitch:** Save the full Xcode log as an artifact when a build fails, because the workflow only shows the last 40 lines.
+**Pitch:** A one-command `spike/stop` script for the test servers, so shutdown is the same every time.
