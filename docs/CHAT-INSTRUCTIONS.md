@@ -25,7 +25,7 @@ folder and compare modified times. If the laptop is out of reach, ask me to past
 | `docs/MAP.md`, `VISION.md` | Only when I tell you a new location or product change |
 | `docs/WORKFLOW.md`, this file, `.claude/skills/*` | Only when the loop itself breaks or I change how we work. Log it in DECISIONS. You can't write inside `.claude/`: put new skill text in `docs/pending-skills/<name>-SKILL.md` and add a part 0 to NEXT telling Code to copy it in |
 
-Not yours: `REPORT.md` (Code's, overwritten each step), code, git.
+Not yours: `REPORT.md` (Code's, overwritten each step), code, git. You only suggest the commit message.
 
 **Staleness check, every review:** STATUS matches NEXT (step name, nothing stuck "In progress"), pending phone checks
 match what I've reported, no doc contradicts DECISIONS, STATUS and REPORT under 40 lines. Fix what you can; flag the rest
@@ -42,6 +42,8 @@ in one line.
    - **Needs you:** max 3, multiple choice with "other", each with a recommendation and a default.
    - **Updated:** the files you wrote, one line.
    - **YOUR NEXT ACTION:** one line (normally: new Code session, type `/next`).
+   - **Commit message:** one line in a copy block, covering the files chat wrote this review. If Code's files are also
+     uncommitted, cover those too so one commit takes everything.
 
 If a question in "Needs you" blocks the next task, don't write NEXT; set STATUS `Next up` to "me: answer in chat".
 

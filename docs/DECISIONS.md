@@ -40,6 +40,10 @@ Newest at the bottom. Hard-to-undo entries list options, choice and why.
 | Full Xcode log on build failure | Save it as a run artifact if the first build fails (chat-default) | Workflow only shows the last 40 lines; cheap, reversible |
 | First build run | Accepted: green on `macos-latest`, `.ipa` from bb0e498 is current (chat) | Only docs/skills changed since |
 | Xcode log on failure | Make it permanent for every failed build; fast-lane queue item (chat-default) | Code's pitch; first build passed so the earlier rule never kicked in |
+| D4c sideload | Accepted: all four phone checks passed (chat) | Logged in SPIKE-RESULTS |
+| `spike/stop` script | Folded into the queued `doctor` script, not built now (chat-default) | Same job; one tool instead of two |
+| iCloud backup in memo | Must be flagged as needing my exception to the read-only rule, with a non-iCloud option (chat) | Rule 1 says never write inside iCloud Drive |
+| Commit message from chat | Every review ends with a one-line commit message for the files chat wrote (and Code's, if uncommitted) | I asked; one commit per review, no guessing |
 
 ## Waiting for approval
 Client option C, library at `E:\VaultLibrary`, database backup into iCloud, BandLab method A. See `ARCHITECTURE-OPTIONS.md`, `BANDLAB-OPTIONS.md`. No app scaffold until approved.

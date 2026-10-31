@@ -1,10 +1,10 @@
 # Status
 
-**Phase 0.** Updated 2026-10-31 by Code. How we work: `WORKFLOW.md`.
+**Phase 0.** Updated 2026-10-31 by chat. How we work: `WORKFLOW.md`.
 
 **In progress:** None.
-**Next up:** me: commit and push, then `Review.` in chat.
-**Current task:** `NEXT.md`, "D4c sideload".
+**Next up:** me: commit and push, new Code session, `/next`.
+**Current task:** `NEXT.md`, "Finish ARCHITECTURE-OPTIONS.md for my approval".
 
 ## Done
 - Music guard proven on a dummy folder (39/39 fake calls, live write/delete/rename blocked, reads work). Music folders unchanged after the spikes.
@@ -16,12 +16,12 @@
 - Chat + Code workflow set up and tightened (who writes what, `Next up` line): `WORKFLOW.md`, `CHAT-INSTRUCTIONS.md`.
 
 ## Queue after NEXT
-1. Finish `ARCHITECTURE-OPTIONS.md` with results, then I approve in DECISIONS.md.
+1. Me: approve the four calls in DECISIONS.md.
 2. Fast-lane: save full Xcode log as an artifact on any failed build.
-3. Later: `doctor` script that checks Tailscale, server and guard before phone tests.
+3. Later: `doctor` script that checks Tailscale, server and guard before phone tests, and stops the test servers after (was the `spike/stop` pitch).
 
 ## Open questions
-- Client option C? Library at `E:\VaultLibrary`? Database backup into iCloud? BandLab method A?
+- Client option C? Library at `E:\VaultLibrary`? Database backup into iCloud (breaks the read-only rule; needs your exception)? BandLab method A?
 - FL projects have no backup: decide separately.
 - Is E: an internal drive with enough space?
 - Does SideStore keep app data across re-signs? (D4c)
