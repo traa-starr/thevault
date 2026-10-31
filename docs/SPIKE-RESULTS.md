@@ -47,13 +47,15 @@ Scripts are in `spike/`. Output with song names stays in `spike/output/` (gitign
 - Only the first 2 minutes were compared, so a new intro or a different section could lower a score.
 - **Verdict:** use both, names + fingerprints, suggestions only. Threshold ~0.8 high confidence; 0.65-0.8 "maybe".
 
-## D4 Phone reachability: NOT TESTED YET (needs your iPhone)
+## D4 Phone reachability
+- **D4a Safari: PASS (2026-10-31).** Over Tailscale, on home Wi-Fi and on cellular: the list loads, a song plays, seeking works.
+- **D4b Expo Go: NOT TESTED YET.**
 - Laptop side works locally: list, seeking (correct partial responses), bad requests refused.
 - Expo app type-checks, passes 20/20 Expo checks, and its config includes the background-audio setting.
 - The build workflow is written but has never run.
 
-## D5 Open in FL Studio: NOT TESTED YET
-Written: the server opens one fixed `.flp`, nothing taken from the phone. Needs your tap.
+## D5 Open in FL Studio: PASS (2026-10-31)
+The server opens one fixed `.flp`, nothing taken from the phone. Tapping the button on the phone opened the test project on the laptop.
 
 ## D6 Search: FTS5 fits
 In-memory test on made-up tags:

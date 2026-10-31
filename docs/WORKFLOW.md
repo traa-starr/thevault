@@ -13,7 +13,7 @@ make the few calls only I can make. Adapted from Untethered, without its heavy p
 ## The files
 | File | Written by | What it is |
 |---|---|---|
-| `docs/NEXT.md` | Chat, saved by Code | The ONE current task. Overwritten each step |
+| `docs/NEXT.md` | Chat, written straight to the laptop | The ONE current task. Overwritten each step |
 | `docs/REPORT.md` | Code | What the last session did, phone checks, decisions needed. Overwritten each step |
 | `docs/STATUS.md` | Code | Where we are, the queue after NEXT, open questions. Under 40 lines |
 | `docs/DECISIONS.md` | Code | Settled, never re-ask |
@@ -21,20 +21,21 @@ make the few calls only I can make. Adapted from Untethered, without its heavy p
 ## The loop
 1. **Code:** `/next` does the task, then wraps: REPORT, STATUS, and a one-line commit message.
 2. **Me:** VS Code buttons: commit, push. Do any phone checks.
-3. **Chat:** new chat in the Project, type `Review.` plus my phone results. It reads the repo on GitHub.
-4. **Chat answers** with what it decided, what needs me (max 3), then one copy block starting `/next`.
-5. **Me:** new Code session, paste the block. Code saves it as NEXT.md, logs the decisions in it, and starts.
+3. **Chat:** new chat in the Project, type `Review.` plus my phone results. It reads the docs straight from the laptop
+   folder (no push needed for chat to see them).
+4. **Chat answers** with what it decided and what needs me (max 3), and writes the next task straight into `docs/NEXT.md`.
+5. **Me:** new Code session, type `/next`. Code logs the decisions in NEXT.md and starts. Same as Untethered.
 
 ## Lines to type
 | Where | Line | What happens |
 |---|---|---|
 | Code | `/next` | Does NEXT.md. If a session got cut off, picks up from the part it stopped on |
-| Code | `/next <brief from chat>` | Saves the brief as NEXT.md, then does it |
+| Code | `/next <brief from chat>` | Backup only, if chat can't reach the laptop: saves the brief as NEXT.md, then does it |
 | Code | `/next pass` | Phone check passed, no notes: logs it and starts the queue's next item, if marked `fast-lane OK` |
 | Code | `/wrap` | Closes a session early. `/next` runs it by itself at the end |
 | Code | `/review` | Skips chat: checks the last step, then writes the next NEXT. For when chat is out of reach or capped |
 | Code | `/where` | Lost? Where we are and my one next action. Changes nothing |
-| Chat | `Review.` | Checks the last step, writes the next `/next` block |
+| Chat | `Review.` | Checks the last step, writes the next NEXT.md straight to the laptop |
 
 ## Sizing
 One NEXT = one phone check, about 3 parts. Split earlier only where I must see A before B is worth building, or before

@@ -30,7 +30,7 @@ Newest at the bottom. Hard-to-undo entries list options, choice and why.
 | `Downloads\CHE` | Excluded | Another artist's projects |
 | Sideload route to try | iTunes + iloader + SideStore, leaving Microsoft Store iCloud alone. Options were: this / AltStore's documented steps (temporarily removes iCloud) / wait. If it fails, ask again before touching iCloud | Avoid any risk to music sync |
 | BandLab preferences | Some songs need older revisions; cover art is low priority | Interview. Method still needs approval: `BANDLAB-OPTIONS.md` |
-| Workflow | Chat manages, Code builds, I carry one line (`WORKFLOW.md`). Adapted from Untethered: no map, board, lanes or inbox. Chat's brief reaches Code as a pasted `/next` block, since chat can't write to the laptop | I asked for chat to run Code's work so I don't get lost. Easy to change |
+| Workflow | Chat manages, Code builds, I type `/next` (`WORKFLOW.md`). Same as Untethered: chat writes `docs/NEXT.md` straight to the laptop. No map, board, lanes or inbox | I asked for chat to run Code's work so I don't get lost. Pasted-block version dropped 2026-10-31: chat can write to the laptop, and I asked for the Untethered loop |
 
 ## Waiting for approval
 Client option C, library at `E:\VaultLibrary`, database backup into iCloud, BandLab method A. See `ARCHITECTURE-OPTIONS.md`, `BANDLAB-OPTIONS.md`. No app scaffold until approved.

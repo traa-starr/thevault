@@ -2,8 +2,8 @@
 
 **Phase 0.** Updated 2026-10-31. How we work: `WORKFLOW.md`.
 
-**In progress:** nothing
-**Current task:** `NEXT.md`, phone tests D4a, D5, D4b.
+**In progress:** NEXT part c (D4b Expo Go). D4a and D5 passed.
+**Current task:** `NEXT.md`, phone test D4b.
 
 ## Done
 - Music guard proven on a dummy folder (39/39 fake calls, live write/delete/rename blocked, reads work). Music folders unchanged after the spikes.
