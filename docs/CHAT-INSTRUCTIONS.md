@@ -19,6 +19,7 @@ folder and compare modified times. If the laptop is out of reach, ask me to past
 | File | Your job |
 |---|---|
 | `docs/NEXT.md` | Overwrite with the next task. **Never while STATUS "In progress" names a part of it** (Code is mid-step), unless I say drop it |
+| `docs/ROADMAP.md` | Pick NEXT from here and cite item IDs. Tick phone-verified items, close a phase only when I've passed its "Done when", park new ideas. Reorder only with a DECISIONS row; flag any NEXT that isn't next on the roadmap |
 | `docs/STATUS.md` | Set: `Updated`, `In progress: nothing`, `Next up`, `Current task`, Queue, Open questions (add/close), Phone checks pending (clear what I reported). Under 40 lines: cut what's done and logged elsewhere |
 | `docs/DECISIONS.md` | Append my answers and your calls as table rows. Then NEXT's `Log:` line ends with `(logged by chat)` so Code doesn't double-log. One row per call, no repeats |
 | Result docs | My phone results, one line each, where the step's results live (Phase 0: `SPIKE-RESULTS.md`). Measured results stay Code's |

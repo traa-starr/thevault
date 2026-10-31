@@ -1,6 +1,6 @@
 # Status
 
-**Phase 0.** Updated 2026-10-31 by chat. How we work: `WORKFLOW.md`.
+**Phase 0.** Updated 2026-10-31 by Code. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
 
 **In progress:** None.
 **Next up:** me: commit and push, new Code session, `/next`.
@@ -13,6 +13,7 @@
 - First iOS build on GitHub Actions passed: unsigned `.ipa` produced (artifact expires 2026-11-07; re-run the workflow for a fresh one).
 - D4c sideload: PASS on the phone. Refresh in SideStore within 7 days to keep the app working. Spike server, app-file server and `tailscale serve` are off.
 - BandLab research: `BANDLAB-OPTIONS.md`. Draft architecture memo: `ARCHITECTURE-OPTIONS.md`.
+- Roadmap written: every feature, in build order, with who ticks what: `ROADMAP.md`.
 - Chat + Code workflow set up and tightened (who writes what, `Next up` line): `WORKFLOW.md`, `CHAT-INSTRUCTIONS.md`.
 
 ## Queue after NEXT

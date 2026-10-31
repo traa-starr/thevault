@@ -1,24 +1,21 @@
 # Report
 
-**Step:** D4c sideload (iTunes + iloader + SideStore), 2026-10-31. All parts done.
+**Step:** Roadmap, asked for directly in Code, 2026-10-31. Not the step in NEXT: "Finish ARCHITECTURE-OPTIONS.md for my approval" is still to do.
 
 **Verified by running:**
-- Installed on the laptop: iloader 2.4.1, iTunes 12.10.11.2, Apple Mobile Device Support 14.5.0.7. Microsoft Store iCloud 15.10.39.0 is still installed.
-- Repo check: clean. No Tailscale names or IPs found in `docs/`.
-- Shutdown: no python or node processes, nothing listening on ports 8787 or 8788, and `tailscale serve status` says "No serve config".
+- Checked `ROADMAP.md` against `VISION.md` by reading: every feature has an item ID or is in Parked.
+- Repo check: clean. A search of `ROADMAP.md` for Tailscale names, IPs and music paths found nothing.
 
-**Needs the phone:** None. All four phone checks passed and chat logged them. `SPIKE-RESULTS.md` has the app slots: 2 apps active, 10 App IDs remaining.
+**Needs the phone:** None.
 
-**Changed:** `docs/DECISIONS.md`, `docs/MAP.md`, `docs/NEXT.md`, `docs/REPORT.md`, `docs/SPIKE-RESULTS.md`, `docs/STATUS.md`, `docs/SIDELOAD-GUIDE.md` (new).
+**Changed:** `docs/ROADMAP.md` (new), `docs/DECISIONS.md`, `docs/WORKFLOW.md`, `docs/CHAT-INSTRUCTIONS.md`, `docs/STATUS.md`, `docs/REPORT.md`, `.claude/skills/wrap/SKILL.md`, `CLAUDE.md`.
 
-**Differed from NEXT.md:**
-- Code's shutdown of the two servers and `tailscale serve` was refused by Claude Code's permission check. They stopped outside Code's commands afterward, and Code only confirmed they are off.
-- The install details come from the installed-software list, the guide and chat's logged results. This session did not watch the install.
+**Differed from NEXT.md:** This whole session was outside NEXT, at my request. NEXT was left untouched.
 
-**Not done:** Nothing in this step.
+**Not done:** The architecture memo, which is still NEXT. `MAP.md` not changed, because it lists locations and not docs.
 
-**Decisions needed:** None.
+**Decisions needed:** None now. The four calls in DECISIONS still wait for the memo. `ROADMAP.md` lists five later calls and when each comes up.
 
-**Proposed next step:** Finish `ARCHITECTURE-OPTIONS.md` with the spike results for my approval.
+**Proposed next step:** Finish the architecture memo (ROADMAP G1).
 
-**Pitch:** A one-command `spike/stop` script for the test servers, so shutdown is the same every time.
+**Pitch:** Test whether search runs on the phone before Phase 3, because offline search depends on it and the spike only tested the laptop.

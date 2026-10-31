@@ -44,6 +44,11 @@ Newest at the bottom. Hard-to-undo entries list options, choice and why.
 | `spike/stop` script | Folded into the queued `doctor` script, not built now (chat-default) | Same job; one tool instead of two |
 | iCloud backup in memo | Must be flagged as needing my exception to the read-only rule, with a non-iCloud option (chat) | Rule 1 says never write inside iCloud Drive |
 | Commit message from chat | Every review ends with a one-line commit message for the files chat wrote (and Code's, if uncommitted) | I asked; one commit per review, no guessing |
+| Build order | `ROADMAP.md` is the route: player, tagging, search, groups, sources + BandLab, release | I asked for every feature in a build order chat and Code both follow |
+| BandLab timing | Late, at Phase 5. Options were: right after player / late / before anything | My call, same as VISION. Those songs miss tagging until then |
+| Mine / not mine sorting | During tagging: one-tap "not mine" and a Mine filter. Options were: during tagging / sorting pass first / folder rules plus tap | No separate chore; only ~17% can be auto-detected |
+| "Later" items in the roadmap | Only the release pipeline gets a phase; the rest stay parked with no date | My call |
+| Prototypes | Tappable fake-data version on the phone before each daily screen is built. Options were: per screen / one pass up front / skip | VISION: prototype feel before real code |
 
 ## Waiting for approval
 Client option C, library at `E:\VaultLibrary`, database backup into iCloud, BandLab method A. See `ARCHITECTURE-OPTIONS.md`, `BANDLAB-OPTIONS.md`. No app scaffold until approved.

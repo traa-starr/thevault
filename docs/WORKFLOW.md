@@ -17,6 +17,7 @@ other is mid-turn.
 | File | Code writes (at `/wrap`) | Chat writes (at `Review.`) |
 |---|---|---|
 | `docs/NEXT.md` | Only on `/next pass` (from a fast-lane queue item) | The ONE current task. Overwritten each step |
+| `docs/ROADMAP.md` | Ticks items built this step | Ticks phone-verified items, closes phases, adds parked ideas. Reorders only with a DECISIONS row |
 | `docs/REPORT.md` | What the session did, phone checks, decisions needed. Overwritten. Under 40 lines | Never. Review reads it |
 | `docs/STATUS.md` | Done, In progress, Next up, queue, open questions | Clears In progress, sets Next up and queue, closes answered questions and reported phone checks. Under 40 lines |
 | `docs/DECISIONS.md` | Calls made during the session | My answers and chat's calls. Settled, never re-ask |

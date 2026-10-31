@@ -23,7 +23,7 @@ Do these in order. Say in REPORT if one was skipped, and why.
    unfinished), the queue after NEXT, open questions, phone checks pending. Don't repeat REPORT. Don't touch `NEXT.md`:
    chat writes it.
 4. **`docs/DECISIONS.md`:** every settled call from this session. Hard-to-undo entries list date, options, choice and why.
-5. **`docs/MAP.md`:** only if a location changed.
+5. **`docs/MAP.md`:** only if a location changed. **`docs/ROADMAP.md`:** tick items built this step.
 6. **Safety check:** `python .claude/scripts/check_repo.py`. Fix anything it flags. Never weaken the check to pass.
 7. **Last message, short, nothing pasted from the docs:**
    - What happened, in one or two lines. Say plainly if something failed.

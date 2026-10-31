@@ -2,7 +2,7 @@
 
 One place for all my songs from FL Studio and BandLab. The phone is the primary device; the laptop hosts.
 Product: `docs/VISION.md`. Choices: `docs/DECISIONS.md`. Current state: `docs/STATUS.md` (read first).
-Where things live: `docs/MAP.md`. The one current task: `docs/NEXT.md`. Last session's results: `docs/REPORT.md`.
+Build order: `docs/ROADMAP.md`. Where things live: `docs/MAP.md`. The one current task: `docs/NEXT.md`. Last session's results: `docs/REPORT.md`.
 How we work: `docs/WORKFLOW.md`. Chat manages, Code builds, and I carry one line. Commands: `/next`, `/wrap`, `/review`, `/where`.
 
 **Phase 0: no app code until I approve in DECISIONS.md.** Throwaway code goes in `spike/` only.
