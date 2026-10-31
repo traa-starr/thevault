@@ -1,0 +1,43 @@
+# One click: GitHub > Actions > Build iOS (unsigned) > Run workflow. Download the .ipa artifact and sideload it.
+# Standard runner only (free on public repos). No secrets, no signing: the sideload tool signs with your free Apple ID.
+# On a public repo, signed-in GitHub users can download the artifact. It expires after 7 days and holds no music or credentials.
+name: Build iOS (unsigned)
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: App folder
+        default: spike/vault-spike
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ${{ inputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx expo prebuild --platform ios --non-interactive
+      - name: Compile without signing
+        run: |
+          SCHEME=$(basename ios/*.xcworkspace .xcworkspace)
+          xcodebuild -workspace "ios/$SCHEME.xcworkspace" -scheme "$SCHEME" -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-out \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" | tail -40
+          test -d build-out/Build/Products/Release-iphoneos/"$SCHEME".app
+      - name: Package .ipa
+        run: |
+          mkdir Payload
+          cp -R build-out/Build/Products/Release-iphoneos/*.app Payload/
+          zip -qry unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-ipa
+          path: ${{ inputs.app }}/unsigned.ipa
+          retention-days: 7

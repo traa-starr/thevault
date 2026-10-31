@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(//c/Users/illus/iCloudDrive/**)",
+      "Edit(//c/Users/illus/Documents/Image-Line/FL Studio/Projects/**)",
+      "Edit(//e/vault-dummy-protected/**)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/session_start.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_music.py\"",
+            "timeout": 15,
+            "onFailure": "block",
+            "statusMessage": "Checking music folders are untouched"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Vault Spike",
+    "slug": "vault-spike",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.traastarr.vaultspike",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "plugins": [
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "enableBackgroundPlayback": true
+        }
+      ],
+      "expo-asset"
+    ]
+  }
+}

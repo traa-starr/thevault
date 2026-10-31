@@ -1,0 +1,93 @@
+# Repo = code + docs only. This repo is PUBLIC.
+
+# Audio
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.aif
+*.aiff
+*.ogg
+*.opus
+*.aac
+*.wma
+
+# DAW projects and stems
+*.flp
+*.zip
+*.rar
+*.7z
+*.rpp
+*.als
+
+# Cover art and images (add exceptions only for app icons, deliberately)
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.heic
+*.gif
+*.tif
+*.tiff
+*.bmp
+!spike/vault-spike/assets/*.png
+
+# Local database
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+
+# Credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pub
+*.secret
+secrets.*
+client_secret*.json
+*credential*
+*.token
+token.json
+tokens.json
+cookies*.json
+storage_state*.json
+
+# Signing files
+*.ipa
+*.p12
+*.pfx
+*.cer
+*.crt
+*.mobileprovision
+*.provisionprofile
+*.keychain
+*.xcarchive
+
+# Spike output (contains song names and paths) and downloaded tools
+spike/output/
+spike/tools/
+
+# Local Claude settings
+.claude/settings.local.json
+
+# Dependencies and build output
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.expo/
+dist/
+build/
+ios/
+android/
+web-build/
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
