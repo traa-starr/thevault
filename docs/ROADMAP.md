@@ -12,7 +12,7 @@ The whole route, in build order. `VISION.md` says what the app is; `NEXT.md` say
 songs being known. Sources and BandLab complete the library. Finishing songs only works once they're all in one place.
 
 ## Gate: before any app code
-- [ ] G1 Finish the architecture memo (`ARCHITECTURE-OPTIONS.md`)
+- [x] G1 Finish the architecture memo (`ARCHITECTURE-OPTIONS.md`)
 - [ ] G2 I approve 4 calls: client option, library location, database backup, BandLab method
 - [ ] G3 Close Phase 0: fold its DECISIONS rows into a summary, start `app/` and `server/`
 

@@ -1,21 +1,28 @@
 # Report
 
-**Step:** Roadmap, asked for directly in Code, 2026-10-31. Not the step in NEXT: "Finish ARCHITECTURE-OPTIONS.md for my approval" is still to do.
+**Step:** Finish ARCHITECTURE-OPTIONS.md for my approval, 2026-10-31.
 
 **Verified by running:**
-- Checked `ROADMAP.md` against `VISION.md` by reading: every feature has an item ID or is in Parked.
-- Repo check: clean. A search of `ROADMAP.md` for Tailscale names, IPs and music paths found nothing.
+- E: drive, read-only: USB-connected 1 TB SSD (Windows reports the volume as "fixed", the disk's bus as USB). 930 GB total, 564 GB free.
+- C: drive, read-only: internal NVMe. 476 GB total, 30 GB free.
+- Memo checked by reading against `SPIKE-RESULTS.md`: no *(test)* lines left; each is proven or open.
+- Repo check: clean.
 
 **Needs the phone:** None.
 
-**Changed:** `docs/ROADMAP.md` (new), `docs/DECISIONS.md`, `docs/WORKFLOW.md`, `docs/CHAT-INSTRUCTIONS.md`, `docs/STATUS.md`, `docs/REPORT.md`, `.claude/skills/wrap/SKILL.md`, `CLAUDE.md`.
+**Changed:** `docs/ARCHITECTURE-OPTIONS.md`, `docs/DECISIONS.md`, `docs/STATUS.md`, `docs/REPORT.md`, `docs/ROADMAP.md`.
 
-**Differed from NEXT.md:** This whole session was outside NEXT, at my request. NEXT was left untouched.
+**Differed from NEXT.md:**
+- **The library pick changed.** `E:\VaultLibrary` was picked assuming an internal drive. E: is external and C: is too full for the audio, so the memo now picks a split: database on `C:\VaultData`, audio on `E:\VaultLibrary`. Nothing is created; it's your call.
+- **The backup pick changed** from iCloud to a nightly copy on the other drive, then a copy to the phone once sync exists.
+- I also checked C:, which NEXT didn't ask for, to compare the two drives.
+- I reworded the "Waiting for approval" line in DECISIONS, because it named the old picks. I ticked ROADMAP G1.
+- The memo's new "still open" items beyond NEXT's two: lock-screen play of files stored on the phone, search on the phone, tags surviving a force-quit, widgets on a free account. Free-account slots are written as known (2 of 3 used), not open.
 
-**Not done:** The architecture memo, which is still NEXT. `MAP.md` not changed, because it lists locations and not docs.
+**Not done:** Nothing. The four calls aren't logged as decided: they're yours.
 
-**Decisions needed:** None now. The four calls in DECISIONS still wait for the memo. `ROADMAP.md` lists five later calls and when each comes up.
+**Decisions needed:** The four calls in the Approve sheet. All are hard to undo, so no defaults. Recommendations: client C; library split; backup to the other drive, then the phone; BandLab A.
 
-**Proposed next step:** Finish the architecture memo (ROADMAP G1).
+**Proposed next step:** You approve or change the four calls, then the fast-lane Xcode-log tweak.
 
-**Pitch:** Test whether search runs on the phone before Phase 3, because offline search depends on it and the spike only tested the laptop.
+**Pitch:** Back up the 155 FL projects to E:. It has the room, they have no backup today, and it only reads the locked folder.

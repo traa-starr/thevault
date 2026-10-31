@@ -51,4 +51,4 @@ Newest at the bottom. Hard-to-undo entries list options, choice and why.
 | Prototypes | Tappable fake-data version on the phone before each daily screen is built. Options were: per screen / one pass up front / skip | VISION: prototype feel before real code |
 
 ## Waiting for approval
-Client option C, library at `E:\VaultLibrary`, database backup into iCloud, BandLab method A. See `ARCHITECTURE-OPTIONS.md`, `BANDLAB-OPTIONS.md`. No app scaffold until approved.
+Four calls, with options and picks in the Approve sheet at the top of `ARCHITECTURE-OPTIONS.md`: client, library location, database backup, BandLab method. No app scaffold until approved.
