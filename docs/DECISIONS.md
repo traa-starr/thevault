@@ -36,6 +36,7 @@ Newest at the bottom. Hard-to-undo entries list options, choice and why.
 | `doctor` script | Deferred until after D4c (chat-default) | Not blocking; parked in STATUS queue |
 | Who writes what | Chat at review writes NEXT, STATUS, DECISIONS and my phone results; Code at `/wrap` writes REPORT, STATUS, DECISIONS, measured results. STATUS has a `Next up` line for whose move it is | I asked for docs that never go stale and a seamless loop. Before this, chat's Log lines only reached DECISIONS on a pasted brief, and STATUS went stale after review |
 | Chat instructions | The Project box only points to `docs/CHAT-INSTRUCTIONS.md`; chat keeps that file current | One source of truth, no re-pasting when the loop changes |
+| Full Xcode log on build failure | Save it as a run artifact if the first build fails (chat-default) | Workflow only shows the last 40 lines; cheap, reversible |
 
 ## Waiting for approval
 Client option C, library at `E:\VaultLibrary`, database backup into iCloud, BandLab method A. See `ARCHITECTURE-OPTIONS.md`, `BANDLAB-OPTIONS.md`. No app scaffold until approved.

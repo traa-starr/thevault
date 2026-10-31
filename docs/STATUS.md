@@ -1,9 +1,9 @@
 # Status
 
-**Phase 0.** Updated 2026-10-31 by Code. How we work: `WORKFLOW.md`.
+**Phase 0.** Updated 2026-10-31 by chat. How we work: `WORKFLOW.md`.
 
-**In progress:** Log D4/D5 results + first build run, part c.
-**Next up:** me: shut down the server and Expo, delete `docs/pending-skills/`, commit and push, start the build run, then Code: `/next`.
+**In progress:** Log D4/D5 results + first build run, part c (waiting on the build run).
+**Next up:** me: push the 17:58 commit if not pushed, let the build finish, confirm server/Expo/`tailscale serve` are off, then Code: `/next` (resumes part c).
 **Current task:** `NEXT.md`, "Log D4/D5 results + first build run".
 
 ## Done
@@ -16,7 +16,8 @@
 ## Queue after NEXT
 1. D4c: install iTunes + iloader + SideStore, install `.ipa`, test lock screen, background, re-sign.
 2. Finish `ARCHITECTURE-OPTIONS.md` with results, then I approve in DECISIONS.md.
-3. Later: `doctor` script that checks Tailscale, server and guard before phone tests (deferred until after D4c).
+3. If the build fails: save the full Xcode log as an artifact (chat-default; can be one of part c's 2 fixes).
+4. Later: `doctor` script that checks Tailscale, server and guard before phone tests (deferred until after D4c).
 
 ## Open questions
 - Client option C? Library at `E:\VaultLibrary`? Database backup into iCloud? BandLab method A?
@@ -26,4 +27,4 @@
 - Does exporting from BandLab keep the title, and what formats does your app offer? (one test song)
 
 ## Phone checks pending
-- The build run on GitHub Actions (NEXT phone check 1): not started yet.
+- The build run on GitHub Actions (NEXT phone check 1): started, in progress.
