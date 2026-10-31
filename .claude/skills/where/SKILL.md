@@ -8,6 +8,9 @@ description: Read-only orientation for when I'm lost - where the project is and 
 Change nothing. Read `docs/STATUS.md`, the top of `docs/NEXT.md`, the "Needs the phone" part of `docs/REPORT.md`, then
 `git status --short` and `git log -1 --format=%cd`.
 
+Start from STATUS "Next up" (whose move it is). Check it against the rules below; if they disagree, say so in one line
+and go by the rules.
+
 Work out my next action, using the first that's true:
 1. STATUS "In progress" names a part: new Code session, `/next`.
 2. Uncommitted changes and REPORT covers the current NEXT: commit and push (give the one-line message).

@@ -49,7 +49,8 @@ Scripts are in `spike/`. Output with song names stays in `spike/output/` (gitign
 
 ## D4 Phone reachability
 - **D4a Safari: PASS (2026-10-31).** Over Tailscale, on home Wi-Fi and on cellular: the list loads, a song plays, seeking works.
-- **D4b Expo Go: NOT TESTED YET.**
+- **D4b Expo Go: PASS (2026-10-31).** On the phone: the list loads, a song plays, a tag saves, and the tag was still there after reopening.
+  The spike keeps tags in memory only, so this does not show tags surviving a force-quit. The real app needs a database for that.
 - Laptop side works locally: list, seeking (correct partial responses), bad requests refused.
 - Expo app type-checks, passes 20/20 Expo checks, and its config includes the background-audio setting.
 - The build workflow is written but has never run.

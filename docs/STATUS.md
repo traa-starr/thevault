@@ -1,15 +1,15 @@
 # Status
 
-**Phase 0.** Updated 2026-10-31 by chat. How we work: `WORKFLOW.md`.
+**Phase 0.** Updated 2026-10-31 by Code. How we work: `WORKFLOW.md`.
 
-**In progress:** nothing.
-**Next up:** Code: `/next`.
-**Current task:** `NEXT.md`, "Log D4/D5 results + first build run". Not started.
+**In progress:** Log D4/D5 results + first build run, part c.
+**Next up:** me: shut down the server and Expo, delete `docs/pending-skills/`, commit and push, start the build run, then Code: `/next`.
+**Current task:** `NEXT.md`, "Log D4/D5 results + first build run".
 
 ## Done
 - Music guard proven on a dummy folder (39/39 fake calls, live write/delete/rename blocked, reads work). Music folders unchanged after the spikes.
 - `.gitignore` proven. Docs written. Untethered audited (`AUDIT-untethered.md`).
-- Spikes D1, D2, D3, D6: `SPIKE-RESULTS.md`. D4a, D4b, D5 passed on the phone (to be written into `SPIKE-RESULTS.md` by NEXT part a).
+- Spikes D1, D2, D3, D4a, D4b, D5, D6: `SPIKE-RESULTS.md`. Skills updated from chat's versions. Build workflow checked as far as Windows allows.
 - BandLab research: `BANDLAB-OPTIONS.md`. Draft architecture memo: `ARCHITECTURE-OPTIONS.md`.
 - Chat + Code workflow set up and tightened (who writes what, `Next up` line): `WORKFLOW.md`, `CHAT-INSTRUCTIONS.md`.
 
@@ -26,4 +26,4 @@
 - Does exporting from BandLab keep the title, and what formats does your app offer? (one test song)
 
 ## Phone checks pending
-- None. Next one: the build run on GitHub Actions (NEXT phone check 1).
+- The build run on GitHub Actions (NEXT phone check 1): not started yet.
