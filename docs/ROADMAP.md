@@ -117,7 +117,7 @@ with that line" · widgets · Whisper draft tags · "similar meaning" search sec
 ## Decisions to raise, one step before each blocks
 | Before | Call | Note |
 |---|---|---|
-| 1.1 | Audio filing: fingerprint folder or mirrored names | Shape C and tags-on-song decided. Waits for the duplicate-names report |
+| 1.1 | Audio filing: fingerprint folder (C), mirrored names (D), or C plus a browse folder (E) | Shape C and tags-on-song decided. Report done: 1,395 files, names unique except `flip`. Mine to choose, no default |
 | 1.3 | Laptop disk use for cloud-only downloads | Only played or kept songs download now; Code reports the size |
 | 1.19 | How sorting works: swipe each, bulk by folder or name first, short preview clips | 1,000+ songs must go fast; options come with the prototype |
 | 1.18 | What to do if data doesn't survive a re-sign | Restore from laptop, or pay $99 |
