@@ -56,6 +56,7 @@ or open questions. It rewrites NEXT only if the idea should beat the current tas
 ## Sizing
 One NEXT = one phone check, about 3 parts. Split earlier only where I must see A before B is worth building, or before
 something hard to undo. A NEXT may have a stop line: parts after it happen only if the session has room.
+*Draft, pending owner OK: one NEXT = one batch from `BATCH-PLAN.md`, 2-3 phone checks.*
 
 ## Decisions
 - Reversible and technical: chat or Code decides, logs it, tells me in one line.

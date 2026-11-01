@@ -17,11 +17,11 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [x] G3 Close Phase 0: fold its DECISIONS rows into a summary, start `app/` and `server/`
 
 ## Phase 1: Sort, then play (Checkpoint 1). "My catalogue is sorted, and it's my music player"
-**Order inside Phase 1:** laptop 1.1-1.2, 1.4-1.6, 1.8 · phone 1.12-1.15 · stream and sort 1.19-1.22 · then, for kept songs only, 1.3, 1.7, 1.16-1.18. Reordered 2026-10-31 (DECISIONS).
+**Order inside Phase 1:** batches in `BATCH-PLAN.md`: first write + 1.18 stamp · 1.9, 1.3, 1.19 · 1.15, 1.16 · 1.21 · 1.22, 1.7 · 1.17, 1.18 final. Reordered 2026-11-01 (DECISIONS).
 *Laptop*
 - [x] 1.1 Library folder and database (songs, files, versions, tags, groups, links) *(built and self-tested; my check: open `E:\VaultLibrary`)*
 - [x] 1.2 Read-only scanner: `Music`, `Session Music` (loose files + `#FREEMONEY THE MIXTAPE` only), `tape`, iCloud root; re-scan finds new files
-- [ ] 1.3 Cloud-only files (917 of 1,546 places at the 1.2 scan): downloaded to the laptop one at a time, only when played or kept, with a progress count and a disk space check
+- [ ] 1.3 Cloud-only files (864 places, 2.9 GB, 2026-11-01): all pulled to the laptop once, up front, one at a time, with a progress count, stopping under 10 GB free on C:
 - [x] 1.4 Duplicates: the same file in two folders is one song
 - [x] 1.5 Auto "mine" detection, unknown by default
 - [x] 1.6 Source tag (FL), title and date filled in from the file
@@ -118,9 +118,6 @@ with that line" · widgets · Whisper draft tags · "similar meaning" search sec
 | Before | Call | Note |
 |---|---|---|
 | 1.1 | Audio filing: fingerprint folder (C), mirrored names (D), or C plus a browse folder (E) | Shape C and tags-on-song decided. Report done: 1,395 files, names unique except `flip`. Mine to choose, no default |
-| 1.3 | Laptop disk use for cloud-only downloads | Only played or kept songs download now; Code reports the size |
-| 1.19 | How sorting works: swipe each, bulk by folder or name first, short preview clips | 1,000+ songs must go fast; options come with the prototype |
-| 1.18 | What to do if data doesn't survive a re-sign | Restore from laptop, or pay $99 |
 | Phase 3 | Does search run on the phone or the laptop? | The spike tested search on the laptop only; offline search needs it on the phone. Test before building |
 | Phase 5 | FL project backup | Declined 2026-10-31. Parked; don't raise unless I do |
 

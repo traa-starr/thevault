@@ -1,40 +1,34 @@
 # Report
 
-**Step:** Stream real songs into the player (ROADMAP 1.20 + core of 1.15), 2026-11-01. Build run waits for your push.
+**Step:** Plan session: blueprint and batches for the rest of Phase 1, 2026-11-01. Docs only.
 
 **Verified by running:**
-- `npm run typecheck`: no errors. `npx expo export --platform ios`: bundles.
-- Throwaway test of the play order (200 shuffle runs): no repeats, plays the whole list, previous retraces, off returns to list order.
-- `python server/test_server.py`: all passed, including cloud-only files answering "not on laptop yet" unopened. Server unchanged.
-- Guard test 39/39. Repo check clean.
+- Read-only library query: 864 cloud-only places, 2.9 GB. Free space: 45 GB on C:, 605 GB on E:.
+- Read the code: the journal fits per-song verdicts. Lock-screen next and previous exist only on the audio package's playlist player.
+- Repo check run at wrap. Every remaining Phase 1 ROADMAP ID appears in `BATCH-PLAN.md`.
+- Not proven: nothing here is built. Streaming and seeking in the playlist player are untested.
 
-**Not proven yet:** no sound has played in this build. Real streaming, seeking and the laptop-off message are only testable on the phone.
+**Needs the phone:** None this session. Batch 1's checks are in `NEXT.md` and start after approval.
 
-**Needs the phone:** this build adds a native audio part, so the new `.ipa` is required.
-1. Push. GitHub: Actions > Build iOS (unsigned) > Run workflow, App folder `app`. Wait for the green tick.
-2. Download `unsigned-ipa`, unzip, get `TheVault.ipa` to the phone, install over the app in SideStore.
-3. Laptop: `python server/vault_cli.py serve E:\VaultLibrary`.
-4. Open library, tap a song "On the laptop". Pass: sound within a few seconds.
-5. Drag the seek bar, then tap elsewhere on it. Pass: jumps and keeps playing.
-6. Next, Previous. Pass: the neighbours in the list, never a cloud-only song.
-7. Back. Tap a "Cloud only" row. Pass: greyed, nothing happens.
-8. Tap Shuffle in the Library. Pass: random song, "Shuffle: on". Next gives another; Previous returns to the one before.
-9. Tap "Shuffle: on" to turn it off, then Next. Pass: the next song in list order.
-10. Filter to a few titles, tap one, Next. Pass: stays within those titles.
-11. Stop the server mid-song. Pass: "Laptop not reachable", no crash. Buffered audio may play on first, so allow up to a minute.
+**Changed:** `docs/BLUEPRINT.md` (new), `docs/BATCH-PLAN.md` (new), `docs/NEXT.md`, `docs/WORKFLOW.md`, `docs/DECISIONS.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/REPORT.md`.
 
-**Changed:** `app/App.tsx`, `app/Library.tsx`, `app/Player.tsx`, `app/playOrder.ts` (new), `app/README.md`, `app/app.json`, `app/package.json`, `app/package-lock.json`, `docs/STATUS.md`, `docs/REPORT.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`.
-**Differed from NEXT.md (all reversible picks):**
-- Added `expo-audio`, the package the spike proved, with background playback on as in the spike.
-- Back stops the music. "Open player" is gone from home; the player opens from the Library.
-- Shuffle stops with "Played every song in this list" when it runs out. List order wraps round.
-- Previous at the first shuffled song restarts it.
-- "File missing" rows also can't be tapped. After a phone call the button may say Pause while silent: tap Pause, then Play.
+**Differed from NEXT.md:**
+- Removed the three answered rows from ROADMAP's "Decisions to raise".
+- Moved STATUS's two "known gap" lines to `BATCH-PLAN.md` to stay under the line cap.
+- NEXT.md was written by this session, as the brief asked, and is marked as waiting for approval.
+- Used no subagents, per CLAUDE.md.
 
-**Not done:** build run (needs your push). Queue and remaining-time tap stay for 1.15.
+**Not done:** No code, by design.
 
-**Decisions needed:** How Not mine saves. Recommendation and default: a new file, `verdicts-journal` style, in `E:\VaultLibrary`, one added line per tap (song id, mine or not mine, time); the database is updated from it. Undo adds a line reversing the last one, so nothing is erased. The server gets one write route and stays read-only for music files; the song list leaves out not-mine songs. Before building, Code checks this against the existing verdict journal and reuses it if it fits.
+**Decisions needed:**
+- Approve the plan at `Review.` in chat. Recommendation: approve.
+- Approve the sizing draft in WORKFLOW (one NEXT = one batch, 2-3 phone checks). Recommendation: approve. Default: stays a draft.
 
-**Proposed next step:** phone check, then "Not mine in the player".
+**Open risks:**
+- The playlist switch (batch 3) is the biggest build risk. Fallback is logged.
+- Pulling files might read as "music changed" in doctor's check. Batch 2 tests a few files first.
+- A real SideStore refresh is untested. Batch 1 tests it.
 
-**Pitch:** A now-playing bar in the Library, so music keeps going while you browse.
+**Proposed next step:** Batch 1: First write.
+
+**Pitch:** none.
