@@ -1,10 +1,10 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-01 by Code. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
+**Phase 1 started.** Updated 2026-11-01 by chat. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
 
 **In progress:** nothing.
-**Next up:** me: phone checks, then Review.
-**Current task:** `NEXT.md` "Doctor" (ROADMAP 1.10).
+**Next up:** me: new Code session, `/next`.
+**Current task:** `NEXT.md` "Real app, built and sideloaded" (ROADMAP 1.12).
 
 ## Done
 - Phase 0 closed: details in `DECISIONS.md` and `SPIKE-RESULTS.md`.
@@ -16,10 +16,11 @@
 - ROADMAP 1.5 built and accepted: mine 68 + 5, likely 115, unknown 1,207.
 - ROADMAP 1.8 built and phone-verified: 589 songs playable, 806 cloud-only.
 - Laptop check for 1.2-1.6 passed.
-- ROADMAP 1.10 built: `doctor` all pass on the real library. Phone check pending.
+- ROADMAP 1.10 built and phone-verified: doctor.
 
 ## Queue
-1. ROADMAP 1.12 real app built and sideloaded.
+1. ROADMAP 1.13 prototype player screen with fake data.
+2. Parked: doctor's fail line names the files that changed during a scan (Code's pitch).
 
 ## Open questions
 - How sorting mine / not mine works on the phone (swipe each, bulk by folder first, short previews): options before ROADMAP 1.19. Default: likely mine shown first.
@@ -34,4 +35,4 @@
 - Known gap for 1.3: a kept file that goes back to cloud-only shows unsorted after a rebuild until local again (journal keeps the verdict).
 
 ## Checks pending
-- Doctor phone check: see REPORT "Needs the phone".
+- None.
