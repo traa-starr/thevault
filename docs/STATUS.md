@@ -1,10 +1,10 @@
 # Status
 
-**Phase 0 closed.** Updated 2026-10-31 by chat. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
+**Phase 0 closed.** Updated 2026-10-31 by Code. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
 
 **In progress:** nothing.
-**Next up:** me: new Code session, type `/next` (duplicate-names report).
-**Current task:** `NEXT.md` "Duplicate-names report". Storage shape C and tags-on-song are decided; audio filing waits for the report.
+**Next up:** me: read `spike/output/duplicate-names.md` on the laptop, sort any same-name files, then `Review.` in chat with my pick (C or D).
+**Current task:** `NEXT.md` "Duplicate-names report" is built. Audio filing waits for my pick.
 
 ## Done
 - Music guard proven; music folders unchanged after the spikes. `.gitignore` proven. Untethered audited.
@@ -13,6 +13,7 @@
 - Phase 0 closed (G3): summary at top of DECISIONS, empty `app/` and `server/` with READMEs.
 - ROADMAP 1.11 built: full Xcode log saved as a run artifact on a failed build. Not proven until a build fails.
 - Storage options memo written and reviewed (ROADMAP 1.1, options only): `STORAGE-OPTIONS.md`. Nothing built.
+- Duplicate-names report built (`spike/dup_names.py`, output in `spike/output/`): 1,718 files, 125 repeated names, 26 date-only names.
 
 ## Queue after NEXT
 1. I pick audio filing from the report at `Review.`.

@@ -1,24 +1,30 @@
 # Report
 
-**Step:** Build upkeep + storage options, 2026-10-31.
+**Step:** Duplicate-names report, 2026-10-31.
 
 **Verified by running:**
-- `git status --short`: 2 files modified, 1 new.
+- `python spike/dup_names.py` on Music, Session Music, tape and the loose files in the iCloud root: 1,718 audio files listed. That matches MAP (443 + 1,233 + 23 = 1,699, plus 19 loose).
+- 125 names are used more than once: group 1 (same name, different size) 34 names / 70 files; group 2 (same name and size) 38 names / 81 files; group 3 (only the ending differs) 53 names / 107 files.
+- 26 files have a name that is only a date.
 - Repo check (`python .claude/scripts/check_repo.py`): clean.
-- Workflow read back by eye (no YAML tool installed here). **Unproven until a build fails:** I did not force a failure.
+- The script only reads names, sizes and dates (`os.stat`), so no cloud-only file was downloaded. No music folder was written to.
 
 **Needs the phone:** None.
 
-**Changed:** `.github/workflows/build-ios.yml`, `docs/ROADMAP.md` (1.11 ticked, "built, unproven"), new `docs/STORAGE-OPTIONS.md`, plus `docs/REPORT.md` and `docs/STATUS.md`.
+**Your check (laptop):** open `spike/output/duplicate-names.md` (gitignored, holds song names). Read groups 1 and 2, sort any same-name files you care about, then tell chat at `Review.` whether filing keeps your names (D) or uses fingerprint folders (C).
+
+**Changed:** `spike/dup_names.py` (new), `docs/STATUS.md`, `docs/REPORT.md`. Output is in `spike/output/` (not committed).
 
 **Differed from NEXT.md:**
-- 1.11: the log upload step sits at the end of the job with `if: failure()`, so it runs after any earlier failure. It uses `if-no-files-found: ignore`, so a failure before Xcode starts (for example `npm ci`) saves no log and doesn't add a second error. Xcode's output now goes through `tee` into the runner's temp folder before `tail -40`. The console view is the same as before.
-- The memo adds two small calls to the storage choice, because the layout is also hard to undo: where tags attach (version vs song) and how audio is filed (by hash vs readable names). Both are on the Approve sheet.
+- I did not reuse `inventory.json`; the new script does its own listing so it can be re-run any time.
+- Guessed: how a name counts as "only a date" (forms like `7.29.23`, `2025-03-14`, `20250314`, `11.12-001`). Catches 26; `1228 6_2` and `12.15-004` are in the list too, so it may include a few that are not dates. Easy to tune.
+- Guessed: a group counts as 1 if any two files with the same ending differ in size, as 2 if same-ending files all match, as 3 only if the endings differ. A name with three files can mix cases, so every file in the group is listed together.
+- Names are compared ignoring capitals, so `6AM` and `6am` count as the same name.
 
-**Not done:** Nothing. No database, no folders, no app or server code.
+**Not done:** Nothing. Stop line not needed.
 
-**Decisions needed:** The three picks on the Approve sheet in `docs/STORAGE-OPTIONS.md`. They're hard to undo, so there's no default. Recommendation: C (journal), tags on the version, audio filed by hash.
+**Decisions needed:** Audio filing, C (fingerprint folder) or D (mirror your names). Hard to undo, so no default. Yours after reading the report. Note for you: groups 1 and 2 include same name in `Music` and `Session Music`, and group 3 (107 files) is mostly bounce + mp3 pairs; under D these would need your sorting first.
 
-**Proposed next step:** After your picks at `Review.`, build ROADMAP 1.1 (library folder + database) from them.
+**Proposed next step:** After your pick at `Review.`, build ROADMAP 1.1 (library folder + database).
 
-**Pitch:** Add a `doctor` check that confirms the library marker file is found before any scan or backup runs. It stops a wrong drive letter from silently starting an empty library.
+**Pitch:** Have the future scanner (1.2) reuse this name grouping to flag same-name files at import, so the Vault asks about them instead of silently overwriting.
