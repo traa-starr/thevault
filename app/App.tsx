@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
 import { AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Library from './Library';
-import Player from './Player';
 
 const PORT = 8787;
 const TIMEOUT_MS = 5000;
@@ -45,7 +44,6 @@ export default function App() {
   const [draft, setDraft] = useState(address);
   const [editing, setEditing] = useState(!address);
   const [line, setLine] = useState('');
-  const [inPlayer, setInPlayer] = useState(false);
   const [inLibrary, setInLibrary] = useState(false);
 
   const check = useCallback(async () => {
@@ -74,15 +72,6 @@ export default function App() {
     setAddress(next);
     setEditing(false);
   };
-
-  if (inPlayer) {
-    return (
-      <>
-        <StatusBar style="light" />
-        <Player onBack={() => setInPlayer(false)} />
-      </>
-    );
-  }
 
   if (inLibrary) {
     return (
@@ -128,9 +117,6 @@ export default function App() {
           <Text style={s.link}>Open library</Text>
         </Pressable>
       ) : null}
-      <Pressable onPress={() => setInPlayer(true)}>
-        <Text style={s.link}>Open player</Text>
-      </Pressable>
     </View>
   );
 }

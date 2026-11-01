@@ -1,9 +1,9 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-01 by chat. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
+**Phase 1 started.** Updated 2026-11-01 by Code. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
 
 **In progress:** nothing.
-**Next up:** me: new Code session, `/next`.
+**Next up:** me: push, phone checks, then Review.
 **Current task:** `NEXT.md` "Stream real songs into the player" (ROADMAP 1.20 + 1.15 core).
 
 ## Done
@@ -14,6 +14,7 @@
 - ROADMAP 1.5 built and accepted: mine 68 + 5, likely 115, unknown 1,207.
 - ROADMAP 1.8, 1.10, 1.12, 1.13 phone-verified: playable count, doctor, app installed, prototype player.
 - ROADMAP 1.14 phone-verified: library list.
+- ROADMAP 1.20 + 1.15 core built, not phone-checked: streaming, real next/previous, shuffle.
 
 ## Queue
 1. Not mine in the player: Mine / Not mine buttons. Not mine skips to the next song and hides it from the app for good; 5-second Undo toast. Saved on the laptop, music files never deleted or moved. Needs the server's first write (Code proposes how). Shuffle then skips songs already marked Mine, so it only lands on unsorted ones.
@@ -21,6 +22,7 @@
 3. Parked for 1.15: tap the time to show remaining (Code's pitch).
 4. Parked: A-Z jump strip on the library list (Code's pitch).
 5. Parked: doctor's fail line names the files that changed during a scan (Code's pitch).
+6. Parked: now-playing bar in the Library (Code's pitch).
 
 ## Open questions
 - How sorting mine / not mine works on the phone (swipe each, bulk by folder first, short previews): options before ROADMAP 1.19. Partly answered: buttons in the player come first. Default: likely mine shown first.
@@ -35,4 +37,4 @@
 - Known gap for 1.3: a kept file that goes back to cloud-only shows unsorted after a rebuild until local again (journal keeps the verdict).
 
 ## Checks pending
-- none
+- Phone: streaming player (steps in `REPORT.md`).

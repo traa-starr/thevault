@@ -21,6 +21,15 @@
           }
         }
       }
-    }
+    },
+    "plugins": [
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "enableBackgroundPlayback": true
+        }
+      ]
+    ]
   }
 }

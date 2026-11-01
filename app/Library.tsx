@@ -1,6 +1,7 @@
-// The song list from the laptop: scroll, sort, filter by title. Tapping a song does nothing yet.
+// The song list from the laptop: scroll, sort, filter by title, tap to play. Only songs on the laptop can play.
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import Player from './Player';
 
 type Song = { id: string; title: string; where: string; date: string | null };
 type Sort = 'title' | 'date';
@@ -18,6 +19,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
   const [attempt, setAttempt] = useState(0);
   const [sort, setSort] = useState<Sort>('title');
   const [filter, setFilter] = useState('');
+  const [playing, setPlaying] = useState<{ songs: Song[]; start: number; shuffle: boolean } | null>(null);
 
   useEffect(() => {
     const abort = new AbortController();
@@ -55,8 +57,17 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     return wanted ? sorted.filter((song) => song.title.toLowerCase().includes(wanted)) : sorted;
   }, [sorted, filter]);
 
+  const playable = useMemo(() => shown.filter((song) => song.where === 'laptop'), [shown]);
+
+  const open = (start: number, shuffle: boolean) => {
+    Keyboard.dismiss();
+    setPlaying({ songs: playable, start, shuffle });
+  };
+
   return (
-    <View style={s.page}>
+    <View style={s.fill}>
+    {playing ? <Player url={url} {...playing} onBack={() => setPlaying(null)} /> : null}
+    <View style={[s.page, playing && s.hidden]}>
       <View style={s.header}>
         <Pressable onPress={onBack}>
           <Text style={s.link}>Back</Text>
@@ -90,6 +101,11 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
           <View style={s.bar}>
             <Text style={s.count}>{filter.trim() ? `${number(shown.length)} of ${number(songs.length)}` : `${number(songs.length)} songs`}</Text>
             <View style={s.sorts}>
+              {playable.length ? (
+                <Pressable onPress={() => open(Math.floor(Math.random() * playable.length), true)}>
+                  <Text style={s.sort}>Shuffle</Text>
+                </Pressable>
+              ) : null}
               <Pressable onPress={() => setSort('title')}>
                 <Text style={[s.sort, sort === 'title' && s.sortOn]}>A-Z</Text>
               </Pressable>
@@ -107,19 +123,26 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={<Text style={s.empty}>No titles match</Text>}
             renderItem={({ item }) => (
-              <View style={s.row}>
-                <Text style={s.rowTitle} numberOfLines={1}>{item.title}</Text>
+              <Pressable
+                style={s.row}
+                disabled={item.where !== 'laptop'}
+                onPress={() => open(playable.indexOf(item), false)}
+              >
+                <Text style={[s.rowTitle, item.where !== 'laptop' && s.rowOff]} numberOfLines={1}>{item.title}</Text>
                 <Text style={s.rowDetail} numberOfLines={1}>{detail(item)}</Text>
-              </View>
+              </Pressable>
             )}
           />
         </>
       )}
     </View>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
+  fill: { flex: 1, backgroundColor: '#111' },
+  hidden: { display: 'none' },
   page: { flex: 1, backgroundColor: '#111', paddingTop: 60, paddingHorizontal: 16 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   title: { color: '#fff', fontSize: 26, fontWeight: '700' },
@@ -135,5 +158,6 @@ const s = StyleSheet.create({
   empty: { color: '#888', fontSize: 15, textAlign: 'center', paddingTop: 32 },
   row: { height: ROW_HEIGHT, justifyContent: 'center', borderBottomColor: '#2a2a2a', borderBottomWidth: 1 },
   rowTitle: { color: '#fff', fontSize: 16 },
+  rowOff: { color: '#777' },
   rowDetail: { color: '#888', fontSize: 13, marginTop: 2 },
 });

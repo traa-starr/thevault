@@ -1,43 +1,40 @@
 # Report
 
-**Step:** Library list (ROADMAP 1.14), 2026-11-01. Unfinished: the build run waits for your push.
+**Step:** Stream real songs into the player (ROADMAP 1.20 + core of 1.15), 2026-11-01. Build run waits for your push.
 
 **Verified by running:**
-- `npm run typecheck` in `app/`: no errors.
-- `npx expo export --platform ios`: the app bundles without errors.
-- `python server/test_server.py` and `python server/test_doctor.py`: all passed, including a new check that the list gives dates.
-- `python .claude/hooks/test_guard_music.py`: 39/39. `python .claude/scripts/check_repo.py`: clean.
-- Real database, read-only: 1,395 songs, all 1,395 with a date (1,204 full dates, 191 year only).
+- `npm run typecheck`: no errors. `npx expo export --platform ios`: bundles.
+- Throwaway test of the play order (200 shuffle runs): no repeats, plays the whole list, previous retraces, off returns to list order.
+- `python server/test_server.py`: all passed, including cloud-only files answering "not on laptop yet" unopened. Server unchanged.
+- Guard test 39/39. Repo check clean.
 
-**Not proven yet:** the Library screen has never been run or touched. Scrolling, sorting and filtering are untested until the phone check. The real server hasn't answered with the new date field either, only the test one.
+**Not proven yet:** no sound has played in this build. Real streaming, seeking and the laptop-off message are only testable on the phone.
 
-**Needs the phone:** after the push.
-1. On GitHub: Actions > Build iOS (unsigned) > Run workflow, leave App folder as `app`. Wait for the green tick.
-2. Open the run, download `unsigned-ipa`, unzip it to get `TheVault.ipa`, and get that file onto the phone as before.
-3. In SideStore: install `TheVault.ipa` over the current app.
-4. On the laptop: `python server/vault_cli.py serve E:\VaultLibrary`. If it was already running, stop and restart it, or dates won't show.
-5. Open The Vault. Pass: "1,395 songs on the laptop". Tap "Open player", then Back. Pass: both still work.
-6. Tap "Open library". Pass: "1,395 songs", each row showing a title and a line like "2024-05-01 · On the laptop".
-7. Flick all the way to the end. Pass: it reaches the last song without stalling.
-8. Tap Newest. Pass: the order changes, latest dates on top. Tap A-Z. Pass: back to title order.
-9. Type part of a title. Pass: the list narrows and the count reads like "42 of 1,395". Type nonsense. Pass: "No titles match".
-10. Stop the server, tap Back, tap "Open library". Pass: "Laptop not reachable" within about 10 seconds, no crash.
-11. Restart the server, tap "Try again". Pass: the list comes back.
+**Needs the phone:** this build adds a native audio part, so the new `.ipa` is required.
+1. Push. GitHub: Actions > Build iOS (unsigned) > Run workflow, App folder `app`. Wait for the green tick.
+2. Download `unsigned-ipa`, unzip, get `TheVault.ipa` to the phone, install over the app in SideStore.
+3. Laptop: `python server/vault_cli.py serve E:\VaultLibrary`.
+4. Open library, tap a song "On the laptop". Pass: sound within a few seconds.
+5. Drag the seek bar, then tap elsewhere on it. Pass: jumps and keeps playing.
+6. Next, Previous. Pass: the neighbours in the list, never a cloud-only song.
+7. Back. Tap a "Cloud only" row. Pass: greyed, nothing happens.
+8. Tap Shuffle in the Library. Pass: random song, "Shuffle: on". Next gives another; Previous returns to the one before.
+9. Tap "Shuffle: on" to turn it off, then Next. Pass: the next song in list order.
+10. Filter to a few titles, tap one, Next. Pass: stays within those titles.
+11. Stop the server mid-song. Pass: "Laptop not reachable", no crash. Buffered audio may play on first, so allow up to a minute.
 
-**Changed:** `app/Library.tsx` (new), `app/App.tsx`, `app/README.md`, `server/vault_server/server.py`, `server/test_server.py`, `docs/STATUS.md`, `docs/REPORT.md`, `docs/ROADMAP.md`.
+**Changed:** `app/App.tsx`, `app/Library.tsx`, `app/Player.tsx`, `app/playOrder.ts` (new), `app/README.md`, `app/app.json`, `app/package.json`, `app/package-lock.json`, `docs/STATUS.md`, `docs/REPORT.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`.
+**Differed from NEXT.md (all reversible picks):**
+- Added `expo-audio`, the package the spike proved, with background playback on as in the spike.
+- Back stops the music. "Open player" is gone from home; the player opens from the Library.
+- Shuffle stops with "Played every song in this list" when it runs out. List order wraps round.
+- Previous at the first shuffled song restarts it.
+- "File missing" rows also can't be tapped. After a phone call the button may say Pause while silent: tap Pause, then Play.
 
-**Differed from NEXT.md:**
-- Server: the list answer existed but had no date, so I added one read from the database. Still no writes and no music folder access.
-- Picked: the detail line shows both date and where it lives, not one or the other.
-- Picked: a "Try again" button on the not-reachable message.
-- Picked: "Open library" stays hidden until a laptop address is saved.
-- Picked: a year-only date sorts just after the full dates of that year when newest first. Those dates are guesses from tags or file times, so "Newest" is only as good as they are.
-- Picked: switching sort jumps back to the top of the list.
+**Not done:** build run (needs your push). Queue and remaining-time tap stay for 1.15.
 
-**Not done:** the build run. It builds from GitHub, so it needs your push.
+**Decisions needed:** How Not mine saves. Recommendation and default: a new file, `verdicts-journal` style, in `E:\VaultLibrary`, one added line per tap (song id, mine or not mine, time); the database is updated from it. Undo adds a line reversing the last one, so nothing is erased. The server gets one write route and stays read-only for music files; the song list leaves out not-mine songs. Before building, Code checks this against the existing verdict journal and reuses it if it fits.
 
-**Decisions needed:** None hard-to-undo.
+**Proposed next step:** phone check, then "Not mine in the player".
 
-**Proposed next step:** finish this phone check, then settle the 1.15 vs 1.20 order question before the real player.
-
-**Pitch:** A small A-Z strip down the side of the list, because 1,395 songs is a long flick to reach the middle.
+**Pitch:** A now-playing bar in the Library, so music keeps going while you browse.

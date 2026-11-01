@@ -1,19 +1,34 @@
-// Prototype player: made-up songs and a pretend clock, to feel the controls. No audio, no server calls.
+// The player: streams songs from the laptop, nothing saved on the phone. Leaving it stops the music.
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useEffect, useRef, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { nextInOrder, previousInOrder, setShuffle, startOrder } from './playOrder';
 
-const FAKE_SONGS = [
-  { title: 'Fake Song One', seconds: 45 },
-  { title: 'Placeholder Anthem', seconds: 132 },
-  { title: 'Not a Real Track', seconds: 208 },
-  { title: 'Demo Title Four', seconds: 20 },
-];
-const TICK_MS = 250;
+export type PlayerSong = { id: string; title: string };
+
+const UPDATE_MS = 500;
+const STALL_MS = 10000;
+const PROBE_TIMEOUT_MS = 5000;
 
 const clock = (seconds: number) => {
   const whole = Math.floor(seconds);
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 };
+
+// A stuck player doesn't say why, so ask the server. HEAD opens no music file.
+async function whyStuck(audioUrl: string) {
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), PROBE_TIMEOUT_MS);
+  try {
+    const r = await fetch(audioUrl, { method: 'HEAD', signal: abort.signal });
+    if (r.ok) return 'Still trying to load this song…';
+    return r.status === 409 ? 'This song is cloud only now' : "Couldn't play this song";
+  } catch {
+    return 'Laptop not reachable';
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 type SeekBarProps = { value: number; max: number; onDrag: (value: number) => void; onDrop: (value: number) => void };
 
@@ -40,7 +55,7 @@ function SeekBar({ value, max, onDrag, onDrop }: SeekBarProps) {
     }),
   ).current;
 
-  const percent = `${(value / max) * 100}%` as const;
+  const percent = `${max > 0 ? (value / max) * 100 : 0}%` as const;
   return (
     <View style={s.seek} onLayout={(e) => (width.current = e.nativeEvent.layout.width || 1)} {...pan.panHandlers}>
       <View style={s.track} pointerEvents="none">
@@ -51,58 +66,126 @@ function SeekBar({ value, max, onDrag, onDrop }: SeekBarProps) {
   );
 }
 
-export default function Player({ onBack }: { onBack: () => void }) {
-  const [index, setIndex] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [position, setPosition] = useState(0);
-  const [dragAt, setDragAt] = useState<number | null>(null);
-  const song = FAKE_SONGS[index];
-  const dragging = dragAt !== null;
+type PlayerProps = { url: string; songs: PlayerSong[]; start: number; shuffle: boolean; onBack: () => void };
 
-  const go = (step: number) => {
-    setIndex((i) => (i + step + FAKE_SONGS.length) % FAKE_SONGS.length);
-    setPosition(0);
+export default function Player({ url, songs, start, shuffle, onBack }: PlayerProps) {
+  const player = useAudioPlayer(null, { updateInterval: UPDATE_MS });
+  const status = useAudioPlayerStatus(player);
+  const [order, setOrder] = useState(() => startOrder(start, shuffle));
+  const [wanted, setWanted] = useState(true);
+  const [dragAt, setDragAt] = useState<number | null>(null);
+  const [seekingTo, setSeekingTo] = useState<number | null>(null);
+  const [note, setNote] = useState('');
+  const [trouble, setTrouble] = useState('');
+  const song = songs[order.current];
+  const audioUrl = (id: string) => `${url}/songs/${id}/audio`;
+
+  const load = (index: number) => {
+    setSeekingTo(null);
+    setNote('');
+    setWanted(true);
+    player.replace({ uri: audioUrl(songs[index].id) });
+    player.play();
   };
 
   useEffect(() => {
-    if (!playing || dragging) return;
-    const timer = setInterval(() => setPosition((p) => p + TICK_MS / 1000), TICK_MS);
-    return () => clearInterval(timer);
-  }, [playing, dragging]);
+    let live = true;
+    setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'doNotMix' })
+      .catch(() => {})
+      .finally(() => {
+        if (live) load(start);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const next = (finished: boolean) => {
+    const moved = nextInOrder(order, songs.length);
+    if (moved) {
+      setOrder(moved);
+      load(moved.current);
+      return;
+    }
+    setNote('Played every song in this list');
+    if (finished) {
+      setWanted(false);
+      player.pause();
+      player.seekTo(0).catch(() => {});
+    }
+  };
+
+  const previous = () => {
+    const moved = previousInOrder(order, songs.length);
+    if (moved) {
+      setOrder(moved);
+      load(moved.current);
+    } else {
+      player.seekTo(0).catch(() => {});
+    }
+  };
+
+  const toggle = () => {
+    if (wanted) player.pause();
+    else player.play();
+    setWanted(!wanted);
+  };
+
+  const drop = async (value: number) => {
+    setDragAt(null);
+    if (!status.duration) return;
+    setSeekingTo(value);
+    try {
+      await player.seekTo(value);
+    } catch {
+      // the song changed or the player closed while seeking: nothing to do
+    }
+    setSeekingTo(null);
+  };
 
   useEffect(() => {
-    if (position >= song.seconds && !dragging) go(1);
-  }, [position, song.seconds, dragging]);
+    if (status.didJustFinish) next(true);
+  }, [status.didJustFinish]);
 
-  const shown = Math.min(dragAt ?? position, song.seconds);
+  // No progress while it should be playing: say why. Any progress clears the message.
+  useEffect(() => {
+    setTrouble('');
+    if (!wanted) return;
+    let live = true;
+    const timer = setInterval(async () => {
+      const why = await whyStuck(audioUrl(song.id));
+      if (live) setTrouble(why);
+    }, STALL_MS);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [wanted, song.id, status.currentTime, url]);
+
+  const shown = Math.min(dragAt ?? seekingTo ?? status.currentTime, status.duration || 0);
   return (
     <View style={s.page}>
       <Text style={s.title} numberOfLines={2}>{song.title}</Text>
-      <Text style={s.note}>Prototype: made-up songs, no sound</Text>
-      <SeekBar
-        value={shown}
-        max={song.seconds}
-        onDrag={setDragAt}
-        onDrop={(value) => {
-          setPosition(value);
-          setDragAt(null);
-        }}
-      />
+      <Text style={s.note}>{trouble || note || ' '}</Text>
+      <SeekBar value={shown} max={status.duration} onDrag={setDragAt} onDrop={drop} />
       <View style={s.times}>
         <Text style={s.time}>{clock(shown)}</Text>
-        <Text style={s.time}>{clock(song.seconds)}</Text>
+        <Text style={s.time}>{clock(status.duration)}</Text>
       </View>
       <View style={s.controls}>
-        <Pressable style={s.button} onPress={() => go(-1)}>
+        <Pressable style={s.button} onPress={previous}>
           <Text style={s.buttonText}>Previous</Text>
         </Pressable>
-        <Pressable style={[s.button, s.play]} onPress={() => setPlaying(!playing)}>
-          <Text style={[s.buttonText, s.playText]}>{playing ? 'Pause' : 'Play'}</Text>
+        <Pressable style={[s.button, s.play]} onPress={toggle}>
+          <Text style={[s.buttonText, s.playText]}>{wanted ? 'Pause' : 'Play'}</Text>
         </Pressable>
-        <Pressable style={s.button} onPress={() => go(1)}>
+        <Pressable style={s.button} onPress={() => next(false)}>
           <Text style={s.buttonText}>Next</Text>
         </Pressable>
       </View>
+      <Pressable onPress={() => setOrder(setShuffle(order, !order.shuffle))}>
+        <Text style={[s.link, order.shuffle && s.linkOn]}>{order.shuffle ? 'Shuffle: on' : 'Shuffle: off'}</Text>
+      </Pressable>
       <Pressable onPress={onBack}>
         <Text style={s.link}>Back</Text>
       </Pressable>
@@ -125,5 +208,6 @@ const s = StyleSheet.create({
   buttonText: { color: '#fff', fontSize: 16 },
   play: { minWidth: 92, alignItems: 'center', backgroundColor: '#fff', borderColor: '#fff' },
   playText: { color: '#111', fontWeight: '700' },
-  link: { color: '#8ab4f8', fontSize: 15, padding: 8, textAlign: 'center', marginTop: 16 },
+  link: { color: '#8ab4f8', fontSize: 15, padding: 8, textAlign: 'center' },
+  linkOn: { color: '#fff', fontWeight: '700' },
 });

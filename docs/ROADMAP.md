@@ -42,7 +42,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 
 *Stream and sort (needs the laptop on and reachable)*
 - [ ] 1.19 Prototype: sorting card, tappable with fake data
-- [ ] 1.20 Stream any song from the laptop: tap and it plays, nothing saved to the phone, seeking works
+- [x] 1.20 Stream any song from the laptop: tap and it plays, nothing saved to the phone, seeking works
 - [ ] 1.21 Sorting session: card for a random unsorted song, one-tap Keep / Not mine, optional quick tag, progress counter. Verdicts save to the laptop. Mine filter; my manual choice always wins. First pass is getting songs out
 - [ ] 1.22 Import list: only kept songs are imported; not-mine songs stay out of the library and the app
 
