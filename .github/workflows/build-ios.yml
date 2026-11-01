@@ -7,7 +7,7 @@ on:
     inputs:
       app:
         description: App folder
-        default: spike/vault-spike
+        default: app
 permissions:
   contents: read
 jobs:
@@ -35,11 +35,11 @@ jobs:
         run: |
           mkdir Payload
           cp -R build-out/Build/Products/Release-iphoneos/*.app Payload/
-          zip -qry unsigned.ipa Payload
+          zip -qry "$(basename build-out/Build/Products/Release-iphoneos/*.app .app).ipa" Payload
       - uses: actions/upload-artifact@v4
         with:
           name: unsigned-ipa
-          path: ${{ inputs.app }}/unsigned.ipa
+          path: ${{ inputs.app }}/*.ipa
           retention-days: 7
       - name: Save full Xcode log on failure
         if: failure()

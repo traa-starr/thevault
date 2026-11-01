@@ -1,9 +1,9 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-01 by chat. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
+**Phase 1 started.** Updated 2026-11-01 by Code. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
 
-**In progress:** nothing.
-**Next up:** me: new Code session, `/next`.
+**In progress:** Real app, built and sideloaded, part b: app and workflow written, build not run yet.
+**Next up:** me: commit, push, run the build, phone checks (REPORT), then Review.
 **Current task:** `NEXT.md` "Real app, built and sideloaded" (ROADMAP 1.12).
 
 ## Done
@@ -35,4 +35,4 @@
 - Known gap for 1.3: a kept file that goes back to cloud-only shows unsorted after a rebuild until local again (journal keeps the verdict).
 
 ## Checks pending
-- None.
+- ROADMAP 1.12: build run and phone check. Not ticked until they pass.

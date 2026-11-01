@@ -1,35 +1,36 @@
 # Report
 
-**Step:** Doctor, one check before phone tests (ROADMAP 1.10), 2026-11-01.
+**Step:** Real app, built and sideloaded (ROADMAP 1.12), 2026-11-01. Unfinished: the build run (part b) waits for your push.
 
 **Verified by running:**
-- `python server/test_doctor.py`: ALL PASSED, 33 checks. Each check is made to pass and fail, the test server is stopped afterwards, and doctor changes nothing in the library.
-- Real doctor on `E:\VaultLibrary`, before any record existed: 7 pass, 1 warn (no fingerprint record yet), exit 0.
-- Real `scan`: 0 new files, nothing unreadable, "music folders unchanged" (2,241 files, whole iCloud Drive).
-- Real doctor after that scan: all 8 pass, "OK for phone tests".
-- "Not running" path on the real library, tried on a spare port: warns, test start listed 1,395 songs, then nothing was answering on that port.
-- `check` before and after the scan: same counts (1,537 files, 1,395 songs, mine 68 + 5, likely 115, unknown 1,207).
-- `python server/test_server.py` and `python server/test_library.py`: ALL PASSED. `python .claude/hooks/test_guard_music.py`: 39/39. `python .claude/scripts/check_repo.py`: clean.
+- `npm run typecheck` in `app/`: no errors. `npx expo-doctor`: 20/20 checks passed.
+- `npx expo export --platform ios`: the app bundles without errors.
+- `npx expo config --type introspect`: name "The Vault", bundle ID `io.github.traastarr.thevault`, Tailscale exception present.
+- `python .claude/hooks/test_guard_music.py`: 39/39. `python .claude/scripts/check_repo.py`: clean.
 
-**Needs the phone:**
-1. Laptop: `python server/vault_cli.py doctor E:\VaultLibrary`. All lines pass, or warn with a reason.
-2. Start the server if it isn't running: `python server/vault_cli.py serve E:\VaultLibrary`. In phone Safari, play a song, as last time.
-3. Ctrl+C the server. Run doctor again: the Server line says it isn't running, and overall is still pass with a warning.
+**Not proven yet:** the app has never been compiled or run on a phone. The song count and "not reachable" lines are untested. Build pass/fail and size are unknown.
 
-**Changed:** `server/vault_server/doctor.py` (new), `server/test_doctor.py` (new), `server/vault_cli.py`, `server/README.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/REPORT.md`, `docs/DECISIONS.md`. In `E:\VaultLibrary`: the scan refreshed its "last seen" times and added `scan-fingerprint.json`. Music folders unchanged.
+**Needs the phone:** after the push and a passing build.
+1. On GitHub: Actions > Build iOS (unsigned) > Run workflow, leave App folder as `app`. Wait for the green tick.
+2. Open the run, download `unsigned-ipa`, unzip it to get `TheVault.ipa`, and get that file onto the phone the way you did for Vault Spike.
+3. In SideStore: My Apps > + > pick `TheVault.ipa`.
+4. On the laptop: `python server/vault_cli.py serve E:\VaultLibrary`. Note the name in its "On the phone" line.
+5. Open The Vault from the home screen: its name is under the icon. Type that name (just the name part, or the whole address) and tap Save. Pass: "1,395 songs on the laptop".
+6. Ctrl+C the server, reopen the app. Pass: "Laptop not reachable".
+7. Open Vault Spike. Pass: it still opens.
+
+**Changed:** `.github/workflows/build-ios.yml`, `app/README.md`, `app/App.tsx`, `app/app.json`, `app/index.ts`, `app/package.json`, `app/package-lock.json`, `app/tsconfig.json`, `docs/STATUS.md`, `docs/REPORT.md`, `docs/DECISIONS.md`.
 
 **Differed from NEXT.md:**
-- Picked: a scan is old past 7 days (logged).
-- Picked: the fingerprint compare lives inside the `scan` command, because doctor doesn't take the music folder. Doctor reads the saved result.
-- Added: when no server is running, doctor does a test start on a spare laptop-only port and stops it. Those are the "test servers it started".
-- Added: doctor fails if something else holds the port, or if the server isn't on the Tailscale address.
-- Songs with no present place shows a count, as NEXT says. DECISIONS said "lists"; names can come when there's a reason (0 today).
-- A server was already running on port 8787 (a `serve` command, not started this session). I left it running, so the real port's "not running" line is left for the phone check.
+- Added an address box and a "Change laptop address" link, because the address has to live on the phone. It's saved in a small file in the app's own storage.
+- Picked: the build now defaults to `app/`. The spike build still works by typing `spike/vault-spike` as the App folder. The `.ipa` is named after the app, so the spike's name changes too.
+- Picked: the app may use plain web addresses for Tailscale names and local names only, because the server doesn't use https. A bare number address may be refused, so use the name.
+- Picked: dark screen, and the default Expo icon. A real icon needs an exception to the repo's image rule, so it waits.
 
-**Not done:** Nothing from NEXT. Not proven: a real music-folder change during a real scan (only simulated in the throwaway test). Known limit: iCloud syncing during a scan would also show as a fail, which then means "look", not "the app wrote". Doctor can't see a change made outside a scan.
+**Not done:** the build run. It builds from GitHub, so it needs your push, and the GitHub command tool (`gh`) isn't on this laptop, so you start it.
 
 **Decisions needed:** None hard-to-undo.
 
-**Proposed next step:** ROADMAP 1.12 real app built and sideloaded (needs chat, has calls of mine).
+**Proposed next step:** finish this phone check, then ROADMAP 1.13 prototype player screen (fast-lane OK).
 
-**Pitch:** Have the fail line name the files that changed during a scan, so an iCloud sync can be told from a real problem at a glance.
+**Pitch:** Have the server offer a small "/status" answer with just the count, so the app doesn't download all 1,395 song entries just to count them.
