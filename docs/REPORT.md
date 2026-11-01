@@ -9,6 +9,18 @@
 - Repo check (`python .claude/scripts/check_repo.py`): clean.
 - The script only reads names, sizes and dates (`os.stat`), so no cloud-only file was downloaded. No music folder was written to.
 
+**Rerun (same day, at my request):** Session Music now counts only its top-level files plus the `#FREEMONEY THE MIXTAPE` folder (new `--flat-keep` option in `spike/dup_names.py`). Result: 1,549 files (Session Music 1,058 + 5 in the mixtape folder, Music 442, tape 23, loose 21); 100 repeated names (group 1: 15, group 2: 34, group 3: 51); 26 date-only. The numbers above are from the first, wider run.
+
+**Group 2 cleared (same day, at my request):** 34 names, 42 files marked not-to-import. 22 names: keep the `tape` file. 4 names: not mine, excluded for good (one added after the first pass). 8 names: mine, copies; I keep the `Music` copy. **Guessed:** that last choice was not stated. Nothing was moved or deleted. Decisions are in `spike/output/triage-decisions.json`; a rerun with `--decisions` gives 1,507 files, 66 repeated names (group 1: 15, group 2: 0, group 3: 51). Logged in DECISIONS.
+
+**Group 3 cleared (same day, at my request):** wav next to an mp3: keep the mp3 (30 names). 12 other-artist names excluded (slim, shay, testzy, sav, trez, turtle, mk). 9 names left, all m4a vs mp3. `--decisions` now also reads a `group3` list. Rerun: 1,453 files, group 1: 15, group 2: 0, group 3: 9. `PLAYA.mp3` had vanished from `Music` since the earlier run (not by this tool), so `Playa` is no longer a duplicate. Open: render `ANY WAY new limit.wav` to a compressed file.
+
+**Other-artist names, all groups (same day, at my request):** 17 more single-file names excluded for good (shay, testzy, trez, turtle, mk, stab4sav variants, Slimey Jit, DREAM Savo_). `SAVE ME` stays in: not sure yet. Names are stored lowercase in `not_mine_names` (the script compares lowercase). Rerun: 1,436 files, group 3 still 9 names, m4a vs mp3 undecided.
+
+**Group 3 finished, more not-mine names (same day, at my request):** m4a vs mp3 pairs: keep the m4a (6 names). Not mine, excluded with all variants: V8, Tahiti, spin, Respawn, Neva Switch, Lost Again, Fake Love, Going Fast, payroll. Rerun after more edits on the laptop side: 1,396 files, 1 repeated name left (`flip`, group 1), 26 date-only.
+
+**Duplicates done (same day, at my request):** `flip` (3 files) are all different versions of mine: keep all. New `keep_all_names` list in the decisions file, read by `spike/dup_names.py`. `spinaround_` is mine and a different song from `spin`. Rerun: 1,395 files, 0 repeated names, 26 date-only. Date-only names and the auto-named `Untitled...` files wait for later.
+
 **Needs the phone:** None.
 
 **Your check (laptop):** open `spike/output/duplicate-names.md` (gitignored, holds song names). Read groups 1 and 2, sort any same-name files you care about, then tell chat at `Review.` whether filing keeps your names (D) or uses fingerprint folders (C).

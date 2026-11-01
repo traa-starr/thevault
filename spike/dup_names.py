@@ -1,7 +1,8 @@
 """Duplicate-names report. Names, sizes and dates only: never opens a file, so cloud-only files are not downloaded.
 
 python spike/dup_names.py --root <folder> [--root <folder>] [--flat <folder>]
---flat lists only the top level of a folder (loose files). Writes spike/output/duplicate-names.md and names.json.
+--flat lists only the top level of a folder (loose files).
+--flat-keep <folder> <subfolder> lists the top level of a folder plus everything inside one named subfolder. Writes spike/output/duplicate-names.md and names.json.
 """
 import argparse, collections, json, os, re, time
 
@@ -13,11 +14,14 @@ DATE_ONLY = re.compile(r"^\d{4}[-_. ]\d{1,2}[-_. ]\d{1,2}([-_. T]+\d{1,2}[-_.:]?
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
 
 
-def walk(root, flat):
+def walk(root, flat, keep=()):
+    """flat: top level only. keep: with flat, also everything inside these direct subfolders."""
     if flat:
         for e in os.scandir(root):
             if e.is_file():
                 yield e.path
+            elif e.is_dir() and e.name in keep:
+                yield from walk(e.path, False)
         return
     for d, _, names in os.walk(root):
         for n in names:
@@ -50,21 +54,36 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", action="append", default=[])
     ap.add_argument("--flat", action="append", default=[])
+    ap.add_argument("--flat-keep", action="append", default=[], nargs=2, metavar=("FOLDER", "SUBFOLDER"),
+                    help="top level of FOLDER plus everything inside its subfolder SUBFOLDER (repeatable)")
+    ap.add_argument("--decisions", help="triage-decisions.json: leave out files I decided not to import and names that are not mine")
     a = ap.parse_args()
+    skip, not_mine, keep_all = set(), set(), set()
+    if a.decisions:
+        with open(a.decisions, encoding="utf-8") as fh:
+            d = json.load(fh)
+        not_mine = set(d.get("not_mine_names", []))
+        keep_all = set(d.get("keep_all_names", []))  # same name, different versions, all mine: not a duplicate
+        skip = {(s["folder"], s["name"]) for g in ("group2", "group3") for e in d.get(g, []) for s in e["skip"]}
+    keeps =collections.defaultdict(list)
+    for r, k in a.flat_keep:
+        keeps[r].append(k)
     files = []
-    for root, flat in [(r, False) for r in a.root] + [(r, True) for r in a.flat]:
-        for path in walk(root, flat):
+    for root, flat in [(r, False) for r in a.root] + [(r, True) for r in a.flat] + [(r, True) for r in keeps]:
+        for path in walk(root, flat, keeps.get(root, ())):
             stem, ext = os.path.splitext(os.path.basename(path))
             if ext.lower() not in AUDIO:
                 continue
             st = os.stat(path)  # metadata only
             rel = os.path.relpath(os.path.dirname(path), os.path.dirname(root.rstrip("\\/")) or root)
+            if (rel, os.path.basename(path)) in skip or stem.strip().lower() in not_mine:
+                continue
             files.append(dict(folder=rel, name=os.path.basename(path), stem=stem, ext=ext.lower(),
                               size=st.st_size, mtime=st.st_mtime))
     groups = collections.defaultdict(list)
     for f in files:
         groups[f["stem"].strip().lower()].append(f)
-    dups = {k: v for k, v in groups.items() if len(v) > 1}
+    dups = {k: v for k, v in groups.items() if len(v) > 1 and k not in keep_all}
     cats = {1: [], 2: [], 3: []}
     for k, v in sorted(dups.items()):
         cats[classify(v)].append((k, sorted(v, key=lambda f: (f["folder"], f["ext"]))))
