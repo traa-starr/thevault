@@ -1,16 +1,16 @@
-# NEXT: Auto "mine" detection (ROADMAP 1.5)
+# NEXT: Server, stream a song by id (ROADMAP 1.8)
 Written by chat, 2026-11-01.
-Log: Songs step accepted (chat). Doctor also flags songs with no present place (chat-default). Auto-mine order: my verdict > `tape` or `#FREEMONEY THE MIXTAPE` = mine > artist name as a whole word in title or local tag = "likely mine" (guess) > unknown; auto never says "not mine" (chat-default). (logged by chat)
-Queue after this: ROADMAP 1.8 server (serves known songs by id only, over Tailscale, with seeking). Then 1.10 `doctor` (Tailscale, server, guard, library marker, `test_library.py`, music fingerprint before/after a scan, songs with no present place).
-Read: `ROADMAP.md` (1.5), `DECISIONS.md` ("Mine" rule, Everything in `tape` is mine, Session Music scope, Auto "mine" rules for 1.5), `server/README.md`.
+Log: Mine step accepted (chat). Likely mine first on the 1.19 sorting card (chat-default). Server basics for 1.8: laptop and Tailscale only, id only, seeking, cloud-only answers "not on laptop yet", read-only (chat-default). (logged by chat)
+Queue after this: ROADMAP 1.10 `doctor` (Tailscale, server, guard, library marker, `test_library.py`, music fingerprint before/after a scan, songs with no present place, stops test servers after). fast-lane OK. Then 1.12 real app built and sideloaded.
+Read: `ROADMAP.md` (1.8), `DECISIONS.md` ("Server basics for 1.8", Connection, Library location), `server/README.md`.
 
 ## Parts
-a. **Rules.** Each song gets a mine status: my verdict if I gave one; else "mine" from folder (`tape`, `#FREEMONEY THE MIXTAPE`); else "likely mine" from an artist name as a whole word in the title or a local file's tag; else unknown. Stored as a guess with its reason, through the journal. Never overwrites a verdict, never says "not mine", never opens a cloud-only file.
-b. **Show it.** `vault_cli.py check` gets a Mine line: mine (mine verdict / folder), likely mine, unknown, counts only.
-c. **Prove it.** Self-test with the fake folder: verdict beats folder and name; `tape` = mine; `l1` inside another word doesn't match; cloud-only uses title only; a rerun changes nothing; survives a rebuild. Real run, counts only. Music folders unchanged (fingerprint). Guard test, repo check, then STATUS.
-Limits: no server, no phone code, no downloading. Music folders never written to. No song names in the repo or REPORT beyond counts.
+a. **Serve.** A server on the laptop that lists known songs (id, title, mine status, local or cloud-only) and plays one by id, with seeking. Listens on the laptop and its Tailscale address only. Cloud-only song: clear "not on laptop yet", never opens the file. No route writes anything.
+b. **Start and stop.** One command starts it and prints the phone address to try (Tailscale name kept out of the repo and REPORT). Ctrl+C stops it cleanly.
+c. **Prove it.** Self-test: unknown id refused, a path in place of an id refused, seeking returns the right part, cloud-only refused without opening, nothing written. Real run: a local song plays in a browser on the laptop. Music folders unchanged (fingerprint). Guard test, repo check, then STATUS.
+Limits: no phone app code, no downloading cloud-only files, no transcoding (that's 1.7). No song names in the repo or REPORT beyond counts.
 
-**Stop line:** if the session runs long, finish a and its tests; b waits.
+**Stop line:** if the session runs long, finish a and its tests; b's printed address waits.
 
 ## Phone check
-None. My check: `python server/vault_cli.py check E:\VaultLibrary` shows the Mine line with the counts Code reported.
+1. Laptop on, server started, phone on Tailscale. Open the printed address in Safari on the phone, tap a song: it plays, and dragging the timeline jumps to that point.

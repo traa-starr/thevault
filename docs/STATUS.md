@@ -1,10 +1,10 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-01 by Code. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
+**Phase 1 started.** Updated 2026-11-01 by chat. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
 
 **In progress:** nothing.
-**Next up:** me: run my laptop check, commit, then `Review.` in chat.
-**Last task:** `NEXT.md` "Auto mine detection" (ROADMAP 1.5), built.
+**Next up:** me: commit, new Code session, `/next`.
+**Current task:** `NEXT.md` "Server, stream a song by id" (ROADMAP 1.8).
 
 ## Done
 - Phase 0 closed: details in `DECISIONS.md` and `SPIKE-RESULTS.md`.
@@ -13,14 +13,13 @@
 - ROADMAP 1.1 built and accepted: library at `E:\VaultLibrary`.
 - ROADMAP 1.2 built and accepted: 1,546 places, 1,537 files, 217 verdicts, 1,327 unsorted. Music folders unchanged.
 - ROADMAP 1.4 + 1.6 built and accepted: 1,395 songs, 64 in more than one place, 0 likely links.
-- ROADMAP 1.5 built: every song has a mine status, shown as a guess with its reason.
+- ROADMAP 1.5 built and accepted: mine 68 + 5, likely 115, unknown 1,207.
 
 ## Queue
-1. ROADMAP 1.8 server.
-2. ROADMAP 1.10 `doctor`: Tailscale, server, guard, library marker, `test_library.py`, music fingerprint before/after a scan, songs with no present place.
+1. ROADMAP 1.10 `doctor`: Tailscale, server, guard, library marker, `test_library.py`, music fingerprint before/after a scan, songs with no present place.
 
 ## Open questions
-- How sorting mine / not mine works on the phone (swipe each, bulk by folder first, short previews): options before ROADMAP 1.19.
+- How sorting mine / not mine works on the phone (swipe each, bulk by folder first, short previews): options before ROADMAP 1.19. Default: likely mine shown first.
 - Does SideStore keep app data across re-signs? (ROADMAP 1.18)
 - Does BandLab export keep the title, and what formats? (ROADMAP 5.1)
 - `SAVE ME` stays in for now: not sure it's mine.
@@ -32,4 +31,5 @@
 - Known gap for 1.3: a kept file that goes back to cloud-only shows unsorted after a rebuild until local again (journal keeps the verdict).
 
 ## Laptop checks pending
+- 1.8: open the printed address in phone Safari, a song plays and seeks.
 - 1.2 + 1.4 + 1.5 + 1.6: `python server/vault_cli.py check E:\VaultLibrary` shows 1537 files, 1395 songs, and the Scanned, Songs and Mine lines (mine 68 + 5, likely 115, unknown 1,207). Tell chat if it doesn't.
