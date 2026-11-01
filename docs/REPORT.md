@@ -1,36 +1,38 @@
 # Report
 
-**Step:** Real app, built and sideloaded (ROADMAP 1.12), 2026-11-01. Unfinished: the build run (part b) waits for your push.
+**Step:** Prototype player screen (ROADMAP 1.13), 2026-11-01. Unfinished: the build run waits for your push.
 
 **Verified by running:**
-- `npm run typecheck` in `app/`: no errors. `npx expo-doctor`: 20/20 checks passed.
+- `npm run typecheck` in `app/`: no errors.
 - `npx expo export --platform ios`: the app bundles without errors.
-- `npx expo config --type introspect`: name "The Vault", bundle ID `io.github.traastarr.thevault`, Tailscale exception present.
 - `python .claude/hooks/test_guard_music.py`: 39/39. `python .claude/scripts/check_repo.py`: clean.
 
-**Not proven yet:** the app has never been compiled or run on a phone. The song count and "not reachable" lines are untested. Build pass/fail and size are unknown.
+**Not proven yet:** the player has never been run or touched. The checks above only show the code is well formed, so how the buttons and seek bar behave is untested until the phone check.
 
-**Needs the phone:** after the push and a passing build.
+**Needs the phone:** after the push.
 1. On GitHub: Actions > Build iOS (unsigned) > Run workflow, leave App folder as `app`. Wait for the green tick.
-2. Open the run, download `unsigned-ipa`, unzip it to get `TheVault.ipa`, and get that file onto the phone the way you did for Vault Spike.
-3. In SideStore: My Apps > + > pick `TheVault.ipa`.
-4. On the laptop: `python server/vault_cli.py serve E:\VaultLibrary`. Note the name in its "On the phone" line.
-5. Open The Vault from the home screen: its name is under the icon. Type that name (just the name part, or the whole address) and tap Save. Pass: "1,395 songs on the laptop".
-6. Ctrl+C the server, reopen the app. Pass: "Laptop not reachable".
-7. Open Vault Spike. Pass: it still opens.
+2. Open the run, download `unsigned-ipa`, unzip it to get `TheVault.ipa`, and get that file onto the phone as before.
+3. In SideStore: install `TheVault.ipa` over the current app. Bundle ID is unchanged, so it should update in place.
+4. On the laptop: `python server/vault_cli.py serve E:\VaultLibrary`.
+5. Open The Vault. Pass: "1,395 songs on the laptop", without retyping the address.
+6. Tap "Open player". Pass: "Fake Song One" at 0:00.
+7. Tap Play. Pass: the button says Pause and the time and bar move. Tap Pause. Pass: they stop.
+8. Drag the seek bar, and tap a spot on it. Pass: the knob follows and the time matches.
+9. Tap Next and Previous. Pass: the title changes and time goes back to 0:00. Previous from the first song goes to the last.
+10. Tap Back. Pass: the laptop line is still there.
 
-**Changed:** `.github/workflows/build-ios.yml`, `app/README.md`, `app/App.tsx`, `app/app.json`, `app/index.ts`, `app/package.json`, `app/package-lock.json`, `app/tsconfig.json`, `docs/STATUS.md`, `docs/REPORT.md`, `docs/DECISIONS.md`.
+**Changed:** `app/Player.tsx` (new), `app/App.tsx`, `app/README.md`, `docs/STATUS.md`, `docs/REPORT.md`, `docs/ROADMAP.md`.
 
 **Differed from NEXT.md:**
-- Added an address box and a "Change laptop address" link, because the address has to live on the phone. It's saved in a small file in the app's own storage.
-- Picked: the build now defaults to `app/`. The spike build still works by typing `spike/vault-spike` as the App folder. The `.ipa` is named after the app, so the spike's name changes too.
-- Picked: the app may use plain web addresses for Tailscale names and local names only, because the server doesn't use https. A bare number address may be refused, so use the name.
-- Picked: dark screen, and the default Expo icon. A real icon needs an exception to the repo's image rule, so it waits.
+- Picked: when a song's pretend time runs out, the next song starts. Next and Previous wrap around the list.
+- Picked: Previous always changes the song. "Restart the song first" can wait for the real player (1.15).
+- Picked: the seek bar is hand-built, with no new add-on, so the build setup stays as it was.
+- Picked: "Open player" also shows while typing an address, so the player works with no laptop set.
 
-**Not done:** the build run. It builds from GitHub, so it needs your push, and the GitHub command tool (`gh`) isn't on this laptop, so you start it.
+**Not done:** the build run. It builds from GitHub, so it needs your push.
 
 **Decisions needed:** None hard-to-undo.
 
-**Proposed next step:** finish this phone check, then ROADMAP 1.13 prototype player screen (fast-lane OK).
+**Proposed next step:** finish this phone check, then ROADMAP 1.14 library list.
 
-**Pitch:** Have the server offer a small "/status" answer with just the count, so the app doesn't download all 1,395 song entries just to count them.
+**Pitch:** Show the player's song position as remaining time on tap, like most players, once real playback lands in 1.15.

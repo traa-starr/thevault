@@ -33,7 +33,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 
 *Phone*
 - [x] 1.12 Real app, built and sideloaded *(phone-verified 2026-11-01)*
-- [ ] 1.13 Prototype: player screen, tappable with fake data
+- [x] 1.13 Prototype: player screen, tappable with fake data
 - [ ] 1.14 Library list: scroll, sort, basic title filter
 - [ ] 1.15 Player: play, pause, seek, next, previous, shuffle, queue
 - [ ] 1.16 Background and lock-screen playback
