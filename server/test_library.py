@@ -15,7 +15,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from vault_server import scanner  # noqa: E402
+from vault_server import scanner, songs  # noqa: E402
 from vault_server.library import (JOURNAL_NAME, DB_NAME, MARKER_NAME, LibraryMissing, LibraryRefused,  # noqa: E402
                                   init_library, open_library)
 
@@ -177,6 +177,128 @@ def scanner_checks(tmp):
     check("scan with no library says Library missing", r.returncode != 0 and "Library missing" in r.stdout)
 
 
+def song_checks(tmp):
+    music = tmp / "SongRoot"
+    root = tmp / "songlib"
+    for rel, text in {"Music/same.mp3": "same bytes", "tape/same.mp3": "same bytes",
+                      "Music/kept.mp3": "kept song", "Music/kept copy.mp3": "a different render",
+                      "Music/flip.mp3": "take one", "tape/flip.mp3": "take two",
+                      "Music/twin.mp3": "twin one", "tape/twin.mp3": "twin two",
+                      "Music/late.mp3": "late bytes", "tape/late other.mp3": "late bytes",
+                      "Music/theirs.mp3": "theirs", "Session Music/#FREEMONEY THE MIXTAPE/m.mp3": "mix"}.items():
+        write_audio(music / rel, text)
+    tagged = music / "tape" / "tagged.mp3"
+    subprocess.run(["ffmpeg", "-v", "quiet", "-f", "lavfi", "-i", "anullsrc=r=44100", "-t", "0.2",
+                    "-metadata", "date=2021-03-05", str(tagged)], check=True)
+    os.utime(tagged, (1700000000, 1700000000))
+    cloud_twin, cloud_late = music / "tape" / "twin.mp3", music / "tape" / "late other.mp3"
+    for p in (cloud_twin, cloud_late):
+        ctypes.windll.kernel32.SetFileAttributesW(str(p), 0x1000)
+    before = scanner.fingerprint(music)
+
+    probed, real_read = [], scanner.read_date_tag
+    scanner.read_date_tag = lambda p: (probed.append(str(p)), real_read(p))[1]
+
+    lib = init_library(root)
+    scanner.scan(lib, music)
+    sorting = {"not_mine_names": ["theirs"],
+               "group2": [{"key": "kept", "verdict": "mine", "keep": [{"folder": "Music", "name": "kept.mp3"}],
+                           "skip": [{"folder": "Music", "name": "kept copy.mp3"}]}]}
+    (root / "triage-decisions.json").write_text(json.dumps(sorting), encoding="utf-8")
+    scanner.apply_sorting(lib, music)
+    songs.link_songs(lib)
+    songs.fill_details(lib)
+    conn = lib.store.conn
+
+    def song_of(rel):
+        row = lib.store.conn.execute("SELECT song_id, state FROM song_places WHERE path=?", (str(music / rel),)).fetchone()
+        return tuple(row) if row else (None, None)
+
+    def field(rel, name):
+        row = lib.store.conn.execute("SELECT value, origin, basis FROM song_fields WHERE song_id=? AND field=?",
+                                     (song_of(rel)[0], name)).fetchone()
+        return tuple(row) if row else None
+
+    check("byte-identical copies in two folders are one song", song_of("Music/same.mp3")[0] == song_of("tape/same.mp3")[0] is not None
+          and song_of("tape/same.mp3")[1] == "sure")
+    check("a skipped copy joins its kept file's song", song_of("Music/kept copy.mp3")[0] == song_of("Music/kept.mp3")[0] is not None)
+    check("same name, different content stays two songs", song_of("Music/flip.mp3")[0] != song_of("tape/flip.mp3")[0])
+    check("a cloud-only twin is likely, on the other file's song",
+          song_of("tape/twin.mp3") == (song_of("Music/twin.mp3")[0], "likely") and song_of("Music/twin.mp3")[1] == "sure")
+    check("a cloud-only file with no twin is a song of its own, not merged",
+          song_of("tape/late other.mp3")[1] == "sure" and song_of("tape/late other.mp3")[0] != song_of("Music/late.mp3")[0])
+    check("not mine gets no song", song_of("Music/theirs.mp3")[0] is None)
+    check("no file is copied into the library", not any((root / "audio").iterdir()))
+    n_songs = conn.execute("SELECT COUNT(*) FROM songs").fetchone()[0]
+    check("the song count adds up", n_songs == 9, str(n_songs))
+    check("the song's name comes from the file I kept", field("Music/kept copy.mp3", "title") == ("kept", "guess", "filename"))
+    check("source is FL, marked as a guess", field("Music/same.mp3", "source") == ("FL", "guess", "assumed"))
+    check("date comes from the embedded tag", field("tape/tagged.mp3", "date") == ("2021-03-05", "guess", "tag"))
+    check("no tag means modified time, marked", field("Music/same.mp3", "date")[2].startswith("modified"))
+    check("a cloud-only file is never opened for a date", str(cloud_late) not in probed and str(cloud_twin) not in probed
+          and field("tape/late other.mp3", "date")[2] == "modified")
+    check("read_date_tag itself refuses a cloud-only file", real_read(cloud_late) == (None, False))
+
+    lines = lambda: (root / JOURNAL_NAME).read_text(encoding="utf-8").count("\n")
+    n = lines()
+    songs.link_songs(lib)
+    probed.clear()
+    songs.fill_details(lib)
+    check("running again changes nothing", lines() == n, f"{n} {lines()}")
+
+    # my edits against guesses
+    rec = lib.store.record
+    sid = song_of("tape/tagged.mp3")[0]
+    rec("song_field", dict(song_id=sid, field="title", value="My Title", origin="manual"))
+    rec("song_field", dict(song_id=sid, field="date", value="2020-01-01", origin="manual"))
+    probed.clear()
+    songs.fill_details(lib)
+    check("guesses never overwrite a manual value", field("tape/tagged.mp3", "title")[:2] == ("My Title", "manual")
+          and field("tape/tagged.mp3", "date")[:2] == ("2020-01-01", "manual"))
+    check("a manual date means the file isn't opened for one", str(tagged) not in probed)
+    rec("song_field", dict(song_id=sid, field="title", value="a guess", origin="guess"))
+    check("a guess recorded directly can't overwrite it either", field("tape/tagged.mp3", "title")[0] == "My Title"
+          and conn.execute("SELECT title FROM songs WHERE id=?", (sid,)).fetchone()[0] == "My Title")
+
+    mine = lib.store.snapshot()
+    lib.close()
+    (root / DB_NAME).unlink()
+    lib = open_library(root)
+    check("songs, places and fields survive a rebuild", lib.store.snapshot() == mine and len(mine["song_places"]) >= 10)
+    scanner.scan(lib, music)
+    n = lines()
+    songs.link_songs(lib)
+    songs.fill_details(lib)
+    check("after a rebuild and re-scan, running again changes nothing", lines() == n, f"{n} {lines()}")
+    conn = lib.store.conn
+    check("nothing in the music folders changed", scanner.fingerprint(music) == before)
+
+    # the cloud-only copy reaches the laptop: its hash matches another song, so it joins, and my tag goes with it
+    gone, stays = song_of("tape/late other.mp3")[0], song_of("Music/late.mp3")[0]
+    rec = lib.store.record
+    rec("tag_add", dict(tag_id="moved", song_id=gone, text="keep this"))
+    ctypes.windll.kernel32.SetFileAttributesW(str(cloud_late), 0x80)
+    scanner.scan(lib, music)
+    songs.link_songs(lib)
+    check("a cloud-only file that reaches the laptop joins the song with the same bytes",
+          song_of("tape/late other.mp3") == (stays, "sure") and conn.execute("SELECT 1 FROM songs WHERE id=?", (gone,)).fetchone() is None)
+    check("a tag on the joined song moves with it", conn.execute("SELECT song_id FROM tags WHERE id='moved'").fetchone()[0] == stays)
+
+    # the twin arrives and its bytes differ: it stops being likely and becomes its own song
+    ctypes.windll.kernel32.SetFileAttributesW(str(cloud_twin), 0x80)
+    scanner.scan(lib, music)
+    songs.link_songs(lib)
+    check("a likely twin with different bytes becomes its own sure song",
+          song_of("tape/twin.mp3")[1] == "sure" and song_of("tape/twin.mp3")[0] != song_of("Music/twin.mp3")[0])
+    mine = lib.store.snapshot()
+    lib.close()
+    (root / DB_NAME).unlink()
+    lib = open_library(root)
+    check("joins survive a rebuild too", lib.store.snapshot() == mine)
+    lib.close()
+    scanner.read_date_tag = real_read
+
+
 def main():
     tmp = Path(tempfile.mkdtemp(prefix="vault-selftest-")).resolve()
     check("temp folder is not on E: and not under the repo", tmp.drive.upper() != "E:" and HERE.parent not in tmp.parents)
@@ -287,6 +409,7 @@ def main():
     lib.close()
 
     scanner_checks(tmp)
+    song_checks(tmp)
 
     print()
     print("ALL PASSED" if not failures else f"{len(failures)} FAILED: {failures}")

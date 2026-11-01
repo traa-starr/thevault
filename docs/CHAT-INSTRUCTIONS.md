@@ -42,6 +42,8 @@ in one line.
    - **Decided:** one line each.
    - **Needs you:** max 3, multiple choice with "other", each with a recommendation and a default.
    - **Updated:** the files you wrote, one line.
+   - **Code will:** a plain-words brief of what Code will do in the new NEXT.md: 2-4 short lines, one per part, what
+     changes for me and what I'll test on the phone. No jargon. Skip only if NEXT wasn't written this review.
    - **YOUR NEXT ACTION:** one line (normally: new Code session, type `/next`).
    - **Commit message:** one line in a copy block, covering the files chat wrote this review. If Code's files are also
      uncommitted, cover those too so one commit takes everything.

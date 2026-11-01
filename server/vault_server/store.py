@@ -12,7 +12,7 @@ import sqlite3
 import uuid
 from datetime import datetime, timezone
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -57,6 +57,24 @@ CREATE TABLE IF NOT EXISTS versions (
     is_current INTEGER NOT NULL DEFAULT 0,
     ts TEXT NOT NULL
 );
+-- Which song each place belongs to. 'likely' is a cloud-only file matched by name and size only, never sure.
+CREATE TABLE IF NOT EXISTS song_places (
+    path TEXT PRIMARY KEY,
+    song_id TEXT NOT NULL REFERENCES songs(id),
+    state TEXT NOT NULL CHECK (state IN ('sure', 'likely')),
+    why TEXT NOT NULL,
+    ts TEXT NOT NULL
+);
+-- Title, date and source. origin says whether it's a guess from the file or mine; basis says where a guess came from.
+CREATE TABLE IF NOT EXISTS song_fields (
+    song_id TEXT NOT NULL REFERENCES songs(id),
+    field TEXT NOT NULL CHECK (field IN ('title', 'date', 'source')),
+    value TEXT NOT NULL,
+    origin TEXT NOT NULL CHECK (origin IN ('guess', 'manual')),
+    basis TEXT,
+    ts TEXT NOT NULL,
+    PRIMARY KEY (song_id, field)
+);
 CREATE TABLE IF NOT EXISTS tags (
     id TEXT PRIMARY KEY,
     song_id TEXT NOT NULL REFERENCES songs(id),
@@ -91,7 +109,7 @@ CREATE TABLE IF NOT EXISTS links (
 );
 """
 
-MINE_TABLES = ("songs", "versions", "tags", "groups", "group_members", "verdicts", "links")
+MINE_TABLES = ("songs", "versions", "song_places", "song_fields", "tags", "groups", "group_members", "verdicts", "links")
 
 # kind -> keys its data must have
 REQUIRED = {
@@ -102,8 +120,14 @@ REQUIRED = {
     "group": ("group_id", "state", "song_ids"),
     "link": ("link_id", "version_id", "kind", "target", "state"),
     "sorting_applied": (),
+    "song_place": ("path", "song_id", "state", "why"),
+    "song_merge": ("from_id", "into_id"),
+    "version_key": ("version_id", "file_key"),
+    "song_field": ("song_id", "field", "value", "origin"),
 }
 CHOICES = {
+    "song_place": ("state", ("sure", "likely")),
+    "song_field": ("origin", ("guess", "manual")),
     "verdict": ("verdict", ("keep", "not_mine", "skip")),
     "group": ("state", ("confirmed", "rejected")),
     "link": ("state", ("proposed", "confirmed", "rejected")),
@@ -218,6 +242,32 @@ class Store:
         elif kind == "link":
             if not c.execute("SELECT 1 FROM versions WHERE id=?", (data["version_id"],)).fetchone():
                 raise ValueError("Link is for a version that doesn't exist.")
+        elif kind in ("song_place", "song_field"):
+            if not c.execute("SELECT 1 FROM songs WHERE id=?", (data["song_id"],)).fetchone():
+                raise ValueError(f"{kind} is for a song that doesn't exist.")
+            if kind == "song_field" and data["field"] not in ("title", "date", "source"):
+                raise ValueError("song_field must be title, date or source.")
+        elif kind == "song_merge":
+            for sid in (data["from_id"], data["into_id"]):
+                if not c.execute("SELECT 1 FROM songs WHERE id=?", (sid,)).fetchone():
+                    raise ValueError("Merge names a song that doesn't exist.")
+
+    def _merge_songs(self, old, into):
+        """Everything of mine on the old song moves to the one it joined. My manual values win over guesses."""
+        c = self.conn
+        c.execute("UPDATE versions SET song_id=?, is_current=0 WHERE song_id=?", (into, old))
+        c.execute("UPDATE song_places SET song_id=? WHERE song_id=?", (into, old))
+        c.execute("UPDATE tags SET song_id=? WHERE song_id=?", (into, old))
+        c.execute("INSERT OR IGNORE INTO group_members SELECT group_id, ? FROM group_members WHERE song_id=?", (into, old))
+        c.execute("DELETE FROM group_members WHERE song_id=?", (old,))
+        c.execute("""INSERT OR REPLACE INTO song_fields
+                     SELECT ?, field, value, origin, basis, ts FROM song_fields f WHERE song_id=? AND origin='manual'
+                     AND NOT EXISTS (SELECT 1 FROM song_fields m WHERE m.song_id=? AND m.field=f.field AND m.origin='manual')""",
+                  (into, old, into))
+        c.execute("DELETE FROM song_fields WHERE song_id=?", (old,))
+        c.execute("DELETE FROM songs WHERE id=?", (old,))
+        c.execute("UPDATE songs SET title=COALESCE((SELECT value FROM song_fields WHERE song_id=? AND field='title'), title) WHERE id=?",
+                  (into, into))
 
     def _apply(self, entry):
         kind, d, ts = entry["kind"], entry["data"], entry["ts"]
@@ -226,6 +276,22 @@ class Store:
             c.execute("INSERT OR IGNORE INTO songs VALUES (?,?,?)", (d["song_id"], d.get("title") or d["orig_name"], ts))
             c.execute("INSERT OR IGNORE INTO versions VALUES (?,?,?,?,?,?)",
                       (d["version_id"], d["song_id"], d["file_key"], d["orig_name"], 1, ts))
+            # one journal line, so a crash can't leave a song with no places
+            c.executemany("INSERT OR REPLACE INTO song_places VALUES (?,?,?,?,?)",
+                          [(p["path"], d["song_id"], p["state"], p["why"], ts) for p in d.get("places", [])])
+        elif kind == "song_place":
+            c.execute("INSERT OR REPLACE INTO song_places VALUES (?,?,?,?,?)", (d["path"], d["song_id"], d["state"], d["why"], ts))
+        elif kind == "song_merge":
+            self._merge_songs(d["from_id"], d["into_id"])
+        elif kind == "version_key":
+            c.execute("UPDATE versions SET file_key=? WHERE id=?", (d["file_key"], d["version_id"]))
+        elif kind == "song_field":
+            cur = c.execute("SELECT origin FROM song_fields WHERE song_id=? AND field=?", (d["song_id"], d["field"])).fetchone()
+            if not (cur and cur["origin"] == "manual" and d["origin"] == "guess"):  # a guess never overwrites mine, on replay too
+                c.execute("INSERT OR REPLACE INTO song_fields VALUES (?,?,?,?,?,?)",
+                          (d["song_id"], d["field"], d["value"], d["origin"], d.get("basis"), ts))
+                if d["field"] == "title":
+                    c.execute("UPDATE songs SET title=? WHERE id=?", (d["value"], d["song_id"]))
         elif kind == "tag_add":
             c.execute("INSERT OR REPLACE INTO tags VALUES (?,?,?,?,?,?)",
                       (d["tag_id"], d["song_id"], d.get("version_id"), d["text"], d.get("at_sec"), ts))

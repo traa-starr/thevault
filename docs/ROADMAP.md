@@ -22,9 +22,9 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [x] 1.1 Library folder and database (songs, files, versions, tags, groups, links) *(built and self-tested; my check: open `E:\VaultLibrary`)*
 - [x] 1.2 Read-only scanner: `Music`, `Session Music` (loose files + `#FREEMONEY THE MIXTAPE` only), `tape`, iCloud root; re-scan finds new files
 - [ ] 1.3 Cloud-only files (917 of 1,546 places at the 1.2 scan): downloaded to the laptop one at a time, only when played or kept, with a progress count and a disk space check
-- [ ] 1.4 Duplicates: the same file in two folders is one song
+- [x] 1.4 Duplicates: the same file in two folders is one song
 - [ ] 1.5 Auto "mine" detection, unknown by default
-- [ ] 1.6 Source tag (FL), title and date filled in from the file
+- [x] 1.6 Source tag (FL), title and date filled in from the file
 - [ ] 1.7 Compressed phone copies (~192 kbps), kept songs only
 - [ ] 1.8 Server: serves known songs by id only, over Tailscale; streams with seeking, so the phone keeps no copy
 - [ ] 1.9 Nightly database backup to C: (G2), with a warning when it is skipped

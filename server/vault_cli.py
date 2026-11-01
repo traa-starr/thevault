@@ -5,6 +5,7 @@
     python server/vault_cli.py import-sorting <library folder> <triage-decisions.json>
     python server/vault_cli.py scan <library folder> <music root>            record what's there, read-only
     python server/vault_cli.py apply-sorting <library folder> <music root>   turn my sorting file into per-file verdicts (once)
+    python server/vault_cli.py songs <library folder>                        link duplicates into songs, fill title, date, source
     python server/vault_cli.py fingerprint <music root>                      one line that changes if the music folders change
 """
 import shutil
@@ -16,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from vault_server.library import (MARKER_NAME, SORTING_NAME, LibraryMissing, LibraryRefused,  # noqa: E402
                                   init_library, open_library)
 from vault_server.scanner import ScanStopped, apply_sorting, fingerprint, scan, source_verdicts  # noqa: E402
+from vault_server.songs import FfprobeMissing, fill_details, link_songs, song_counts  # noqa: E402
 
 
 def print_result(result):
@@ -24,7 +26,7 @@ def print_result(result):
 
 
 def main(argv):
-    if len(argv) < 3 or argv[1] not in ("init", "check", "import-sorting", "scan", "apply-sorting", "fingerprint"):
+    if len(argv) < 3 or argv[1] not in ("init", "check", "import-sorting", "scan", "apply-sorting", "songs", "fingerprint"):
         print(__doc__)
         return 1
     cmd, folder = argv[1], argv[2]
@@ -43,6 +45,12 @@ def main(argv):
             n = {t: lib.store.conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in ("files", "songs", "tags")}
             print(f"Library found at {lib.root}: {n['files']} files, {n['songs']} songs, {n['tags']} tags.")
             print(f"Scanned: {source_verdicts(lib)}")
+            print(f"Songs: {song_counts(lib)}")
+        elif cmd == "songs":
+            lib = open_library(folder)
+            print_result(link_songs(lib))
+            print_result(fill_details(lib))
+            print(f"Songs: {song_counts(lib)}")
         elif cmd == "scan":
             lib = open_library(folder)
             print_result(scan(lib, argv[3]))
@@ -63,6 +71,9 @@ def main(argv):
                 shutil.copyfile(src, dest)
             print(f"Sorting file is in the library: {dest} ({dest.stat().st_size} bytes).")
         lib.close()
+    except FfprobeMissing as e:
+        print(f"Stopped: {e}")
+        return 2
     except ScanStopped as e:
         print(f"Stopped: {e}")
         return 2

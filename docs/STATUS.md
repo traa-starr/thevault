@@ -1,9 +1,9 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-01 by chat. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
+**Phase 1 started.** Updated 2026-11-01 by Code. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
 
 **In progress:** nothing.
-**Next up:** me: commit, then new Code session, type `/next`.
+**Next up:** me: run my laptop check, commit, then `Review.` in chat.
 **Current task:** `NEXT.md` "Duplicates, then title, date and source" (ROADMAP 1.4 + 1.6).
 
 ## Done
@@ -12,6 +12,7 @@
 - Duplicate names done: 1,395 files, no repeats (`flip` kept on purpose).
 - ROADMAP 1.1 built and accepted: library at `E:\VaultLibrary`.
 - ROADMAP 1.2 built and accepted: 1,546 places, 1,537 files, 217 verdicts, 1,327 unsorted. Music folders unchanged.
+- ROADMAP 1.4 + 1.6 built, not yet reviewed: 1,395 songs, 64 in more than one place, 0 likely links.
 
 ## Queue
 1. ROADMAP 1.5 auto "mine" detection, then 1.8 server.
@@ -26,7 +27,8 @@
 - The 8 same-render copies keep the `Music` copy (chat-default): say if wrong.
 - `Session Music` top-level loose files kept in the scan (chat-default): say if they should go.
 - 26 date-only names and the `Untitled...` files wait for later.
+- Known gap: a song stays counted if its file later becomes not mine or vanishes (0 today).
 - Known gap for 1.3: a kept file that goes back to cloud-only shows unsorted after a rebuild until local again (journal keeps the verdict).
 
 ## Laptop checks pending
-- 1.2: `python server/vault_cli.py check E:\VaultLibrary` shows 1537 files and the Scanned counts. Tell chat if it doesn't.
+- 1.2 + 1.4 + 1.6: `python server/vault_cli.py check E:\VaultLibrary` shows 1537 files, 1395 songs, and the Scanned and Songs lines. Tell chat if it doesn't.
