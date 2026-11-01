@@ -5,14 +5,22 @@ Two kinds of data, kept apart:
 - Mine (songs, versions, tags, groups, verdicts, links): every change goes into the journal first, through
   `Store.record`, and is then applied to the database. Delete the database and `Store` rebuilds all of it
   from the journal when it next opens.
+
+The write lock lets the server and laptop commands take turns, one journal-and-database write at a time.
 """
 import json
+import msvcrt
 import os
 import sqlite3
+import threading
+import time
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 
 SCHEMA_VERSION = 4
+LOCK_NAME = "write.lock"
+LOCK_WAIT_SECONDS = 5
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -124,6 +132,7 @@ REQUIRED = {
     "song_merge": ("from_id", "into_id"),
     "version_key": ("version_id", "file_key"),
     "song_field": ("song_id", "field", "value", "origin"),
+    "song_field_restore": ("song_id", "field", "value"),
 }
 CHOICES = {
     "song_place": ("state", ("sure", "likely")),
@@ -138,17 +147,59 @@ def now():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
+class Busy(Exception):
+    """Something else held the write lock for too long. Nothing was written; try again."""
+
+
+_held = threading.local()
+
+
+@contextmanager
+def write_lock(path, wait=LOCK_WAIT_SECONDS):
+    """One writer at a time, across threads and programs. The same thread can take it again inside itself.
+    Windows drops the lock if the holder crashes, so it can't get stuck."""
+    held = _held.__dict__.setdefault("paths", set())
+    key = str(path)
+    if key in held:
+        yield
+        return
+    with open(path, "a+b") as f:
+        f.seek(0)
+        give_up = time.monotonic() + wait
+        while True:
+            try:
+                msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+                break
+            except OSError:
+                if time.monotonic() >= give_up:
+                    raise Busy("Another write is still running.") from None
+                time.sleep(0.05)
+        held.add(key)
+        try:
+            yield
+        finally:
+            held.discard(key)
+            f.seek(0)
+            msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+
+
 class Store:
     def __init__(self, db_path, journal_path):
         self.journal_path = journal_path
-        self.conn = self._connect(db_path)
-        self.conn.execute("PRAGMA foreign_keys=ON")
-        self.conn.executescript(SCHEMA)
-        self.conn.execute("INSERT OR IGNORE INTO meta VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
-        self.conn.commit()
-        self.journal_path.touch(exist_ok=True)
-        self.known_ids = set()
-        self._catch_up()
+        self.lock_path = journal_path.with_name(LOCK_NAME)
+        with write_lock(self.lock_path):
+            self.conn = self._connect(db_path)
+            try:
+                self.conn.execute("PRAGMA foreign_keys=ON")
+                self.conn.executescript(SCHEMA)
+                self.conn.execute("INSERT OR IGNORE INTO meta VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
+                self.conn.commit()
+                self.journal_path.touch(exist_ok=True)
+                self.known_ids = set()
+                self._catch_up()
+            except BaseException:
+                self.conn.close()
+                raise
 
     @staticmethod
     def _connect(db_path):
@@ -208,15 +259,32 @@ class Store:
     def record(self, kind, data, change_id=None):
         """Journal first, then database. Returns False if this id was already recorded (nothing happens)."""
         change_id = change_id or str(uuid.uuid4())
-        if change_id in self.known_ids:
-            return False
-        self._validate(kind, data)
-        entry = {"id": change_id, "ts": now(), "kind": kind, "data": data}
-        self._append(entry)
-        self.known_ids.add(change_id)
-        with self.conn:
-            self._apply(entry)
+        with write_lock(self.lock_path):
+            if change_id in self.known_ids:
+                return False
+            self._validate(kind, data)
+            entry = {"id": change_id, "ts": now(), "kind": kind, "data": data}
+            self._append(entry)
+            self.known_ids.add(change_id)
+            with self.conn:
+                self._apply(entry)
         return True
+
+    def manual_mine_line(self, song_id):
+        """The data of the journal line that set this song's current manual mine value, or None. Each restore cancels
+        the latest line not yet cancelled, so restores unwind in order. Follows songs that were merged into this one."""
+        ids, cancelled = {song_id}, 0
+        for entry in reversed(list(self._read_journal())):
+            kind, d = entry["kind"], entry["data"]
+            if kind == "song_merge" and d["into_id"] in ids:
+                ids.add(d["from_id"])
+            elif kind == "song_field_restore" and d["song_id"] in ids and d["field"] == "mine":
+                cancelled += 1
+            elif kind == "song_field" and d["song_id"] in ids and d["field"] == "mine" and d["origin"] == "manual":
+                if not cancelled:
+                    return d
+                cancelled -= 1
+        return None
 
     def _validate(self, kind, data):
         if kind not in REQUIRED:
@@ -242,11 +310,16 @@ class Store:
         elif kind == "link":
             if not c.execute("SELECT 1 FROM versions WHERE id=?", (data["version_id"],)).fetchone():
                 raise ValueError("Link is for a version that doesn't exist.")
-        elif kind in ("song_place", "song_field"):
+        elif kind in ("song_place", "song_field", "song_field_restore"):
             if not c.execute("SELECT 1 FROM songs WHERE id=?", (data["song_id"],)).fetchone():
                 raise ValueError(f"{kind} is for a song that doesn't exist.")
             if kind == "song_field" and data["field"] not in ("title", "date", "source", "mine"):
                 raise ValueError("song_field must be title, date, source or mine.")
+            if kind == "song_field_restore":
+                if data["field"] != "mine":
+                    raise ValueError("song_field_restore only handles mine.")
+                if data["value"] is not None and data.get("origin") not in ("guess", "manual"):
+                    raise ValueError("song_field_restore needs a guess or manual origin to put back.")
         elif kind == "song_merge":
             for sid in (data["from_id"], data["into_id"]):
                 if not c.execute("SELECT 1 FROM songs WHERE id=?", (sid,)).fetchone():
@@ -292,6 +365,12 @@ class Store:
                           (d["song_id"], d["field"], d["value"], d["origin"], d.get("basis"), ts))
                 if d["field"] == "title":
                     c.execute("UPDATE songs SET title=? WHERE id=?", (d["value"], d["song_id"]))
+        elif kind == "song_field_restore":  # puts back the earlier value, or no value if there wasn't one
+            if d["value"] is None:
+                c.execute("DELETE FROM song_fields WHERE song_id=? AND field=?", (d["song_id"], d["field"]))
+            else:
+                c.execute("INSERT OR REPLACE INTO song_fields VALUES (?,?,?,?,?,?)",
+                          (d["song_id"], d["field"], d["value"], d["origin"], d.get("basis"), ts))
         elif kind == "tag_add":
             c.execute("INSERT OR REPLACE INTO tags VALUES (?,?,?,?,?,?)",
                       (d["tag_id"], d["song_id"], d.get("version_id"), d["text"], d.get("at_sec"), ts))

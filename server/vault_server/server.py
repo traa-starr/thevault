@@ -1,8 +1,9 @@
-"""The server: lists known songs and plays one by id, with seeking.
+"""The server: lists known songs, plays one by id with seeking, and takes my choices from the phone.
 
-Read-only by construction: the database is opened in SQLite's read-only mode, there is no route that changes anything,
-and a music file is only ever opened in `_open_audio`, after its live file attributes say it's on the laptop. Listens on
-the laptop itself and its Tailscale address only.
+Music is read-only by construction: a music file is only ever opened in `_open_audio`, in read mode, after its live file
+attributes say it's on the laptop. Every read route uses the database in SQLite's read-only mode. `POST /changes` is the
+one route that changes anything, and it writes only to the journal and database, through `apply_changes`. Listens on the
+laptop itself and its Tailscale address only.
 """
 import ipaddress
 import json
@@ -16,10 +17,12 @@ import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
-from .library import DB_NAME, MARKER_NAME, LibraryMissing, LibraryRefused
+from .library import DB_NAME, MARKER_NAME, LibraryMissing, LibraryRefused, open_library
 from .scanner import is_cloud_only
-from .store import SCHEMA_VERSION
+from .songs import restore_mine, set_mine
+from .store import LOCK_NAME, SCHEMA_VERSION, Busy, write_lock
 
 PORT = 8787
 LOOPBACK = "127.0.0.1"
@@ -31,6 +34,9 @@ AUDIO_ROUTE = re.compile(r"/songs/([^/]*)/audio")
 MEDIA_TYPES = {".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".wav": "audio/wav", ".flac": "audio/flac",
                ".aif": "audio/aiff", ".aiff": "audio/aiff"}
 NOT_ON_LAPTOP = "not on laptop yet"
+CLIENT_HEADER = "X-Vault-Client"  # a web page can't send this to another site without the server's say-so, which it never gives
+MAX_BODY = 1024 * 1024
+MINE_VALUES = ("mine", "not mine")
 
 PAGE = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -92,10 +98,11 @@ def connect_readonly(root):
     return conn
 
 
-def list_songs(conn):
-    """Known songs, from the database only: the list never touches the music folders."""
-    rows = conn.execute("""
-        SELECT g.id, g.title, COALESCE(f.value, 'unknown') AS mine, d.value AS date,
+def list_songs(conn, hidden=False):
+    """Known songs, from the database only: the list never touches the music folders. Not-mine songs are listed only
+    when `hidden` is asked for, and then on their own."""
+    rows = conn.execute(f"""
+        SELECT g.id, g.title, COALESCE(f.value, 'unknown') AS mine, d.value AS date, COALESCE(f.origin = 'manual', 0) AS sorted,
                CASE WHEN EXISTS (SELECT 1 FROM song_places p JOIN sources s USING (path)
                                  WHERE p.song_id=g.id AND p.state='sure' AND s.status='present' AND s.cloud_only=0) THEN 'laptop'
                     WHEN EXISTS (SELECT 1 FROM song_places p JOIN sources s USING (path)
@@ -103,8 +110,50 @@ def list_songs(conn):
                     ELSE 'gone' END AS place
         FROM songs g LEFT JOIN song_fields f ON f.song_id=g.id AND f.field='mine'
         LEFT JOIN song_fields d ON d.song_id=g.id AND d.field='date'
+        WHERE COALESCE(f.value, 'unknown') {'=' if hidden else '!='} 'not mine'
         ORDER BY place='laptop' DESC, g.title COLLATE NOCASE""")
-    return [{"id": r["id"], "title": r["title"], "mine": r["mine"], "where": r["place"], "date": r["date"]} for r in rows]
+    return [{"id": r["id"], "title": r["title"], "mine": r["mine"], "where": r["place"], "date": r["date"],
+             "sorted": bool(r["sorted"])} for r in rows]
+
+
+def apply_one(store, change):
+    """'saved', 'nothing to do', or raises ValueError. Only allow-listed kinds get through."""
+    if not isinstance(change, dict) or not SONG_ID.fullmatch(str(change.get("id"))):
+        raise ValueError("A change needs an id.")
+    data = change.get("data")
+    if not isinstance(data, dict) or not SONG_ID.fullmatch(str(data.get("song_id"))):
+        raise ValueError("A change needs a song id.")
+    if change.get("kind") == "mine_set":
+        if data.get("value") not in MINE_VALUES:
+            raise ValueError(f"mine_set value must be one of {MINE_VALUES}.")
+        done = set_mine(store, data["song_id"], data["value"], change["id"])
+    elif change.get("kind") == "mine_restore":
+        if not store.conn.execute("SELECT 1 FROM songs WHERE id=?", (data["song_id"],)).fetchone():
+            raise ValueError("mine_restore is for a song that doesn't exist.")
+        done = restore_mine(store, data["song_id"], change["id"])
+    else:
+        raise ValueError("That kind of change isn't allowed.")
+    return "saved" if done else "nothing to do"
+
+
+def apply_changes(root, changes):
+    """One result per change, in order. A fresh Store each time, so it sees what laptop commands did. Raises Busy if
+    the lock can't be had, with nothing written. The first check stops a missing or old library before anything is created."""
+    root = Path(root)
+    connect_readonly(root).close()
+    results = []
+    with write_lock(root / LOCK_NAME):
+        lib = open_library(root)
+        try:
+            for change in changes:
+                wanted = change.get("id") if isinstance(change, dict) else None
+                try:
+                    results.append({"id": wanted, "status": apply_one(lib.store, change)})
+                except ValueError as e:
+                    results.append({"id": wanted, "status": "refused", "why": str(e)})
+        finally:
+            lib.close()
+    return results
 
 
 def song_places(conn, song_id):
@@ -188,9 +237,10 @@ def make_handler(root, allowed_hosts):
                 if route == "/":
                     return self._send(200, PAGE.encode("utf-8"), "text/html; charset=utf-8")
                 if route == "/songs":
+                    hidden = parse_qs(urlsplit(self.path).query).get("hidden") == ["1"]
                     conn = connect_readonly(root)
                     try:
-                        return self._json(200, {"songs": list_songs(conn)})
+                        return self._json(200, {"songs": list_songs(conn, hidden)})
                     finally:
                         conn.close()
                 m = AUDIO_ROUTE.fullmatch(route)
@@ -244,6 +294,42 @@ def make_handler(root, allowed_hosts):
                         return
                     self.wfile.write(chunk)
                     left -= len(chunk)
+
+        def _changes(self):
+            # checked in this order so nothing is read or opened for a request that won't be accepted
+            host = self.headers.get("Host", "").rsplit(":", 1)[0].lower().rstrip(".")
+            if host not in allowed_hosts:
+                return self._error(403, "Unknown address.")
+            if self.path != "/changes":
+                return self._error(404, "Nothing here.")
+            if not self.headers.get(CLIENT_HEADER):
+                return self._error(403, "Changes come from the app.")
+            length = self.headers.get("Content-Length", "")
+            if not length.isdecimal():
+                return self._error(411, "Say how long the changes are.")
+            if int(length) > MAX_BODY:
+                return self._error(413, "Too many changes at once.")
+            try:
+                changes = json.loads(self.rfile.read(int(length)))["changes"]
+            except (ValueError, KeyError, TypeError, RecursionError):
+                return self._error(400, "That isn't a list of changes.")
+            if not isinstance(changes, list):
+                return self._error(400, "That isn't a list of changes.")
+            try:
+                return self._json(200, {"results": apply_changes(root, changes)})
+            except Busy as e:
+                return self._error(503, f"busy: {e}")
+            except (LibraryMissing, LibraryRefused, ValueError) as e:  # ValueError: the journal is damaged
+                return self._error(503, str(e))
+            except sqlite3.Error:
+                return self._error(503, "The library database can't be written right now.")
+
+        def do_POST(self):
+            self.close_connection = True  # a refused request's body is left unread, so this connection can't be reused
+            try:
+                self._changes()
+            except OSError:  # the phone hung up, or the library drive went away
+                pass
 
         def do_GET(self):
             try:

@@ -223,6 +223,25 @@ def fill_mine(lib):
     return {"mine statuses written": written}
 
 
+def set_mine(store, song_id, value, change_id=None):
+    """My call on a song. The line also holds the earlier value, so Undo can put it back. The same call twice does nothing."""
+    cur = store.conn.execute("SELECT value, origin, basis FROM song_fields WHERE song_id=? AND field='mine'", (song_id,)).fetchone()
+    if cur and cur["origin"] == "manual" and cur["value"] == value:
+        return False
+    return store.record("song_field", {"song_id": song_id, "field": "mine", "value": value, "origin": "manual",
+                                       "before": dict(cur) if cur else None}, change_id=change_id)
+
+
+def restore_mine(store, song_id, change_id=None):
+    """Undo my last call on a song: a new line puts the earlier value back, guess or manual. Nothing is erased."""
+    cur = store.conn.execute("SELECT origin FROM song_fields WHERE song_id=? AND field='mine'", (song_id,)).fetchone()
+    line = store.manual_mine_line(song_id) if cur and cur["origin"] == "manual" else None
+    if not line or "before" not in line:
+        return False
+    before = line["before"] or {"value": None}
+    return store.record("song_field_restore", {"song_id": song_id, "field": "mine", **before}, change_id=change_id)
+
+
 def mine_counts(lib):
     rows = lib.store.conn.execute("SELECT value, origin, basis FROM song_fields WHERE field='mine'").fetchall()
     count = lambda value, basis=None: sum(r["value"] == value and basis in (None, r["basis"]) for r in rows)

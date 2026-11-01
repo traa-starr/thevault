@@ -4,10 +4,23 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
 import { AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Library from './Library';
+import { flush, startOutbox } from './outbox';
 
 const PORT = 8787;
 const TIMEOUT_MS = 5000;
 const addressFile = () => new File(Paths.document, 'laptop-address.txt');
+
+// Written once and never changed: if this date changes, the phone wiped the app's data (ROADMAP 1.18).
+const survivalStamp = () => {
+  const file = new File(Paths.document, 'survival-stamp.txt');
+  if (file.exists) return file.textSync().trim();
+  const d = new Date();
+  const two = (n: number) => String(n).padStart(2, '0');
+  const stamp = `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`;
+  file.create();
+  file.writeSync(stamp);
+  return stamp;
+};
 
 const loadAddress = () => {
   const file = addressFile();
@@ -45,6 +58,7 @@ export default function App() {
   const [editing, setEditing] = useState(!address);
   const [line, setLine] = useState('');
   const [inLibrary, setInLibrary] = useState(false);
+  const [stamp] = useState(survivalStamp);
 
   const check = useCallback(async () => {
     if (!address) return;
@@ -58,9 +72,12 @@ export default function App() {
   }, [address]);
 
   useEffect(() => {
+    if (address) startOutbox(serverUrl(address));
     check();
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') check();
+      if (state !== 'active') return;
+      flush();
+      check();
     });
     return () => sub.remove();
   }, [check]);
@@ -77,7 +94,13 @@ export default function App() {
     return (
       <>
         <StatusBar style="light" />
-        <Library url={serverUrl(address)} onBack={() => setInLibrary(false)} />
+        <Library
+          url={serverUrl(address)}
+          onBack={() => {
+            setInLibrary(false);
+            check();
+          }}
+        />
       </>
     );
   }
@@ -117,6 +140,7 @@ export default function App() {
           <Text style={s.link}>Open library</Text>
         </Pressable>
       ) : null}
+      <Text style={s.stamp}>Data since {stamp}</Text>
     </View>
   );
 }
@@ -127,4 +151,5 @@ const s = StyleSheet.create({
   line: { color: '#ddd', fontSize: 18 },
   input: { alignSelf: 'stretch', color: '#fff', fontSize: 16, borderColor: '#555', borderWidth: 1, borderRadius: 8, padding: 12 },
   link: { color: '#8ab4f8', fontSize: 15, padding: 8 },
+  stamp: { color: '#666', fontSize: 12, position: 'absolute', bottom: 40 },
 });

@@ -1,10 +1,10 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-01 by the plan session. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`.
+**Phase 1 started.** Updated 2026-11-01 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`.
 
 **In progress:** nothing.
-**Next up:** me: commit, new Code session, `/next`.
-**Current task:** `NEXT.md` "Batch 1: First write (Mine / Not mine / Undo)", approved.
+**Next up:** me: phone checks, then Review.
+**Current task:** `NEXT.md` "Batch 1: First write (Mine / Not mine / Undo)", built, phone checks open.
 
 ## Done
 - Phase 0 closed: details in `DECISIONS.md` and `SPIKE-RESULTS.md`.
@@ -14,17 +14,17 @@
 - ROADMAP 1.14 phone-verified: library list.
 - ROADMAP 1.20 + 1.15 core phone-verified: streaming, seek, real next/previous, shuffle.
 - Plan approved 2026-11-01: blueprint, batch plan, sizing rule.
+- Batch 1 built, self-tested, not yet on the phone: write route, outbox, Mine / Not mine / Undo, shuffle skips Mine, survival stamp.
 
 ## Queue
-1. Batch 1: First write.
-2. Batch 2: Safety and pull.
-3. Batch 3: The real player.
-4. Batch 4: Real sorting.
-5. Batch 5: Import and copies.
-6. Batch 6: Offline and finish.
-7. Parked: server `/status` count-only answer (Code's pitch).
-8. Parked: A-Z jump strip on the library list (Code's pitch).
-9. Parked: doctor's fail line names the files that changed during a scan (Code's pitch).
+1. Batch 2: Safety and pull.
+2. Batch 3: The real player.
+3. Batch 4: Real sorting.
+4. Batch 5: Import and copies.
+5. Batch 6: Offline and finish.
+6. Parked: server `/status` count-only answer (Code's pitch).
+7. Parked: A-Z jump strip on the library list (Code's pitch).
+8. Parked: doctor's fail line names the files that changed during a scan (Code's pitch).
 
 ## Open questions
 - Does SideStore keep app data across re-signs? Tested in batch 1, final in batch 6. Plan if not: restore from the laptop.
@@ -36,4 +36,4 @@
 - 26 date-only names and the `Untitled...` files wait for later.
 
 ## Checks pending
-- None yet: batch 1's phone checks start after approval.
+- Batch 1, all 9 phone checks in `NEXT.md`.

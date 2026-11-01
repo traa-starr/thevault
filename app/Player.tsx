@@ -1,14 +1,17 @@
 // The player: streams songs from the laptop, nothing saved on the phone. Leaving it stops the music.
+// Mine and Not mine go through the outbox, so they work with the laptop off.
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useEffect, useRef, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
-import { nextInOrder, previousInOrder, setShuffle, startOrder } from './playOrder';
+import { addChange } from './outbox';
+import { nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, type Order } from './playOrder';
 
-export type PlayerSong = { id: string; title: string };
+export type PlayerSong = { id: string; title: string; mine: string; sorted: boolean };
 
 const UPDATE_MS = 500;
 const STALL_MS = 10000;
 const PROBE_TIMEOUT_MS = 5000;
+const UNDO_MS = 5000;
 
 const clock = (seconds: number) => {
   const whole = Math.floor(seconds);
@@ -77,8 +80,13 @@ export default function Player({ url, songs, start, shuffle, onBack }: PlayerPro
   const [seekingTo, setSeekingTo] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [trouble, setTrouble] = useState('');
+  const [marks, setMarks] = useState<Record<string, { mine: string; sorted: boolean }>>({});
+  const [undo, setUndo] = useState<{ order: Order; id: string } | null>(null);
   const song = songs[order.current];
   const audioUrl = (id: string) => `${url}/songs/${id}/audio`;
+  const markOf = (one: PlayerSong) => marks[one.id] ?? one;
+  // while sorting, shuffle only lands on songs not yet called mine
+  const avoid = () => songs.flatMap((one, position) => (markOf(one).mine === 'mine' ? [position] : []));
 
   const load = (index: number) => {
     setSeekingTo(null);
@@ -101,7 +109,7 @@ export default function Player({ url, songs, start, shuffle, onBack }: PlayerPro
   }, []);
 
   const next = (finished: boolean) => {
-    const moved = nextInOrder(order, songs.length);
+    const moved = nextInOrder(order, songs.length, Math.random, avoid());
     if (moved) {
       setOrder(moved);
       load(moved.current);
@@ -124,6 +132,47 @@ export default function Player({ url, songs, start, shuffle, onBack }: PlayerPro
       player.seekTo(0).catch(() => {});
     }
   };
+
+  const tapMine = () => {
+    const mark = markOf(song);
+    if (mark.mine === 'mine' && mark.sorted) {
+      addChange('mine_restore', song.id);
+      const { [song.id]: mine, ...others } = marks;
+      setMarks(mine ? others : { ...marks, [song.id]: { mine: 'unknown', sorted: false } });
+    } else {
+      addChange('mine_set', song.id, 'mine');
+      setMarks({ ...marks, [song.id]: { mine: 'mine', sorted: true } });
+    }
+  };
+
+  const tapNotMine = () => {
+    addChange('mine_set', song.id, 'not mine');
+    setUndo({ order, id: song.id });
+    const out = removeFromOrder(order);
+    const moved = nextInOrder(out, songs.length, Math.random, avoid());
+    setOrder(moved ?? out);
+    if (moved) {
+      load(moved.current);
+    } else {
+      setNote('No more songs in this list');
+      setWanted(false);
+      player.pause();
+    }
+  };
+
+  const tapUndo = () => {
+    if (!undo) return;
+    addChange('mine_restore', undo.id);
+    setOrder(undo.order);
+    load(undo.order.current);
+    setUndo(null);
+  };
+
+  useEffect(() => {
+    if (!undo) return;
+    const timer = setTimeout(() => setUndo(null), UNDO_MS);
+    return () => clearTimeout(timer);
+  }, [undo]);
 
   const toggle = () => {
     if (wanted) player.pause();
@@ -163,6 +212,8 @@ export default function Player({ url, songs, start, shuffle, onBack }: PlayerPro
   }, [wanted, song.id, status.currentTime, url]);
 
   const shown = Math.min(dragAt ?? seekingTo ?? status.currentTime, status.duration || 0);
+  const isMine = markOf(song).mine === 'mine';
+  const isOut = order.removed.includes(order.current);
   return (
     <View style={s.page}>
       <Text style={s.title} numberOfLines={2}>{song.title}</Text>
@@ -183,12 +234,28 @@ export default function Player({ url, songs, start, shuffle, onBack }: PlayerPro
           <Text style={s.buttonText}>Next</Text>
         </Pressable>
       </View>
+      {isOut ? null : (
+        <View style={s.controls}>
+          <Pressable style={[s.button, isMine && s.mineOn]} onPress={tapMine}>
+            <Text style={[s.buttonText, isMine && s.playText]}>Mine</Text>
+          </Pressable>
+          <Pressable style={s.button} onPress={tapNotMine}>
+            <Text style={s.buttonText}>Not mine</Text>
+          </Pressable>
+        </View>
+      )}
       <Pressable onPress={() => setOrder(setShuffle(order, !order.shuffle))}>
         <Text style={[s.link, order.shuffle && s.linkOn]}>{order.shuffle ? 'Shuffle: on' : 'Shuffle: off'}</Text>
       </Pressable>
       <Pressable onPress={onBack}>
         <Text style={s.link}>Back</Text>
       </Pressable>
+      {undo ? (
+        <Pressable style={s.toast} onPress={tapUndo}>
+          <Text style={s.toastText} numberOfLines={1}>Hidden: {songs.find((one) => one.id === undo.id)?.title}</Text>
+          <Text style={s.toastUndo}>Undo</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -208,6 +275,10 @@ const s = StyleSheet.create({
   buttonText: { color: '#fff', fontSize: 16 },
   play: { minWidth: 92, alignItems: 'center', backgroundColor: '#fff', borderColor: '#fff' },
   playText: { color: '#111', fontWeight: '700' },
+  mineOn: { backgroundColor: '#8ab4f8', borderColor: '#8ab4f8' },
+  toast: { position: 'absolute', left: 16, right: 16, bottom: 40, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 8, backgroundColor: '#333' },
+  toastText: { flex: 1, color: '#fff', fontSize: 15 },
+  toastUndo: { color: '#8ab4f8', fontSize: 16, fontWeight: '700' },
   link: { color: '#8ab4f8', fontSize: 15, padding: 8, textAlign: 'center' },
   linkOn: { color: '#fff', fontWeight: '700' },
 });

@@ -1,9 +1,12 @@
 // The song list from the laptop: scroll, sort, filter by title, tap to play. Only songs on the laptop can play.
-import { useEffect, useMemo, useState } from 'react';
+// Choices the laptop hasn't confirmed yet already show here.
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { flush, useOutbox } from './outbox';
 import Player from './Player';
+import { withPending } from './playOrder';
 
-type Song = { id: string; title: string; where: string; date: string | null };
+type Song = { id: string; title: string; where: string; date: string | null; mine: string; sorted: boolean };
 type Sort = 'title' | 'date';
 
 const TIMEOUT_MS = 10000;
@@ -14,7 +17,8 @@ const number = (n: number) => n.toLocaleString('en-US');
 const detail = (song: Song) => [song.date, WHERE[song.where]].filter(Boolean).join(' · ');
 
 export default function Library({ url, onBack }: { url: string; onBack: () => void }) {
-  const [songs, setSongs] = useState<Song[] | null>(null);
+  const [fetched, setFetched] = useState<Song[] | null>(null);
+  const { pending, refused } = useOutbox();
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [sort, setSort] = useState<Sort>('title');
@@ -28,10 +32,11 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     setFailed(false);
     (async () => {
       try {
+        await flush(); // so the list comes back with my latest choices in it
         const r = await fetch(`${url}/songs`, { signal: abort.signal });
         if (!r.ok) throw new Error(`Server said ${r.status}`);
         const data: { songs: Song[] } = await r.json();
-        if (current) setSongs(data.songs);
+        if (current) setFetched(data.songs);
       } catch {
         if (current) setFailed(true);
       } finally {
@@ -44,6 +49,16 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
       abort.abort();
     };
   }, [url, attempt]);
+
+  // the outbox has just emptied, so the laptop now holds what it held
+  const waiting = pending.length > 0;
+  const wasWaiting = useRef(waiting);
+  useEffect(() => {
+    if (wasWaiting.current && !waiting) setAttempt((n) => n + 1);
+    wasWaiting.current = waiting;
+  }, [waiting]);
+
+  const songs = useMemo(() => fetched && withPending(fetched, pending), [fetched, pending]);
 
   const sorted = useMemo(() => {
     const byTitle = [...(songs ?? [])].sort((a, b) => a.title.localeCompare(b.title));
@@ -59,14 +74,22 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
 
   const playable = useMemo(() => shown.filter((song) => song.where === 'laptop'), [shown]);
 
+  // while sorting, shuffle only lands on songs not yet called mine; tapping one still plays it
+  const shuffleable = useMemo(() => playable.flatMap((song, i) => (song.mine === 'mine' ? [] : [i])), [playable]);
+
   const open = (start: number, shuffle: boolean) => {
     Keyboard.dismiss();
     setPlaying({ songs: playable, start, shuffle });
   };
 
+  const closePlayer = () => {
+    setPlaying(null);
+    setAttempt(attempt + 1);
+  };
+
   return (
     <View style={s.fill}>
-    {playing ? <Player url={url} {...playing} onBack={() => setPlaying(null)} /> : null}
+    {playing ? <Player url={url} {...playing} onBack={closePlayer} /> : null}
     <View style={[s.page, playing && s.hidden]}>
       <View style={s.header}>
         <Pressable onPress={onBack}>
@@ -74,7 +97,8 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
         </Pressable>
         <Text style={s.title}>Library</Text>
       </View>
-      {failed ? (
+      {refused ? <Text style={s.refused}>The laptop refused {refused === 1 ? '1 change' : `${refused} changes`}, so {refused === 1 ? "it wasn't" : "they weren't"} saved</Text> : null}
+      {failed && !songs ? (
         <View style={s.middle}>
           <Text style={s.line}>Laptop not reachable</Text>
           <Pressable onPress={() => setAttempt(attempt + 1)}>
@@ -101,8 +125,8 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
           <View style={s.bar}>
             <Text style={s.count}>{filter.trim() ? `${number(shown.length)} of ${number(songs.length)}` : `${number(songs.length)} songs`}</Text>
             <View style={s.sorts}>
-              {playable.length ? (
-                <Pressable onPress={() => open(Math.floor(Math.random() * playable.length), true)}>
+              {shuffleable.length ? (
+                <Pressable onPress={() => open(shuffleable[Math.floor(Math.random() * shuffleable.length)], true)}>
                   <Text style={s.sort}>Shuffle</Text>
                 </Pressable>
               ) : null}
@@ -152,6 +176,7 @@ const s = StyleSheet.create({
   input: { color: '#fff', fontSize: 16, borderColor: '#555', borderWidth: 1, borderRadius: 8, padding: 12 },
   bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
   count: { color: '#ddd', fontSize: 14, fontVariant: ['tabular-nums'] },
+  refused: { color: '#f28b82', fontSize: 14, paddingBottom: 8 },
   sorts: { flexDirection: 'row', gap: 4 },
   sort: { color: '#8ab4f8', fontSize: 15, paddingVertical: 8, paddingHorizontal: 10 },
   sortOn: { color: '#fff', fontWeight: '700' },

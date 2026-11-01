@@ -17,7 +17,7 @@ From the interview and read-only scans, 2026-10-31. No Tailscale hostnames or IP
 | Other artist's projects | `C:\Users\illus\Downloads\CHE` | Excluded |
 | Dummy lock-test folder | `E:\vault-dummy-protected` | Safe to delete, but the guard test expects the path |
 | Untethered (other project) | `C:\Users\illus\Desktop\untethered\Untethered` | Read-only reference |
-| Vault library + database | `E:\VaultLibrary` (created 2026-10-31) | One folder, database and audio together; marker `VAULT-LIBRARY-MARKER.json`, `audio/`, `phone/`, `vault.db`, `journal.jsonl`, my sorting file. Found by a marker file, not the drive letter. E: is an external USB drive |
+| Vault library + database | `E:\VaultLibrary` (created 2026-10-31) | One folder, database and audio together; marker `VAULT-LIBRARY-MARKER.json`, `audio/`, `phone/`, `vault.db`, `journal.jsonl`, `write.lock`, my sorting file. Found by a marker file, not the drive letter. E: is an external USB drive |
 | Nightly database backup | A folder on C: (planned, not created; exact path set when built, ROADMAP 1.9) | Skipped while E: is unplugged |
 
 Installed: Python 3.13, SQLite 3.50 (FTS5 works), Node, ffmpeg (includes Chromaprint), Microsoft Store iCloud, Tailscale (not on PATH), iTunes (Apple's installer), iloader. Missing: gh.

@@ -22,6 +22,7 @@ from vault_server.library import (MARKER_NAME, SORTING_NAME, LibraryMissing, Lib
 from vault_server.scanner import ScanStopped, apply_sorting, fingerprint, source_verdicts  # noqa: E402
 from vault_server.server import run as run_server  # noqa: E402
 from vault_server.songs import FfprobeMissing, fill_details, fill_mine, link_songs, mine_counts, song_counts  # noqa: E402
+from vault_server.store import Busy  # noqa: E402
 
 
 def print_result(result):
@@ -87,7 +88,7 @@ def main(argv):
                 shutil.copyfile(src, dest)
             print(f"Sorting file is in the library: {dest} ({dest.stat().st_size} bytes).")
         lib.close()
-    except FfprobeMissing as e:
+    except (FfprobeMissing, Busy) as e:
         print(f"Stopped: {e}")
         return 2
     except ScanStopped as e:
