@@ -160,3 +160,6 @@ The short version. Full rows with options and reasons are below; nothing was del
 | Mine tap details (2026-11-01) | Tapping Mine again takes it back, since Mine has no toast. Undo restarts the song from the top (Code) | Otherwise a wrong Mine tap can't be fixed until the Hidden list. Reversible |
 | Stamp shows the time too (2026-11-01) | Home shows "Data since" with date and minute (Code) | A wipe on the same day would be invisible with the date alone. Reversible |
 | List on a failed refresh (2026-11-01) | Once the list has loaded, a failed refresh keeps it on screen with waiting choices applied; "Laptop not reachable" shows only if there's no list yet (Code) | A Not mine tap with the laptop off still takes the song out of the list. Reversible |
+| Batch 1 passed (2026-11-01) | All 9 phone checks passed: Not mine, Undo, outbox retry, Mine, shuffle skips Mine, stamp kept across a refresh (mine) | Batch 1 closed |
+| Backup folder (2026-11-01) | `C:\VaultBackup` (chat-default) | Reversible: just a copy target |
+| Undo returns to the spot (2026-11-01) | Code's pitch accepted, built in batch 3 with the shared player (chat-default) | A mis-tap shouldn't lose your place. Reversible |

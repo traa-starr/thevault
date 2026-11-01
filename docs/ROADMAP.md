@@ -38,7 +38,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [ ] 1.15 Player: play, pause, seek, next, previous, shuffle, queue *(all but queue phone-verified 2026-11-01)*
 - [ ] 1.16 Background and lock-screen playback
 - [ ] 1.17 Kept songs stored on the phone: downloads with progress, storage limit, offline play
-- [ ] 1.18 Survival test: app data survives a SideStore re-sign. **Must pass before real tagging (Phase 2); tags can't be replaced.** Sorting verdicts and quick tags save straight to the laptop, so they don't wait on it
+- [ ] 1.18 Survival test: app data survives a SideStore re-sign. **Must pass before real tagging (Phase 2); tags can't be replaced.** Sorting verdicts and quick tags save straight to the laptop, so they don't wait on it *(first half passed 2026-11-01: stamp kept across a refresh)*
 
 *Stream and sort (needs the laptop on and reachable)*
 - [ ] 1.19 Prototype: sorting card, tappable with fake data
