@@ -49,6 +49,7 @@ Newest at the bottom. Hard-to-undo entries list options, choice and why.
 | Mine / not mine sorting | During tagging: one-tap "not mine" and a Mine filter. Options were: during tagging / sorting pass first / folder rules plus tap | No separate chore; only ~17% can be auto-detected |
 | "Later" items in the roadmap | Only the release pipeline gets a phase; the rest stay parked with no date | My call |
 | Prototypes | Tappable fake-data version on the phone before each daily screen is built. Options were: per screen / one pass up front / skip | VISION: prototype feel before real code |
-
-## Waiting for approval
-Four calls, with options and picks in the Approve sheet at the top of `ARCHITECTURE-OPTIONS.md`: client, library location, database backup, BandLab method. No app scaffold until approved.
+| Client (G2, 2026-10-31) | C: Expo app, compressed songs stored on the phone, laptop syncs. Options were: A stream from laptop / B Capacitor web app / C songs on phone | My call. Matches the pick: listening works offline and with the laptop asleep |
+| Library location (G2, 2026-10-31) | A: everything (database + audio) in one folder on E:, `E:\VaultLibrary`. Options were: A all on E: / B all on C: / C split, database on C: | My call, against the memo's pick (C). One folder. Known cost: E: unplugged = library offline and tags wait on the phone; app finds the library by a marker file, not the letter E:, and says plainly when it's missing |
+| Database backup (G2, 2026-10-31) | A now: nightly copy to C:. B later: copy to the phone at each sync. No iCloud. Options were: A / B / C iCloud folder | My call. No change to rule 1. Backup skipped while E: is unplugged, so the app must warn |
+| BandLab method (G2, 2026-10-31) | A: hand export in the BandLab app. Options were: A hand export / B browser automation / C data request | My call. Protects the account holding unexported songs. Unlocks rule 7 for hand export only |

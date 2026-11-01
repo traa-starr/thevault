@@ -13,7 +13,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 
 ## Gate: before any app code
 - [x] G1 Finish the architecture memo (`ARCHITECTURE-OPTIONS.md`)
-- [ ] G2 I approve 4 calls: client option, library location, database backup, BandLab method
+- [x] G2 I approve 4 calls: client option, library location, database backup, BandLab method
 - [ ] G3 Close Phase 0: fold its DECISIONS rows into a summary, start `app/` and `server/`
 
 ## Phase 1: Player (Checkpoint 1). "It's my music player now"
@@ -26,7 +26,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [ ] 1.6 Source tag (FL), title and date filled in from the file
 - [ ] 1.7 Compressed phone copies (~192 kbps)
 - [ ] 1.8 Server: serves known songs by id only, over Tailscale
-- [ ] 1.9 Nightly database backup, to wherever G2 says
+- [ ] 1.9 Nightly database backup to C: (G2), with a warning when it is skipped
 - [ ] 1.10 `doctor` script: checks Tailscale, server and guard before phone tests, stops test servers after
 - [ ] 1.11 Build upkeep: full Xcode log saved on a failed build
 

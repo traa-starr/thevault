@@ -1,31 +1,25 @@
 # Status
 
-**Phase 0.** Updated 2026-10-31 by Code. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
+**Phase 0, last step.** Updated 2026-10-31 by chat. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
 
-**In progress:** None.
-**Next up:** me: commit and push, then in a new chat in the Project type `Review.`
-**Current task:** `NEXT.md`, "Finish ARCHITECTURE-OPTIONS.md for my approval": done, waiting for review.
+**In progress:** nothing.
+**Next up:** me: commit, then new Code session, type `/next`.
+**Current task:** `NEXT.md`, "Close Phase 0" (ROADMAP G3).
 
 ## Done
-- Music guard proven on a dummy folder (39/39 fake calls, live write/delete/rename blocked, reads work). Music folders unchanged after the spikes.
-- `.gitignore` proven. Docs written. Untethered audited (`AUDIT-untethered.md`).
-- Spikes D1, D2, D3, D4a, D4b, D5, D6: `SPIKE-RESULTS.md`. Skills updated from chat's versions.
-- First iOS build on GitHub Actions passed: unsigned `.ipa` produced (artifact expires 2026-11-07; re-run the workflow for a fresh one).
-- D4c sideload: PASS on the phone. Refresh in SideStore within 7 days to keep the app working. Spike server, app-file server and `tailscale serve` are off.
-- BandLab research: `BANDLAB-OPTIONS.md`. Architecture memo with Approve sheet: `ARCHITECTURE-OPTIONS.md`.
-- Roadmap written: every feature, in build order, with who ticks what: `ROADMAP.md`.
-- Chat + Code workflow set up and tightened (who writes what, `Next up` line): `WORKFLOW.md`, `CHAT-INSTRUCTIONS.md`.
+- Music guard proven; music folders unchanged after the spikes. `.gitignore` proven. Untethered audited.
+- Spikes D1-D6 passed or logged: `SPIKE-RESULTS.md`. First iOS build and D4c sideload passed.
+- Architecture memo finished (G1). The four calls approved 2026-10-31 (G2): client C, all on E:, backup to C: then phone, BandLab hand export. See DECISIONS.
+- Roadmap and chat + Code workflow set up.
 
 ## Queue after NEXT
-1. Me: approve the four calls in DECISIONS.md.
-2. Fast-lane: save full Xcode log as an artifact on any failed build.
-3. Later: `doctor` script that checks Tailscale, server and guard before phone tests, and stops the test servers after (was the `spike/stop` pitch).
+1. Fast-lane: ROADMAP 1.11, save the full Xcode log as a run artifact on any failed build. No other workflow changes. fast-lane OK.
+2. ROADMAP 1.1: how songs, files and versions are stored. Hard to undo: Code brings 2-3 options, I choose.
 
 ## Open questions
-- The four calls: client, library location, database backup, BandLab method (Approve sheet in `ARCHITECTURE-OPTIONS.md`).
-- FL projects have no backup: decide separately.
-- Does SideStore keep app data across re-signs? (needs the real app)
-- Does exporting from BandLab keep the title, and what formats does your app offer? (one test song)
+- FL projects (155) have no backup. Code's pitch: copy to E:. Decide before Phase 5, sooner is fine.
+- Does SideStore keep app data across re-signs? (needs the real app, ROADMAP 1.18)
+- Does BandLab export keep the title, and what formats? (one test song, ROADMAP 5.1)
 
 ## Phone checks pending
-None (D4c reported 2026-10-31).
+None.
