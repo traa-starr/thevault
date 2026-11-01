@@ -1,7 +1,7 @@
 """Read-only scanner. Records what's in the music folders; never writes there and never opens a cloud-only file.
 
 The music root comes in as an argument, never written here. Opening a cloud-only file makes Windows download it, so
-`is_cloud_only` is checked from file attributes first and `hash_file` and `read_date_tag` are the only places a music
+`is_cloud_only` is checked from file attributes first and `hash_file` and `_read_tags` are the only places a music
 file is ever opened.
 """
 import hashlib
@@ -37,18 +37,33 @@ def hash_file(path):
     return h.hexdigest()
 
 
-def read_date_tag(path):
-    """(date or None, whether the file could be read). Refuses a cloud-only file; ffprobe only reads."""
+def _read_tags(path):
+    """The file's tags with lowercase names, or None if it couldn't be read. Refuses a cloud-only file; ffprobe only reads."""
     if is_cloud_only(os.stat(path)):
-        return None, False
+        return None
     try:
         p = subprocess.run(["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", str(path)],
                            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
     except subprocess.TimeoutExpired:
-        return None, False
+        return None
     if p.returncode != 0:
+        return None
+    return {k.lower(): v for k, v in (json.loads(p.stdout or "{}").get("format", {}).get("tags") or {}).items()}
+
+
+def read_name_tags(path):
+    """(artist and title tag values, whether the file could be read)."""
+    tags = _read_tags(path)
+    if tags is None:
+        return [], False
+    return [str(tags[n]) for n in ("artist", "album_artist", "title") if n in tags], True
+
+
+def read_date_tag(path):
+    """(date or None, whether the file could be read)."""
+    tags = _read_tags(path)
+    if tags is None:
         return None, False
-    tags = {k.lower(): v for k, v in (json.loads(p.stdout or "{}").get("format", {}).get("tags") or {}).items()}
     for name in ("date", "tdrc", "tyer", "year", "creation_time"):
         m = re.match(r"((?!0000)\d{4})(-\d{2}(-\d{2})?)?", str(tags.get(name, "")).strip())
         if m:

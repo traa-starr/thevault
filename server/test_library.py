@@ -299,6 +299,79 @@ def song_checks(tmp):
     scanner.read_date_tag = real_read
 
 
+def mine_checks(tmp):
+    FM = "Session Music/#FREEMONEY THE MIXTAPE"
+    music = tmp / "MineRoot"
+    root = tmp / "minelib"
+    for rel, text in {"Music/song l1 here.mp3": "a", "Music/l1ght.mp3": "b", "Music/bill1.mp3": "c", "Music/plain.mp3": "d",
+                      "Music/kept.mp3": "e", "Music/later theirs.mp3": "f", "Music/cloud l1.mp3": "g",
+                      f"{FM}/l1 mix.mp3": "h", "tape/old.mp3": "i", "Music/hand set.mp3": "j"}.items():
+        write_audio(music / rel, text)
+    for name in ("tagged", "cloud tagged", "wrapped tag"):
+        artist = "SOMEBILL1" if name == "wrapped tag" else "MOJO"
+        subprocess.run(["ffmpeg", "-v", "quiet", "-f", "lavfi", "-i", "anullsrc=r=44100", "-t", "0.2",
+                        "-metadata", f"artist={artist}", str(music / "Music" / f"{name}.mp3")], check=True)
+    for name in ("cloud l1", "cloud tagged"):
+        ctypes.windll.kernel32.SetFileAttributesW(str(music / "Music" / f"{name}.mp3"), 0x1000)
+
+    lib = init_library(root)
+    scanner.scan(lib, music)
+    (root / "triage-decisions.json").write_text(json.dumps(
+        {"group2": [{"key": "kept", "verdict": "mine", "keep": [{"folder": "Music", "name": "kept.mp3"}], "skip": []}]}), encoding="utf-8")
+    scanner.apply_sorting(lib, music)
+    write_audio(music / "tape" / "late.mp3", "k")  # after sorting, so it has no verdict
+    before = scanner.fingerprint(music)
+    scanner.scan(lib, music)
+    songs.link_songs(lib)
+    songs.fill_details(lib)
+    conn = lib.store.conn
+
+    def status(rel):
+        row = lib.store.conn.execute("""SELECT f.value, f.basis FROM song_places p JOIN song_fields f USING (song_id)
+                                        WHERE p.path=? AND f.field='mine'""", (str(music / rel),)).fetchone()
+        return (row["value"], row["basis"].split(":")[0]) if row else None
+
+    opened, real_run = [], subprocess.run
+    subprocess.run = lambda args, **kw: (opened.append(args[-1]), real_run(args, **kw))[1]
+    hand = conn.execute("SELECT song_id FROM song_places WHERE path=?", (str(music / "Music" / "hand set.mp3"),)).fetchone()[0]
+    lib.store.record("song_field", {"song_id": hand, "field": "mine", "value": "mine", "origin": "manual"})
+    songs.fill_mine(lib)
+    check("my keep verdict gives mine", status("Music/kept.mp3") == ("mine", "verdict"))
+    check("a tape file with my verdict stays on the verdict", status("tape/old.mp3") == ("mine", "verdict"))
+    check("a new file in tape is mine from the folder", status("tape/late.mp3") == ("mine", "folder"))
+    check("the mixtape folder beats a name match", status(f"{FM}/l1 mix.mp3") == ("mine", "folder"))
+    check("artist name as its own word in the title is likely mine", status("Music/song l1 here.mp3") == ("likely mine", "title"))
+    check("l1 inside another word doesn't match", status("Music/l1ght.mp3") == status("Music/bill1.mp3") == ("unknown", "none"))
+    check("artist tag on a local file is likely mine", status("Music/tagged.mp3") == ("likely mine", "tag"))
+    check("a name inside a longer tag word doesn't match", status("Music/wrapped tag.mp3") == ("unknown", "none"))
+    check("cloud-only file uses its title", status("Music/cloud l1.mp3") == ("likely mine", "title"))
+    check("cloud-only file's tag is ignored", status("Music/cloud tagged.mp3") == ("unknown", "none"))
+    check("cloud-only files are never opened", not [p for p in opened if "cloud" in Path(p).name])
+    check("no song is ever guessed not mine", conn.execute("SELECT COUNT(*) FROM song_fields WHERE field='mine' AND value='not mine'").fetchone()[0] == 0)
+    check("my hand-set status isn't touched", conn.execute("SELECT origin FROM song_fields WHERE song_id=? AND field='mine'", (hand,)).fetchone()[0] == "manual")
+
+    lines = (root / JOURNAL_NAME).read_text(encoding="utf-8")
+    opened.clear()
+    check("a rerun writes nothing", songs.fill_mine(lib) == {"mine statuses written": 0} and (root / JOURNAL_NAME).read_text(encoding="utf-8") == lines)
+    check("a rerun doesn't reopen a file it could read", opened and not [p for p in opened if "tag" in Path(p).name])  # the fake files can't be read, so they're retried
+
+    late_key = conn.execute("SELECT file_key FROM sources WHERE path=?", (str(music / "Music" / "later theirs.mp3"),)).fetchone()[0]
+    lib.store.record("verdict", {"file_key": late_key, "verdict": "not_mine"})
+    songs.fill_mine(lib)
+    check("my later not-mine verdict beats the guess", status("Music/later theirs.mp3") == ("not mine", "verdict"))
+    counts = songs.mine_counts(lib)
+    check("counts add up to every song", sum(counts.values()) == conn.execute("SELECT COUNT(*) FROM songs").fetchone()[0], str(counts))
+    subprocess.run = real_run
+
+    mine = lib.store.snapshot()
+    lib.close()
+    (root / DB_NAME).unlink()
+    lib = open_library(root)
+    check("mine statuses survive a rebuild", lib.store.snapshot() == mine)
+    lib.close()
+    check("mine detection leaves the music folder unchanged", scanner.fingerprint(music) == before)
+
+
 def main():
     tmp = Path(tempfile.mkdtemp(prefix="vault-selftest-")).resolve()
     check("temp folder is not on E: and not under the repo", tmp.drive.upper() != "E:" and HERE.parent not in tmp.parents)
@@ -410,6 +483,7 @@ def main():
 
     scanner_checks(tmp)
     song_checks(tmp)
+    mine_checks(tmp)
 
     print()
     print("ALL PASSED" if not failures else f"{len(failures)} FAILED: {failures}")

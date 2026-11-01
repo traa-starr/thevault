@@ -5,7 +5,7 @@
     python server/vault_cli.py import-sorting <library folder> <triage-decisions.json>
     python server/vault_cli.py scan <library folder> <music root>            record what's there, read-only
     python server/vault_cli.py apply-sorting <library folder> <music root>   turn my sorting file into per-file verdicts (once)
-    python server/vault_cli.py songs <library folder>                        link duplicates into songs, fill title, date, source
+    python server/vault_cli.py songs <library folder>                        link duplicates into songs, fill title, date, source, mine
     python server/vault_cli.py fingerprint <music root>                      one line that changes if the music folders change
 """
 import shutil
@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from vault_server.library import (MARKER_NAME, SORTING_NAME, LibraryMissing, LibraryRefused,  # noqa: E402
                                   init_library, open_library)
 from vault_server.scanner import ScanStopped, apply_sorting, fingerprint, scan, source_verdicts  # noqa: E402
-from vault_server.songs import FfprobeMissing, fill_details, link_songs, song_counts  # noqa: E402
+from vault_server.songs import FfprobeMissing, fill_details, fill_mine, link_songs, mine_counts, song_counts  # noqa: E402
 
 
 def print_result(result):
@@ -46,11 +46,14 @@ def main(argv):
             print(f"Library found at {lib.root}: {n['files']} files, {n['songs']} songs, {n['tags']} tags.")
             print(f"Scanned: {source_verdicts(lib)}")
             print(f"Songs: {song_counts(lib)}")
+            print(f"Mine: {mine_counts(lib)}")
         elif cmd == "songs":
             lib = open_library(folder)
             print_result(link_songs(lib))
             print_result(fill_details(lib))
+            print_result(fill_mine(lib))
             print(f"Songs: {song_counts(lib)}")
+            print(f"Mine: {mine_counts(lib)}")
         elif cmd == "scan":
             lib = open_library(folder)
             print_result(scan(lib, argv[3]))

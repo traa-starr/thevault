@@ -12,7 +12,7 @@ import sqlite3
 import uuid
 from datetime import datetime, timezone
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -65,10 +65,10 @@ CREATE TABLE IF NOT EXISTS song_places (
     why TEXT NOT NULL,
     ts TEXT NOT NULL
 );
--- Title, date and source. origin says whether it's a guess from the file or mine; basis says where a guess came from.
+-- Title, date, source and mine status. origin says whether it's a guess from the file or mine; basis says where a guess came from.
 CREATE TABLE IF NOT EXISTS song_fields (
     song_id TEXT NOT NULL REFERENCES songs(id),
-    field TEXT NOT NULL CHECK (field IN ('title', 'date', 'source')),
+    field TEXT NOT NULL CHECK (field IN ('title', 'date', 'source', 'mine')),
     value TEXT NOT NULL,
     origin TEXT NOT NULL CHECK (origin IN ('guess', 'manual')),
     basis TEXT,
@@ -245,8 +245,8 @@ class Store:
         elif kind in ("song_place", "song_field"):
             if not c.execute("SELECT 1 FROM songs WHERE id=?", (data["song_id"],)).fetchone():
                 raise ValueError(f"{kind} is for a song that doesn't exist.")
-            if kind == "song_field" and data["field"] not in ("title", "date", "source"):
-                raise ValueError("song_field must be title, date or source.")
+            if kind == "song_field" and data["field"] not in ("title", "date", "source", "mine"):
+                raise ValueError("song_field must be title, date, source or mine.")
         elif kind == "song_merge":
             for sid in (data["from_id"], data["into_id"]):
                 if not c.execute("SELECT 1 FROM songs WHERE id=?", (sid,)).fetchone():

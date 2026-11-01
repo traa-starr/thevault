@@ -3,12 +3,18 @@
 Both steps can run any number of times: they work out what should be true and journal only the differences. Only the
 database and journal change. Files are never touched; dates come through `scanner.read_date_tag`.
 """
+import hashlib
 import os
+import re
 import shutil
 import uuid
 from datetime import datetime
 
 from . import scanner
+
+
+# my artist names, as whole words in any capitals: `l1` must not match inside another word
+ARTIST_NAME = re.compile(r"(?<![^\W_])(?:l1|l1ghtxfluv|mojo|traa)(?![^\W_])", re.IGNORECASE)
 
 
 class FfprobeMissing(Exception):
@@ -164,6 +170,67 @@ def fill_details(lib):
             continue  # gone since the scan: the next scan will say so
         written += _put_guess(store, song_id, "date", date, basis, current)
     return {"details written": written}
+
+
+def _mine_guess(places, verdict, title, cur):
+    """(status, reason), first match wins: my verdict, my folders, name in the title, name in a local file's tag.
+    A local file already checked isn't opened again until it changes."""
+    verdicts = {verdict[r["path"]] for r in places}
+    if "not_mine" in verdicts:
+        return "not mine", "verdict"  # only ever my own call
+    if verdicts & {"keep", "skip"}:  # a skip is a copy of a file I called mine
+        return "mine", "verdict"
+    for r in places:
+        parts = r["folder"].split(os.sep)
+        if parts[0] == "tape" or parts[:2] == [scanner.SESSION, scanner.MIXTAPE]:
+            return "mine", "folder"
+    if ARTIST_NAME.search(title):
+        return "likely mine", "title"
+    local = sorted((r for r in places if not r["cloud_only"]), key=lambda r: r["path"])
+    seen = hashlib.sha256("".join(f"{r['path']}|{r['size']}|{r['mtime']}\n" for r in local).encode("utf-8", "surrogateescape")).hexdigest()[:16]
+    if cur and cur["basis"] in (f"tag:{seen}", f"none:{seen}"):
+        return cur["value"], cur["basis"]
+    all_read = True
+    for r in local:
+        try:
+            values, could_read = scanner.read_name_tags(r["path"])
+        except OSError:
+            values, could_read = [], False  # gone since the scan: the next scan will say so
+        if any(ARTIST_NAME.search(v) for v in values):
+            return "likely mine", f"tag:{seen}"
+        all_read = all_read and could_read
+    return "unknown", f"none:{seen}" if all_read else "none"
+
+
+def fill_mine(lib):
+    if not shutil.which("ffprobe"):
+        raise FfprobeMissing("ffprobe not found, so tags can't be read. Nothing changed.")
+    store, conn = lib.store, lib.store.conn
+    verdict = dict(scanner.verdict_by_path(lib))
+    by_song = {}
+    for r in conn.execute("""SELECT s.*, p.song_id FROM song_places p JOIN sources s USING (path)
+                             WHERE p.state='sure' AND s.status='present'"""):
+        by_song.setdefault(r["song_id"], []).append(r)
+    written = 0
+    for song_id, places in by_song.items():
+        current = {r["field"]: r for r in conn.execute("SELECT * FROM song_fields WHERE song_id=?", (song_id,))}
+        cur = current.get("mine")
+        if cur and cur["origin"] == "manual":
+            continue
+        title = conn.execute("SELECT title FROM songs WHERE id=?", (song_id,)).fetchone()["title"]
+        value, basis = _mine_guess(places, verdict, title, cur)
+        written += _put_guess(store, song_id, "mine", value, basis, current)
+    return {"mine statuses written": written}
+
+
+def mine_counts(lib):
+    rows = lib.store.conn.execute("SELECT value, origin, basis FROM song_fields WHERE field='mine'").fetchall()
+    count = lambda value, basis=None: sum(r["value"] == value and basis in (None, r["basis"]) for r in rows)
+    out = {"mine (my verdict)": count("mine", "verdict") + sum(r["value"] == "mine" and r["origin"] == "manual" for r in rows),
+           "mine (folder)": count("mine", "folder"), "likely mine": count("likely mine"), "unknown": count("unknown")}
+    if count("not mine"):
+        out["not mine (my verdict)"] = count("not mine")
+    return out
 
 
 def song_counts(lib):
