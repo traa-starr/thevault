@@ -1,10 +1,10 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-01 by Code. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
+**Phase 1 started.** Updated 2026-11-01 by chat. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
 
 **In progress:** nothing.
-**Next up:** me: phone checks, then Review.
-**Current task:** `NEXT.md` "Library list" (ROADMAP 1.14).
+**Next up:** me: new Code session, `/next`.
+**Current task:** `NEXT.md` "Stream real songs into the player" (ROADMAP 1.20 + 1.15 core).
 
 ## Done
 - Phase 0 closed: details in `DECISIONS.md` and `SPIKE-RESULTS.md`.
@@ -12,21 +12,18 @@
 - ROADMAP 1.2 built and accepted: 1,546 places, 1,537 files, 217 verdicts, 1,327 unsorted. Music folders unchanged.
 - ROADMAP 1.4 + 1.6 built and accepted: 1,395 songs, 64 in more than one place, 0 likely links.
 - ROADMAP 1.5 built and accepted: mine 68 + 5, likely 115, unknown 1,207.
-- ROADMAP 1.8 built and phone-verified: 589 songs playable, 806 cloud-only.
-- ROADMAP 1.10 built and phone-verified: doctor.
-- ROADMAP 1.12 phone-verified: The Vault installed, shows 1,395 songs and "not reachable".
-- ROADMAP 1.13 phone-verified: prototype player.
-- ROADMAP 1.14 built, phone check pending: library list.
+- ROADMAP 1.8, 1.10, 1.12, 1.13 phone-verified: playable count, doctor, app installed, prototype player.
+- ROADMAP 1.14 phone-verified: library list.
 
 ## Queue
-1. ROADMAP 1.15 real player (needs songs on the phone or streaming; see open question).
+1. Not mine in the player: Mine / Not mine buttons. Not mine skips to the next song and hides it from the app for good; 5-second Undo toast. Saved on the laptop, music files never deleted or moved. Needs the server's first write (Code proposes how). Shuffle then skips songs already marked Mine, so it only lands on unsorted ones.
 2. Parked: server `/status` count-only answer (Code's pitch).
 3. Parked for 1.15: tap the time to show remaining (Code's pitch).
-4. Parked: doctor's fail line names the files that changed during a scan (Code's pitch).
+4. Parked: A-Z jump strip on the library list (Code's pitch).
+5. Parked: doctor's fail line names the files that changed during a scan (Code's pitch).
 
 ## Open questions
-- 1.15 vs 1.20 order: real player needs audio. Raise options at the next review.
-- How sorting mine / not mine works on the phone (swipe each, bulk by folder first, short previews): options before ROADMAP 1.19. Default: likely mine shown first.
+- How sorting mine / not mine works on the phone (swipe each, bulk by folder first, short previews): options before ROADMAP 1.19. Partly answered: buttons in the player come first. Default: likely mine shown first.
 - Does SideStore keep app data across re-signs? (ROADMAP 1.18)
 - Does BandLab export keep the title, and what formats? (ROADMAP 5.1)
 - `SAVE ME` stays in for now: not sure it's mine.
@@ -38,4 +35,4 @@
 - Known gap for 1.3: a kept file that goes back to cloud-only shows unsorted after a rebuild until local again (journal keeps the verdict).
 
 ## Checks pending
-- ROADMAP 1.14: library list phone check (after build).
+- none
