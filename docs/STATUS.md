@@ -1,25 +1,24 @@
 # Status
 
-**Phase 0 closed.** Updated 2026-10-31 by chat. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
+**Phase 0 closed.** Updated 2026-10-31 by Code. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
 
 **In progress:** nothing.
-**Next up:** me: new Code session, type `/next`.
-**Current task:** `NEXT.md` "Library folder and database" (ROADMAP 1.1). Code copies `spike/output/triage-decisions.json` (the only copy of my sorting) into the library in part c.
+**Next up:** me: check `E:\VaultLibrary`, commit and push, then `Review.` in chat.
+**Current task:** `NEXT.md` "Library folder and database" is built (ROADMAP 1.1); waiting for chat's review.
 
 ## Done
 - Music guard proven; music folders unchanged after the spikes. `.gitignore` proven. Untethered audited.
 - Spikes D1-D6 passed or logged: `SPIKE-RESULTS.md`. First iOS build and D4c sideload passed.
-- Architecture memo finished (G1). The four calls approved 2026-10-31 (G2): client C, all on E:, backup to C: then phone, BandLab hand export. See DECISIONS.
-- Phase 0 closed (G3): summary at top of DECISIONS, empty `app/` and `server/` with READMEs.
-- ROADMAP 1.11 built: full Xcode log saved as a run artifact on a failed build. Not proven until a build fails.
-- Storage options memo written and reviewed (ROADMAP 1.1, options only): `STORAGE-OPTIONS.md`. Nothing built.
-- Duplicate names done: I sorted every repeated name with Code. Now 1,395 files, no repeated names (`flip` kept on purpose, 3 versions), 26 date-only names. Decisions: `spike/output/triage-decisions.json` (gitignored, laptop only). Nothing moved or deleted.
-- Audio filing decided (2026-10-31): fingerprint folder with the real filename inside, `audio/<short code>/<real filename>`. Browse folder of my names parked.
+- Architecture memo finished (G1). The four calls approved 2026-10-31 (G2). Phase 0 closed (G3).
+- ROADMAP 1.11 built: full Xcode log saved on a failed build. Not proven until a build fails.
+- Storage options decided: shape C (journal), tags on the song, audio filed `audio/<code>/<real filename>`.
+- Duplicate names done: 1,395 files, no repeated names (`flip` kept on purpose). Decisions in `spike/output/triage-decisions.json` (gitignored).
+- **ROADMAP 1.1 built (2026-10-31):** library at `E:\VaultLibrary` with marker, `audio/`, `phone/`, `vault.db`, `journal.jsonl`, and a copy of my sorting file. Code in `server/vault_server/`. Self-test passes (28 checks). Empty so far: no scanner yet.
 
 ## Queue after NEXT
 1. ROADMAP 1.2 read-only scanner, including turning my name lists into per-file verdicts, not names.
 2. Options on how sorting works, then the stream-and-sort items 1.19-1.22.
-3. ROADMAP 1.10 `doctor` script, with Code's pitch: also confirm the library marker file is found before any scan or backup runs.
+3. ROADMAP 1.10 `doctor` script: also confirm the library marker is found before any scan or backup runs (and run the library self-test, Code's pitch).
 
 ## Open questions
 - How sorting mine / not mine works on the phone (swipe each, bulk by folder first, short previews): options before ROADMAP 1.19.
