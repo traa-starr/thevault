@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Library from './Library';
 import { flush, startOutbox } from './outbox';
+import Prototype from './Prototype';
 
 const PORT = 8787;
 const TIMEOUT_MS = 5000;
@@ -58,6 +59,7 @@ export default function App() {
   const [editing, setEditing] = useState(!address);
   const [line, setLine] = useState('');
   const [inLibrary, setInLibrary] = useState(false);
+  const [inPrototype, setInPrototype] = useState(false);
   const [stamp] = useState(survivalStamp);
 
   const check = useCallback(async () => {
@@ -89,6 +91,15 @@ export default function App() {
     setAddress(next);
     setEditing(false);
   };
+
+  if (inPrototype) {
+    return (
+      <>
+        <StatusBar style="light" />
+        <Prototype onBack={() => setInPrototype(false)} />
+      </>
+    );
+  }
 
   if (inLibrary) {
     return (
@@ -140,6 +151,9 @@ export default function App() {
           <Text style={s.link}>Open library</Text>
         </Pressable>
       ) : null}
+      <Pressable onPress={() => setInPrototype(true)}>
+        <Text style={s.link}>Sorting prototype</Text>
+      </Pressable>
       <Text style={s.stamp}>Data since {stamp}</Text>
     </View>
   );

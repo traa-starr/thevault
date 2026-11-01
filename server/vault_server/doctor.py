@@ -12,6 +12,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from .backup import BACKUP_DIR, check_backup
 from .library import MARKER_NAME, REPO_ROOT, LibraryMissing, LibraryRefused
 from .scanner import fingerprint, scan
 from .server import LOOPBACK, PORT, connect_readonly, start_servers, stop_servers, tailscale_info
@@ -155,7 +156,8 @@ def check_fingerprint(root, conn):
     return level, words
 
 
-def run_doctor(root, port=PORT, tailscale=tailscale_info, runner=subprocess.run, guard=GUARD_TEST, library_test=LIBRARY_TEST, say=print):
+def run_doctor(root, port=PORT, tailscale=tailscale_info, runner=subprocess.run, guard=GUARD_TEST, library_test=LIBRARY_TEST, say=print,
+               backup_dir=BACKUP_DIR):
     """Prints a line per check and one overall line. Returns the exit code: 2 if anything failed."""
     levels = []
 
@@ -167,6 +169,7 @@ def run_doctor(root, port=PORT, tailscale=tailscale_info, runner=subprocess.run,
     line("Tailscale", check_tailscale(address))
     line("Music guard test", run_test(guard, runner))
     line("Library self-test", run_test(library_test, runner))
+    line("Backup", check_backup(backup_dir))
     if not (Path(root) / MARKER_NAME).is_file():
         line("Library marker", (FAIL, f"no {MARKER_NAME} in {root}. Wrong drive letter, or the drive is unplugged? Nothing was created."))
         say("SKIP  Server, scan age, songs and fingerprint need the library.")

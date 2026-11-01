@@ -10,7 +10,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from vault_server import doctor, server  # noqa: E402
+from vault_server import backup, doctor, server  # noqa: E402
 from vault_server.library import DB_NAME, MARKER_NAME, init_library  # noqa: E402
 from vault_server.scanner import fingerprint  # noqa: E402
 from vault_server.store import now  # noqa: E402
@@ -40,6 +40,7 @@ def run(root, **kw):
     kw.setdefault("port", free_port())
     kw.setdefault("tailscale", lambda: (server.LOOPBACK, []))
     kw.setdefault("runner", fake_run(0))
+    kw.setdefault("backup_dir", Path(root).parent / "backups")
     code = doctor.run_doctor(root, say=out.append, **kw)
     return code, out
 
@@ -89,11 +90,13 @@ def main():
     lib.close()
 
     # everything fine
+    check("no backup yet is a warning", line(run(root)[1], "Backup").startswith("WARN"))
+    backup.run_backup(root, tmp / "backups")
     state = fingerprint(root)
     servers = server.start_servers(root, [server.LOOPBACK], 0)
     code, out = run(root, port=servers[0].server_port)
     check("all good: every line passes", code == 0 and all(x.startswith("PASS") for x in out[:-1]) and out[-1].startswith("Overall: PASS"), str(out))
-    check("all seven checks plus the fingerprint are there", len(out) == 9, str(out))
+    check("all eight checks plus the fingerprint are there", len(out) == 10, str(out))
 
     # the Tailscale address isn't being listened on
     code, out = run(root, port=servers[0].server_port, tailscale=lambda: ("127.0.0.2", []))

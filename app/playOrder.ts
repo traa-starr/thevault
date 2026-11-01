@@ -59,6 +59,15 @@ export function removeFromOrder(order: Order): Order {
 
 export type Change = { id: string; kind: 'mine_set' | 'mine_restore'; data: { song_id: string; value?: 'mine' | 'not mine' } };
 
+/** The Hidden list as it will be once the laptop has these changes: a song with a restore (or Mine) waiting is already back. */
+export function withoutRestored<S extends { id: string }>(hidden: S[], pending: Change[]): S[] {
+  const latest = new Map(pending.map((change) => [change.data.song_id, change]));
+  return hidden.filter((song) => {
+    const change = latest.get(song.id);
+    return !change || (change.kind === 'mine_set' && change.data.value === 'not mine');
+  });
+}
+
 /** The list as it will be once the laptop has these changes. A restore waits for the laptop's own answer. */
 export function withPending<S extends { id: string; mine: string; sorted: boolean }>(songs: S[], pending: Change[]): S[] {
   const latest = new Map(pending.map((change) => [change.data.song_id, change]));

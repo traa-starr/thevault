@@ -2,6 +2,7 @@
 // Choices the laptop hasn't confirmed yet already show here.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import Hidden from './Hidden';
 import { flush, useOutbox } from './outbox';
 import Player from './Player';
 import { withPending } from './playOrder';
@@ -24,6 +25,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
   const [sort, setSort] = useState<Sort>('title');
   const [filter, setFilter] = useState('');
   const [playing, setPlaying] = useState<{ songs: Song[]; start: number; shuffle: boolean } | null>(null);
+  const [showHidden, setShowHidden] = useState(false);
 
   useEffect(() => {
     const abort = new AbortController();
@@ -87,10 +89,16 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     setAttempt(attempt + 1);
   };
 
+  const closeHidden = () => {
+    setShowHidden(false);
+    setAttempt(attempt + 1); // a restored song is back in the list, and the count with it
+  };
+
   return (
     <View style={s.fill}>
     {playing ? <Player url={url} {...playing} onBack={closePlayer} /> : null}
-    <View style={[s.page, playing && s.hidden]}>
+    {showHidden ? <Hidden url={url} onBack={closeHidden} /> : null}
+    <View style={[s.page, (playing || showHidden) && s.hidden]}>
       <View style={s.header}>
         <Pressable onPress={onBack}>
           <Text style={s.link}>Back</Text>
@@ -135,6 +143,9 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
               </Pressable>
               <Pressable onPress={() => setSort('date')}>
                 <Text style={[s.sort, sort === 'date' && s.sortOn]}>Newest</Text>
+              </Pressable>
+              <Pressable onPress={() => setShowHidden(true)}>
+                <Text style={s.sort}>Hidden</Text>
               </Pressable>
             </View>
           </View>

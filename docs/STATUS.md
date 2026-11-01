@@ -1,9 +1,9 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-01 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`.
+**Phase 1 started.** Updated 2026-11-01 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`.
 
-**In progress:** nothing.
-**Next up:** me: new Code session, `/next`.
+**In progress:** nothing. Batch 2 parts a-d are built.
+**Next up:** me: laptop checks, phone checks, then Review.
 **Current task:** `NEXT.md` "Batch 2: Safety and pull".
 
 ## Done
@@ -15,6 +15,7 @@
 - ROADMAP 1.20 + 1.15 core phone-verified: streaming, seek, real next/previous, shuffle.
 - Plan approved 2026-11-01: blueprint, batch plan, sizing rule.
 - Batch 1 phone-verified 2026-11-01: Mine / Not mine / Undo, outbox retry, shuffle skips Mine, survival stamp kept across a refresh.
+- Batch 2 built 2026-11-01, unproven on phone: backup + `/health` + doctor line, `pull-cloud` (4-file proof passed, 909 cloud-only left), Hidden screen, sorting prototype.
 
 ## Queue
 1. Batch 3: The real player, plus Undo returns to the spot in the song (Code's pitch).
@@ -35,4 +36,4 @@
 - 26 date-only names and the `Untitled...` files wait for later.
 
 ## Checks pending
-- Batch 2: 2 laptop checks and 3 phone checks in `NEXT.md`.
+- Batch 2: register the nightly task (`powershell -File server\schedule_backup.ps1`), run the full pull, then the 3 phone checks in `NEXT.md`.

@@ -1,6 +1,6 @@
 // Self-test for the play order: node --experimental-strip-types app/playOrder.test.mjs
 import assert from 'node:assert/strict';
-import { nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, withPending } from './playOrder.ts';
+import { nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, withPending, withoutRestored } from './playOrder.ts';
 
 const first = () => 0; // always the first song left
 const walk = (order, count, avoid = []) => {
@@ -97,6 +97,21 @@ const tests = {
       { id: '2', kind: 'mine_restore', data: { song_id: 'a' } },
     ]);
     assert.deepEqual(out, songs);
+  },
+  'a pending restore takes a song out of Hidden at once': () => {
+    const hidden = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+    const out = withoutRestored(hidden, [
+      { id: '1', kind: 'mine_restore', data: { song_id: 'a' } },
+      { id: '2', kind: 'mine_set', data: { song_id: 'b', value: 'mine' } },
+    ]);
+    assert.deepEqual(out, [{ id: 'c' }]);
+  },
+  'a later not mine puts a song back in Hidden': () => {
+    const out = withoutRestored([{ id: 'a' }], [
+      { id: '1', kind: 'mine_restore', data: { song_id: 'a' } },
+      { id: '2', kind: 'mine_set', data: { song_id: 'a', value: 'not mine' } },
+    ]);
+    assert.deepEqual(out, [{ id: 'a' }]);
   },
 };
 

@@ -9,6 +9,8 @@
     python server/vault_cli.py fingerprint <music root>                      one line that changes if the music folders change
     python server/vault_cli.py serve <library folder>                        play songs by id, on the laptop and Tailscale only (Ctrl+C stops)
     python server/vault_cli.py doctor <library folder>                       one plain report before phone tests; fixes nothing
+    python server/vault_cli.py backup <library folder> [backup folder]       copy the database and journal to C:\\VaultBackup, keep 14
+    python server/vault_cli.py pull-cloud <library folder> <music root> [n]  make cloud-only songs download, one at a time (only the first n if given); rerun any time
 """
 import shutil
 import sys
@@ -16,9 +18,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from vault_server.backup import run_backup  # noqa: E402
 from vault_server.doctor import FAIL, fingerprint_line, fingerprinted_scan, run_doctor  # noqa: E402
 from vault_server.library import (MARKER_NAME, SORTING_NAME, LibraryMissing, LibraryRefused,  # noqa: E402
                                   init_library, open_library)
+from vault_server.pull import run_pull  # noqa: E402
 from vault_server.scanner import ScanStopped, apply_sorting, fingerprint, source_verdicts  # noqa: E402
 from vault_server.server import run as run_server  # noqa: E402
 from vault_server.songs import FfprobeMissing, fill_details, fill_mine, link_songs, mine_counts, song_counts  # noqa: E402
@@ -31,14 +35,24 @@ def print_result(result):
 
 
 def main(argv):
-    if len(argv) < 3 or argv[1] not in ("init", "check", "import-sorting", "scan", "apply-sorting", "songs", "fingerprint", "serve", "doctor"):
+    if len(argv) < 3 or argv[1] not in ("init", "check", "import-sorting", "scan", "apply-sorting", "songs", "fingerprint", "serve", "doctor",
+                                        "backup", "pull-cloud"):
         print(__doc__)
         return 1
     cmd, folder = argv[1], argv[2]
-    if cmd in ("scan", "apply-sorting") and len(argv) < 4:
+    if cmd in ("scan", "apply-sorting", "pull-cloud") and len(argv) < 4:
         print(__doc__)
         return 1
     try:
+        if cmd == "backup":
+            ok, words = run_backup(folder, *argv[3:4])
+            print(words)
+            return 0 if ok else 2
+        if cmd == "pull-cloud":
+            if len(argv) > 4 and not argv[4].isdecimal():
+                print(__doc__)
+                return 1
+            return run_pull(folder, argv[3], int(argv[4]) if len(argv) > 4 else None)
         if cmd == "fingerprint":
             print(fingerprint(folder))
             return 0

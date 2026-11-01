@@ -15,10 +15,12 @@ import sqlite3
 import stat
 import subprocess
 import threading
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
+from .backup import BACKUP_DIR, last_backup_age
 from .library import DB_NAME, MARKER_NAME, LibraryMissing, LibraryRefused, open_library
 from .scanner import is_cloud_only
 from .songs import restore_mine, set_mine
@@ -116,6 +118,26 @@ def list_songs(conn, hidden=False):
              "sorted": bool(r["sorted"])} for r in rows]
 
 
+def health(root, backup_dir=BACKUP_DIR):
+    """What the phone's warning needs: is the library there, and how old are the last backup and scan (hours, or None)."""
+    age = last_backup_age(backup_dir)
+    out = {"library": (Path(root) / MARKER_NAME).is_file(), "backup_hours": None if age is None else round(age.total_seconds() / 3600, 1),
+           "scan_hours": None}
+    if out["library"]:
+        try:
+            conn = connect_readonly(root)
+            try:
+                latest = conn.execute("SELECT MAX(last_seen) FROM sources").fetchone()[0]
+            finally:
+                conn.close()
+        except (LibraryMissing, LibraryRefused, sqlite3.Error):
+            return out
+        if latest:
+            when = datetime.strptime(latest, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+            out["scan_hours"] = round((datetime.now(timezone.utc) - when).total_seconds() / 3600, 1)
+    return out
+
+
 def apply_one(store, change):
     """'saved', 'nothing to do', or raises ValueError. Only allow-listed kinds get through."""
     if not isinstance(change, dict) or not SONG_ID.fullmatch(str(change.get("id"))):
@@ -202,7 +224,7 @@ def _open_audio(path):
     return open(path, "rb")
 
 
-def make_handler(root, allowed_hosts):
+def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
         server_version = "Vault"
@@ -236,6 +258,8 @@ def make_handler(root, allowed_hosts):
             try:
                 if route == "/":
                     return self._send(200, PAGE.encode("utf-8"), "text/html; charset=utf-8")
+                if route == "/health":
+                    return self._json(200, health(root, backup_dir))
                 if route == "/songs":
                     hidden = parse_qs(urlsplit(self.path).query).get("hidden") == ["1"]
                     conn = connect_readonly(root)
@@ -372,10 +396,10 @@ def tailscale_info(run=subprocess.run):
     return None, []
 
 
-def start_servers(root, addresses, port, names=()):
+def start_servers(root, addresses, port, names=(), backup_dir=BACKUP_DIR):
     """One listener per address, each on its own thread. Returns the listeners."""
     allowed = {"localhost", LOOPBACK, *addresses, *names}
-    handler = make_handler(root, allowed)
+    handler = make_handler(root, allowed, backup_dir)
     servers = []
     try:
         for address in addresses:
