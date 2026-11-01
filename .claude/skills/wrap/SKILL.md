@@ -25,8 +25,10 @@ Do these in order. Say in REPORT if one was skipped, and why.
 4. **`docs/DECISIONS.md`:** every settled call from this session. Hard-to-undo entries list date, options, choice and why.
 5. **`docs/MAP.md`:** only if a location changed. **`docs/ROADMAP.md`:** tick items built this step.
 6. **Safety check:** `python .claude/scripts/check_repo.py`. Fix anything it flags. Never weaken the check to pass.
-7. **Last message, short, nothing pasted from the docs:**
+7. **Last message, short, nothing pasted from the docs except the phone checks:**
    - What happened, in one or two lines. Say plainly if something failed.
+   - **Phone checks still open:** every one with no result yet, this session's plus any older ones pending in STATUS.
+     Numbered exact taps and what passing looks like, copied in full. "None" if none.
    - **Commit message:** one line. I do git myself: never commit, push or merge.
    - **YOUR NEXT ACTION:** normally "Commit and push, do the phone checks, then in a new chat in the Project type
      `Review.` with your results." If the phone check passed here and the next step is `fast-lane OK`: "Commit and push,

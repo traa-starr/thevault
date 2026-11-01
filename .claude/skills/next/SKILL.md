@@ -33,4 +33,4 @@ Read `docs/STATUS.md`, `docs/NEXT.md`, and only what NEXT's `Read:` line names.
 - If a part needs my hands now (phone, sign-in), give me numbered steps, one small batch at a time, and wait for the result.
 
 ## 4. Close
-Run `/wrap`.
+Run `/wrap`. Its last message must print every phone check still open, in full: I shouldn't have to open REPORT for them.
