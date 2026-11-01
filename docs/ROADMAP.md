@@ -114,6 +114,6 @@ with that line" · widgets · Whisper draft tags · "similar meaning" search sec
 | 1.3 | How many cloud-only songs to pull down | ~7.7 GB scanned in total, and many aren't mine |
 | 1.18 | What to do if data doesn't survive a re-sign | Restore from laptop, or pay $99 |
 | Phase 3 | Does search run on the phone or the laptop? | The spike tested search on the laptop only; offline search needs it on the phone. Test before building |
-| Phase 5 | FL project backup | 155 projects have no backup. Can be decided sooner |
+| Phase 5 | FL project backup | Declined 2026-10-31. Parked; don't raise unless I do |
 
 **Known cost of keeping BandLab late:** those songs miss tagging until Phase 5, and the acceptance test won't cover them until they're tagged.

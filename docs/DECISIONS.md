@@ -17,18 +17,18 @@ The short version. Full rows with options and reasons are below; nothing was del
 ## 2026-10-31, from planning chats
 | Topic | Choice | Why | State |
 |---|---|---|---|
-| Phone client | Native iOS app with Expo (React Native + TypeScript), Expo UI for a native look | Home-screen web apps lose audio in background/lock; native unlocks lock-screen controls, widgets, Siri/Shortcuts, deep links; builds without a Mac | **Lean, pending spike** |
-| Rejected main app | Add-to-Home-Screen web app | Audio dies in background. Capacitor-wrapped web app remains the middle option | Pending spike |
-| Install path | Expo Go via QR day to day; unsigned `.ipa` from GitHub Actions macOS; sideload with free Apple ID | No Mac, no paid account. 7-day expiry, 3 sideloaded apps max; widgets/share extensions may not work. Pay $99 only if re-signing gets annoying; code must not depend on that | Lean, pending spike |
-| Laptop | Python server + SQLite (FTS5 for search) | Simple, local | Lean, pending spike |
-| Connection | Tailscale from phone to laptop | Private network, works away from home | Lean, pending spike |
+| Phone client | Native iOS app with Expo (React Native + TypeScript), Expo UI for a native look | Home-screen web apps lose audio in background/lock; native unlocks lock-screen controls, widgets, Siri/Shortcuts, deep links; builds without a Mac | **Decided** (G2, option C) |
+| Rejected main app | Add-to-Home-Screen web app | Audio dies in background. Capacitor-wrapped web app remains the middle option | Decided (G2) |
+| Install path | Expo Go via QR day to day; unsigned `.ipa` from GitHub Actions macOS; sideload with free Apple ID | No Mac, no paid account. 7-day expiry, 3 sideloaded apps max; widgets/share extensions may not work. Pay $99 only if re-signing gets annoying; code must not depend on that | Decided (D4c passed) |
+| Laptop | Python server + SQLite (FTS5 for search) | Simple, local | Decided (G2) |
+| Connection | Tailscale from phone to laptop | Private network, works away from home | Decided (G2) |
 | Repo | Public, standard GitHub runners only | macOS runners free and unlimited on public repos; larger runners are billed. Code and docs may be seen; credentials never | Decided |
 | Music safety | Read-only, enforced by settings and a hook, never by a note | Rule 1 | Decided |
 | Tags | Human-entered; Whisper at most an optional draft later | Unreliable on slang/autotune | Decided |
 | Search | Never exclude, only reorder; built-in database search where possible | Songs are recalled by half-remembered lines | Decided |
 | Groups | Button, always propose, one-tap confirm | Random play separates versions | Decided |
 | Links | Database records, never file renames | Rule 1 | Decided |
-| BandLab audio | Pulled in, not just linked. Lean: latest version imported, others listed as linked history | Vault can't be final otherwise | Method pending |
+| BandLab audio | Pulled in, not just linked. Lean: latest version imported, others listed as linked history | Vault can't be final otherwise | Method decided (G2, hand export); import details come in Phase 5 |
 | Reaper | Ignored | | Decided |
 
 ## 2026-10-31, Phase 0
@@ -65,3 +65,5 @@ The short version. Full rows with options and reasons are below; nothing was del
 | Library location (G2, 2026-10-31) | A: everything (database + audio) in one folder on E:, `E:\VaultLibrary`. Options were: A all on E: / B all on C: / C split, database on C: | My call, against the memo's pick (C). One folder. Known cost: E: unplugged = library offline and tags wait on the phone; app finds the library by a marker file, not the letter E:, and says plainly when it's missing |
 | Database backup (G2, 2026-10-31) | A now: nightly copy to C:. B later: copy to the phone at each sync. No iCloud. Options were: A / B / C iCloud folder | My call. No change to rule 1. Backup skipped while E: is unplugged, so the app must warn |
 | BandLab method (G2, 2026-10-31) | A: hand export in the BandLab app. Options were: A hand export / B browser automation / C data request | My call. Protects the account holding unexported songs. Unlocks rule 7 for hand export only |
+| Phase 0 close (2026-10-31) | Accepted: G3 done, Phase 0 summary, empty `app/` and `server/`, CLAUDE.md updated (chat) | REPORT matches NEXT; file times match the Changed list |
+| Next step (2026-10-31) | 1.11 (Xcode log on failed build) and the 1.1 storage options memo in one session; no database built until I choose (chat-default) | 1.11 is a fast-lane item already queued and cheap. 1.1 is first on the roadmap but hard to undo, so Code brings options first |
