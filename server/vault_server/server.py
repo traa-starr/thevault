@@ -95,15 +95,16 @@ def connect_readonly(root):
 def list_songs(conn):
     """Known songs, from the database only: the list never touches the music folders."""
     rows = conn.execute("""
-        SELECT g.id, g.title, COALESCE(f.value, 'unknown') AS mine,
+        SELECT g.id, g.title, COALESCE(f.value, 'unknown') AS mine, d.value AS date,
                CASE WHEN EXISTS (SELECT 1 FROM song_places p JOIN sources s USING (path)
                                  WHERE p.song_id=g.id AND p.state='sure' AND s.status='present' AND s.cloud_only=0) THEN 'laptop'
                     WHEN EXISTS (SELECT 1 FROM song_places p JOIN sources s USING (path)
                                  WHERE p.song_id=g.id AND s.status='present') THEN 'cloud'
                     ELSE 'gone' END AS place
         FROM songs g LEFT JOIN song_fields f ON f.song_id=g.id AND f.field='mine'
+        LEFT JOIN song_fields d ON d.song_id=g.id AND d.field='date'
         ORDER BY place='laptop' DESC, g.title COLLATE NOCASE""")
-    return [{"id": r["id"], "title": r["title"], "mine": r["mine"], "where": r["place"]} for r in rows]
+    return [{"id": r["id"], "title": r["title"], "mine": r["mine"], "where": r["place"], "date": r["date"]} for r in rows]
 
 
 def song_places(conn, song_id):

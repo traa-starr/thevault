@@ -1,9 +1,9 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-01 by chat. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
+**Phase 1 started.** Updated 2026-11-01 by Code. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
 
 **In progress:** nothing.
-**Next up:** me: new Code session, `/next`.
+**Next up:** me: phone checks, then Review.
 **Current task:** `NEXT.md` "Library list" (ROADMAP 1.14).
 
 ## Done
@@ -16,6 +16,7 @@
 - ROADMAP 1.10 built and phone-verified: doctor.
 - ROADMAP 1.12 phone-verified: The Vault installed, shows 1,395 songs and "not reachable".
 - ROADMAP 1.13 phone-verified: prototype player.
+- ROADMAP 1.14 built, phone check pending: library list.
 
 ## Queue
 1. ROADMAP 1.15 real player (needs songs on the phone or streaming; see open question).

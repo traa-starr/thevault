@@ -60,6 +60,7 @@ def main():
     gone = add_song(lib, music / "gone.wav", b"x")
     likely = add_song(lib, music / "likely.mp3", b"maybe another file", state="likely")
     lib.store.record("song_field", {"song_id": local, "field": "mine", "value": "likely mine", "origin": "guess", "basis": "title"})
+    lib.store.record("song_field", {"song_id": local, "field": "date", "value": "2024-05-01", "origin": "guess", "basis": "tag"})
     lib.close()
     (music / "gone.wav").unlink()
     for name in ("cloud.mp3", "went back to cloud.mp3"):
@@ -94,6 +95,7 @@ def main():
     check("list shows id, title, mine status", songs[local]["title"] == "Local <b>song</b>" and songs[local]["mine"] == "likely mine"
           and songs[cloud]["mine"] == "unknown")
     check("list says local or cloud-only", songs[local]["where"] == "laptop" and songs[cloud]["where"] == "cloud")
+    check("list gives the date, or nothing if unknown", songs[local]["date"] == "2024-05-01" and songs[cloud]["date"] is None)
     r, body = ask("/")
     check("the page opens and shows titles as plain text", r.status == 200 and b"textContent = song.title" in body and b"innerHTML" not in body)
 

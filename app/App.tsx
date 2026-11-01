@@ -3,6 +3,7 @@ import { File, Paths } from 'expo-file-system';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
 import { AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import Library from './Library';
 import Player from './Player';
 
 const PORT = 8787;
@@ -45,6 +46,7 @@ export default function App() {
   const [editing, setEditing] = useState(!address);
   const [line, setLine] = useState('');
   const [inPlayer, setInPlayer] = useState(false);
+  const [inLibrary, setInLibrary] = useState(false);
 
   const check = useCallback(async () => {
     if (!address) return;
@@ -82,6 +84,15 @@ export default function App() {
     );
   }
 
+  if (inLibrary) {
+    return (
+      <>
+        <StatusBar style="light" />
+        <Library url={serverUrl(address)} onBack={() => setInLibrary(false)} />
+      </>
+    );
+  }
+
   return (
     <View style={s.page}>
       <StatusBar style="light" />
@@ -112,6 +123,11 @@ export default function App() {
           </Pressable>
         </>
       )}
+      {address ? (
+        <Pressable onPress={() => setInLibrary(true)}>
+          <Text style={s.link}>Open library</Text>
+        </Pressable>
+      ) : null}
       <Pressable onPress={() => setInPlayer(true)}>
         <Text style={s.link}>Open player</Text>
       </Pressable>
