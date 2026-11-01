@@ -151,3 +151,6 @@ The short version. Full rows with options and reasons are below; nothing was del
 | Phone copies (2026-11-01) | AAC about 192 kbps; files already compressed at or under that are copied as is (plan call) | Avoids compressing twice. Reversible: copies can be rebuilt |
 | Limits (2026-11-01) | Phone storage limit starts at 8 GB, adjustable. Backup keeps 14 copies (plan call) | Reversible |
 | Playlist fallback (2026-11-01) | If the switch to the playlist player fails twice: stop, report, keep the single player, bring options (plan call) | Limits the risk to one batch |
+| Plan approved (2026-11-01) | BLUEPRINT and BATCH-PLAN approved as written. Options were: approve / approve with changes (mine, took the recommendation) | Matches all 2026-11-01 calls |
+| Sizing rule (2026-11-01) | One NEXT = one batch, 2-3 phone checks. Options were: one batch / one phone check, ~3 parts (mine, took the recommendation) | Batches already cut that way |
+| Batch 1 stop line (2026-11-01) | Stop line moved before part c, so a long session still ends with Mine / Not mine / Undo done (mine, took the recommendation) | Part a is heavy |

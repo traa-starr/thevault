@@ -1,13 +1,13 @@
 # NEXT: Batch 1: First write (Mine / Not mine / Undo)
-Written by the plan session, 2026-11-01. Awaiting owner approval at `Review.` in chat.
-Log: all answers and plan calls are in DECISIONS, 2026-11-01 plan session rows. (logged by plan session)
+Written by the plan session, 2026-11-01. Approved by owner in chat, 2026-11-01.
+Log: all answers and plan calls are in DECISIONS, 2026-11-01 plan session rows. Owner approved plan, sizing rule, and earlier stop line. (logged by chat)
 Queue after this: Batch 2 "Safety and pull" (`BATCH-PLAN.md`).
 Read: `BLUEPRINT.md` ("How writes stay safe", "The first write path"), then `server/vault_server/server.py`, `store.py`, `app/Player.tsx`, `app/Library.tsx`, `app/playOrder.ts`.
 ## Parts
 a. **Server write path.** `POST /changes` as in the blueprint, kinds `mine_set` and `mine_restore`; new journal kind `song_field_restore`; lock file around each `record`; no schema bump. `/songs` leaves out not mine and adds a `sorted` flag; `/songs?hidden=1` lists the not-mine songs. Self-tests: repeated id does nothing, bad kind refused, missing header refused, undo restores a guess, rebuild from journal gives the same result, a re-scan keeps a verdict, no music file opened for writing. Measure journal read time per write. Update the server docstring: it isn't "no route changes anything" now.
 b. **App.** Mine and Not mine buttons in the Player. Outbox saved on the phone, sent at once, retried when the laptop answers. Not mine moves to the next song immediately and shows a 5-second Undo toast; Undo brings the song back and returns to it. The song leaves the current play order without breaking Previous. Keep the logic in `playOrder.ts` and test it the same way.
+**Stop line:** c and d wait if the session runs long.
 c. **Shuffle skips Mine.** Library shuffle only lands on songs whose value isn't "mine", while sorting goes on. The list and tap-to-play still include them.
-**Stop line:** d waits if the session runs long.
 d. **Survival stamp (1.18 first half).** The app writes a stamp file on first run and shows its date in small text on home. Nothing else depends on it.
 Limits: nothing writes to a music folder. Only the journal and database change. No new packages unless a part can't work without one; note it in REPORT.
 ## Phone check
