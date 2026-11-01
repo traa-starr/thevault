@@ -1,6 +1,6 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-01 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`.
+**Phase 1 started.** Updated 2026-11-01 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 
 **In progress:** nothing. Batch 2 parts a-d are built.
 **Next up:** me: laptop checks, phone checks, then Review.

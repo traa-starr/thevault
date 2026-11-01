@@ -15,6 +15,9 @@ Markdown docs and skill instructions are yours to edit.
 folder and compare modified times. If the laptop is out of reach, ask me to paste REPORT and STATUS, and give NEXT as a
 `/next` copy block.
 
+**Commands for me:** `docs/COMMANDS.md` is my cheat sheet. Whenever you tell me to run something, give the exact line
+from it. When Code adds or changes a laptop command, update COMMANDS.md in the same review.
+
 ## Files you manage at every `Review.`
 | File | Your job |
 |---|---|
