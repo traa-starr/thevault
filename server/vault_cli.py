@@ -7,6 +7,7 @@
     python server/vault_cli.py apply-sorting <library folder> <music root>   turn my sorting file into per-file verdicts (once)
     python server/vault_cli.py songs <library folder>                        link duplicates into songs, fill title, date, source, mine
     python server/vault_cli.py fingerprint <music root>                      one line that changes if the music folders change
+    python server/vault_cli.py serve <library folder>                        play songs by id, on the laptop and Tailscale only (Ctrl+C stops)
 """
 import shutil
 import sys
@@ -17,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from vault_server.library import (MARKER_NAME, SORTING_NAME, LibraryMissing, LibraryRefused,  # noqa: E402
                                   init_library, open_library)
 from vault_server.scanner import ScanStopped, apply_sorting, fingerprint, scan, source_verdicts  # noqa: E402
+from vault_server.server import run as run_server  # noqa: E402
 from vault_server.songs import FfprobeMissing, fill_details, fill_mine, link_songs, mine_counts, song_counts  # noqa: E402
 
 
@@ -26,7 +28,7 @@ def print_result(result):
 
 
 def main(argv):
-    if len(argv) < 3 or argv[1] not in ("init", "check", "import-sorting", "scan", "apply-sorting", "songs", "fingerprint"):
+    if len(argv) < 3 or argv[1] not in ("init", "check", "import-sorting", "scan", "apply-sorting", "songs", "fingerprint", "serve"):
         print(__doc__)
         return 1
     cmd, folder = argv[1], argv[2]
@@ -37,6 +39,8 @@ def main(argv):
         if cmd == "fingerprint":
             print(fingerprint(folder))
             return 0
+        if cmd == "serve":
+            return run_server(folder)
         if cmd == "init":
             lib = init_library(folder)
             print(f"Library ready at {lib.root} (marker {MARKER_NAME}).")

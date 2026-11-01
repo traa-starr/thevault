@@ -26,7 +26,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [x] 1.5 Auto "mine" detection, unknown by default
 - [x] 1.6 Source tag (FL), title and date filled in from the file
 - [ ] 1.7 Compressed phone copies (~192 kbps), kept songs only
-- [ ] 1.8 Server: serves known songs by id only, over Tailscale; streams with seeking, so the phone keeps no copy
+- [x] 1.8 Server: serves known songs by id only, over Tailscale; streams with seeking, so the phone keeps no copy
 - [ ] 1.9 Nightly database backup to C: (G2), with a warning when it is skipped
 - [ ] 1.10 `doctor` script: checks Tailscale, server and guard before phone tests, stops test servers after
 - [x] 1.11 Build upkeep: full Xcode log saved on a failed build *(built, unproven until a build fails)*
