@@ -29,7 +29,7 @@ jobs:
           SCHEME=$(basename ios/*.xcworkspace .xcworkspace)
           xcodebuild -workspace "ios/$SCHEME.xcworkspace" -scheme "$SCHEME" -configuration Release \
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-out \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" | tail -40
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | tail -40
           test -d build-out/Build/Products/Release-iphoneos/"$SCHEME".app
       - name: Package .ipa
         run: |
@@ -40,4 +40,12 @@ jobs:
         with:
           name: unsigned-ipa
           path: ${{ inputs.app }}/unsigned.ipa
+          retention-days: 7
+      - name: Save full Xcode log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: ${{ runner.temp }}/xcodebuild.log
+          if-no-files-found: ignore
           retention-days: 7

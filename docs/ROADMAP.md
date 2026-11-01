@@ -28,7 +28,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [ ] 1.8 Server: serves known songs by id only, over Tailscale
 - [ ] 1.9 Nightly database backup to C: (G2), with a warning when it is skipped
 - [ ] 1.10 `doctor` script: checks Tailscale, server and guard before phone tests, stops test servers after
-- [ ] 1.11 Build upkeep: full Xcode log saved on a failed build
+- [x] 1.11 Build upkeep: full Xcode log saved on a failed build *(built, unproven until a build fails)*
 
 *Phone*
 - [ ] 1.12 Real app, built and sideloaded
