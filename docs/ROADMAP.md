@@ -35,14 +35,14 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [x] 1.12 Real app, built and sideloaded *(phone-verified 2026-11-01)*
 - [x] 1.13 Prototype: player screen, tappable with fake data *(phone-verified 2026-11-01)*
 - [x] 1.14 Library list: scroll, sort, basic title filter *(phone-verified 2026-11-01)*
-- [ ] 1.15 Player: play, pause, seek, next, previous, shuffle, queue
+- [ ] 1.15 Player: play, pause, seek, next, previous, shuffle, queue *(all but queue phone-verified 2026-11-01)*
 - [ ] 1.16 Background and lock-screen playback
 - [ ] 1.17 Kept songs stored on the phone: downloads with progress, storage limit, offline play
 - [ ] 1.18 Survival test: app data survives a SideStore re-sign. **Must pass before real tagging (Phase 2); tags can't be replaced.** Sorting verdicts and quick tags save straight to the laptop, so they don't wait on it
 
 *Stream and sort (needs the laptop on and reachable)*
 - [ ] 1.19 Prototype: sorting card, tappable with fake data
-- [x] 1.20 Stream any song from the laptop: tap and it plays, nothing saved to the phone, seeking works
+- [x] 1.20 Stream any song from the laptop: tap and it plays, nothing saved to the phone, seeking works *(phone-verified 2026-11-01)*
 - [ ] 1.21 Sorting session: card for a random unsorted song, one-tap Keep / Not mine, optional quick tag, progress counter. Verdicts save to the laptop. Mine filter; my manual choice always wins. First pass is getting songs out
 - [ ] 1.22 Import list: only kept songs are imported; not-mine songs stay out of the library and the app
 
