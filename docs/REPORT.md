@@ -1,37 +1,35 @@
 # Report
 
-**Step:** Server, stream a song by id (ROADMAP 1.8), 2026-11-01.
+**Step:** Doctor, one check before phone tests (ROADMAP 1.10), 2026-11-01.
 
 **Verified by running:**
-- `python server/test_server.py`: ALL PASSED, 41 checks: unknown id refused, paths in place of an id refused, seeking returns the right bytes, cloud-only refused without opening (also when the database is out of date), nothing written.
-- Real run on `E:\VaultLibrary`: lists 1,395 songs (589 on the laptop, 806 cloud-only). All 589 answer. mp3, wav and m4a each decode from 5 seconds in over the server. A cloud-only song answers "not on laptop yet".
-- Headless Edge (a browser with no window): the page shows 1,395 of 1,395 rows. One mp3 loaded, jumped to 63.9 s of 127.9 s, and reported playing.
-- Reachable on the laptop address, the Tailscale address and the Tailscale name. Not reachable on the laptop's other network address.
-- Stop path: a simulated Ctrl+C prints "Stopped." and exits cleanly.
-- Music folders before and after (whole iCloud Drive): 2,241 files, same listing code.
-- `python server/test_library.py`: ALL PASSED. `python .claude/hooks/test_guard_music.py`: 39/39. `python .claude/scripts/check_repo.py`: run at wrap, see my last message.
+- `python server/test_doctor.py`: ALL PASSED, 33 checks. Each check is made to pass and fail, the test server is stopped afterwards, and doctor changes nothing in the library.
+- Real doctor on `E:\VaultLibrary`, before any record existed: 7 pass, 1 warn (no fingerprint record yet), exit 0.
+- Real `scan`: 0 new files, nothing unreadable, "music folders unchanged" (2,241 files, whole iCloud Drive).
+- Real doctor after that scan: all 8 pass, "OK for phone tests".
+- "Not running" path on the real library, tried on a spare port: warns, test start listed 1,395 songs, then nothing was answering on that port.
+- `check` before and after the scan: same counts (1,537 files, 1,395 songs, mine 68 + 5, likely 115, unknown 1,207).
+- `python server/test_server.py` and `python server/test_library.py`: ALL PASSED. `python .claude/hooks/test_guard_music.py`: 39/39. `python .claude/scripts/check_repo.py`: clean.
 
 **Needs the phone:**
-1. On the laptop run `python server/vault_cli.py serve E:\VaultLibrary`. It prints the phone address.
-2. Phone on Tailscale. Open that address in Safari. If it doesn't open, try the second address it prints.
-3. Tap a song near the top: it plays. Drag the timeline: it jumps there.
-4. Scroll past the laptop songs and tap one marked "not on laptop yet": the message shows and nothing plays.
-5. Ctrl+C on the laptop: it says "Stopped."
+1. Laptop: `python server/vault_cli.py doctor E:\VaultLibrary`. All lines pass, or warn with a reason.
+2. Start the server if it isn't running: `python server/vault_cli.py serve E:\VaultLibrary`. In phone Safari, play a song, as last time.
+3. Ctrl+C the server. Run doctor again: the Server line says it isn't running, and overall is still pass with a warning.
 
-**Changed:** `server/vault_server/server.py` (new), `server/test_server.py` (new), `server/vault_cli.py`, `server/README.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/REPORT.md`, `docs/DECISIONS.md`. Nothing changed in `E:\VaultLibrary`.
+**Changed:** `server/vault_server/doctor.py` (new), `server/test_doctor.py` (new), `server/vault_cli.py`, `server/README.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/REPORT.md`, `docs/DECISIONS.md`. In `E:\VaultLibrary`: the scan refreshed its "last seen" times and added `scan-fingerprint.json`. Music folders unchanged.
 
 **Differed from NEXT.md:**
-- Picked: Python's built-in web server, so nothing to install, on port 8787 (logged).
-- Added: refuses requests using an address name it doesn't know, so a web page can't reach the server by a trick.
-- Added: the server checks the file's live cloud status before opening, because the scan can be out of date. The list itself comes from the last scan, so a label can be behind. Tapping still gets the true answer.
-- Added: the test page's list shows laptop songs first.
-- Windows `netstat` gave odd, inconsistent results here, so "listens only on these addresses" rests on the connection tests and the code, not on netstat.
-- Repo check flagged Tailscale-style addresses in my code and test. I rewrote those lines; the check is unchanged.
+- Picked: a scan is old past 7 days (logged).
+- Picked: the fingerprint compare lives inside the `scan` command, because doctor doesn't take the music folder. Doctor reads the saved result.
+- Added: when no server is running, doctor does a test start on a spare laptop-only port and stops it. Those are the "test servers it started".
+- Added: doctor fails if something else holds the port, or if the server isn't on the Tailscale address.
+- Songs with no present place shows a count, as NEXT says. DECISIONS said "lists"; names can come when there's a reason (0 today).
+- A server was already running on port 8787 (a `serve` command, not started this session). I left it running, so the real port's "not running" line is left for the phone check.
 
-**Not done:** Nothing from NEXT. Not proven: audible sound (the Edge test ran with no window, muted), a real Ctrl+C key press, and anything in phone Safari. The phone check covers these.
+**Not done:** Nothing from NEXT. Not proven: a real music-folder change during a real scan (only simulated in the throwaway test). Known limit: iCloud syncing during a scan would also show as a fail, which then means "look", not "the app wrote". Doctor can't see a change made outside a scan.
 
 **Decisions needed:** None hard-to-undo.
 
-**Proposed next step:** ROADMAP 1.10 `doctor` (queued, fast-lane OK).
+**Proposed next step:** ROADMAP 1.12 real app built and sideloaded (needs chat, has calls of mine).
 
-**Pitch:** Have `doctor` warn when the scan is old, so the "on laptop" labels don't quietly drift.
+**Pitch:** Have the fail line name the files that changed during a scan, so an iCloud sync can be told from a real problem at a glance.

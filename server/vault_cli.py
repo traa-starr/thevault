@@ -8,6 +8,7 @@
     python server/vault_cli.py songs <library folder>                        link duplicates into songs, fill title, date, source, mine
     python server/vault_cli.py fingerprint <music root>                      one line that changes if the music folders change
     python server/vault_cli.py serve <library folder>                        play songs by id, on the laptop and Tailscale only (Ctrl+C stops)
+    python server/vault_cli.py doctor <library folder>                       one plain report before phone tests; fixes nothing
 """
 import shutil
 import sys
@@ -15,9 +16,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from vault_server.doctor import FAIL, fingerprint_line, fingerprinted_scan, run_doctor  # noqa: E402
 from vault_server.library import (MARKER_NAME, SORTING_NAME, LibraryMissing, LibraryRefused,  # noqa: E402
                                   init_library, open_library)
-from vault_server.scanner import ScanStopped, apply_sorting, fingerprint, scan, source_verdicts  # noqa: E402
+from vault_server.scanner import ScanStopped, apply_sorting, fingerprint, source_verdicts  # noqa: E402
 from vault_server.server import run as run_server  # noqa: E402
 from vault_server.songs import FfprobeMissing, fill_details, fill_mine, link_songs, mine_counts, song_counts  # noqa: E402
 
@@ -28,7 +30,7 @@ def print_result(result):
 
 
 def main(argv):
-    if len(argv) < 3 or argv[1] not in ("init", "check", "import-sorting", "scan", "apply-sorting", "songs", "fingerprint", "serve"):
+    if len(argv) < 3 or argv[1] not in ("init", "check", "import-sorting", "scan", "apply-sorting", "songs", "fingerprint", "serve", "doctor"):
         print(__doc__)
         return 1
     cmd, folder = argv[1], argv[2]
@@ -41,6 +43,8 @@ def main(argv):
             return 0
         if cmd == "serve":
             return run_server(folder)
+        if cmd == "doctor":
+            return run_doctor(folder)
         if cmd == "init":
             lib = init_library(folder)
             print(f"Library ready at {lib.root} (marker {MARKER_NAME}).")
@@ -60,7 +64,12 @@ def main(argv):
             print(f"Mine: {mine_counts(lib)}")
         elif cmd == "scan":
             lib = open_library(folder)
-            print_result(scan(lib, argv[3]))
+            result, record = fingerprinted_scan(lib, argv[3])
+            print_result(result)
+            level, words = fingerprint_line(record)
+            print(f"{level}  Music fingerprint: {words}")
+            lib.close()
+            return 2 if level == FAIL else 0
         elif cmd == "apply-sorting":
             lib = open_library(folder)
             print_result(apply_sorting(lib, argv[3]))

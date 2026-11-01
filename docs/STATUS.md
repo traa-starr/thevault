@@ -1,9 +1,9 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-01 by chat. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
+**Phase 1 started.** Updated 2026-11-01 by Code. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
 
 **In progress:** nothing.
-**Next up:** me: commit, new Code session, `/next`.
+**Next up:** me: phone checks, then Review.
 **Current task:** `NEXT.md` "Doctor" (ROADMAP 1.10).
 
 ## Done
@@ -16,6 +16,7 @@
 - ROADMAP 1.5 built and accepted: mine 68 + 5, likely 115, unknown 1,207.
 - ROADMAP 1.8 built and phone-verified: 589 songs playable, 806 cloud-only.
 - Laptop check for 1.2-1.6 passed.
+- ROADMAP 1.10 built: `doctor` all pass on the real library. Phone check pending.
 
 ## Queue
 1. ROADMAP 1.12 real app built and sideloaded.
@@ -33,4 +34,4 @@
 - Known gap for 1.3: a kept file that goes back to cloud-only shows unsorted after a rebuild until local again (journal keeps the verdict).
 
 ## Checks pending
-- None.
+- Doctor phone check: see REPORT "Needs the phone".
