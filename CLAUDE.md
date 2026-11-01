@@ -5,7 +5,7 @@ Product: `docs/VISION.md`. Choices: `docs/DECISIONS.md`. Current state: `docs/ST
 Build order: `docs/ROADMAP.md`. Where things live: `docs/MAP.md`. The one current task: `docs/NEXT.md`. Last session's results: `docs/REPORT.md`.
 How we work: `docs/WORKFLOW.md`. Chat manages, Code builds, and I carry one line. Commands: `/next`, `/wrap`, `/review`, `/where`.
 
-**Phase 0: no app code until I approve in DECISIONS.md.** Throwaway code goes in `spike/` only.
+**Phase 0 is over (2026-10-31).** App code is allowed in `app/` (phone) and `server/` (laptop), following `docs/ROADMAP.md`. Throwaway code still goes in `spike/`. All the rules below are unchanged.
 
 ## Who I am
 Audio engineer and rapper, not a developer. Explain plainly, one line per jargon term. Keep me in the loop on decisions.

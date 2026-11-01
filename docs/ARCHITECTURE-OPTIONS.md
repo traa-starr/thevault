@@ -1,6 +1,8 @@
 # Architecture options
 
-**Status: ready for approval.** Updated 2026-10-31 with the spike results (`SPIKE-RESULTS.md`). Each call is yours; approve or change them in DECISIONS.md.
+**Status: decided 2026-10-31.** See the G2 rows in `DECISIONS.md`. The library went to option A (everything on `E:\VaultLibrary`), not this memo's pick (C, split). The rest below is the reasoning as written before the decision.
+
+Spike results are in `SPIKE-RESULTS.md`.
 
 ## Approve sheet
 | Call | Options | Pick (also what a senior engineer would choose) |

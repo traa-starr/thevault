@@ -2,6 +2,18 @@
 
 Newest at the bottom. Hard-to-undo entries list options, choice and why.
 
+## Phase 0 summary (closed 2026-10-31)
+The short version. Full rows with options and reasons are below; nothing was deleted.
+- **Safety:** my music is read-only. Locked: all of iCloud Drive and FL Studio Projects, enforced by settings plus a hook. Repo is public, standard runners only, no credentials.
+- **Scope:** iCloud `Music`, `Session Music`, `tape`, plus loose files. "Mine" = my artist names in title or tags, my override wins. `Downloads\CHE` excluded. Reaper ignored.
+- **Phone app:** native iOS app with Expo, songs stored on the phone, laptop syncs (G2, option C). Sideload works (D4c passed), free spare Apple account.
+- **Laptop:** Python server + SQLite (FTS5), reached over Tailscale.
+- **Library:** one folder, `E:\VaultLibrary`, database and audio together (G2, option A). Found by a marker file, not the drive letter.
+- **Backup:** nightly copy to C:, later a copy to the phone at each sync. No iCloud (G2).
+- **BandLab:** pulled in, not just linked. Method is hand export in the app (G2, option A). Comes late, Phase 5.
+- **Product rules:** tags typed by me, search reorders and never excludes, groups are a button with one-tap confirm, links are database records and never file renames.
+- **Workflow:** chat manages, Code builds, I commit. Route is `ROADMAP.md`. Tappable fake-data prototype before each daily screen.
+
 ## 2026-10-31, from planning chats
 | Topic | Choice | Why | State |
 |---|---|---|---|

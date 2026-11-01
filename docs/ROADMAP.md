@@ -14,7 +14,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 ## Gate: before any app code
 - [x] G1 Finish the architecture memo (`ARCHITECTURE-OPTIONS.md`)
 - [x] G2 I approve 4 calls: client option, library location, database backup, BandLab method
-- [ ] G3 Close Phase 0: fold its DECISIONS rows into a summary, start `app/` and `server/`
+- [x] G3 Close Phase 0: fold its DECISIONS rows into a summary, start `app/` and `server/`
 
 ## Phase 1: Player (Checkpoint 1). "It's my music player now"
 *Laptop*
