@@ -1,16 +1,16 @@
-# NEXT: Real app, built and sideloaded (ROADMAP 1.12)
+# NEXT: Prototype player screen (ROADMAP 1.13)
 Written by chat, 2026-11-01.
-Log: Doctor phone check passed (mine). App name "The Vault" (mine). Bundle ID `io.github.traastarr.thevault` (mine). Vault Spike stays installed until The Vault plays (chat-default). (logged by chat)
-Queue after this: ROADMAP 1.13 prototype player screen with fake data (fast-lane OK: tappable player screen, play/pause/seek/next/previous drawn but fed fake songs, no server calls, same build and sideload path).
-Read: `ROADMAP.md` (1.12), `DECISIONS.md` (Phone client, Install path, Sideload rows, App name, Bundle ID, Xcode log rows), `.github/workflows/build-ios.yml`, `app/README.md`, `spike/vault-spike` (as reference only).
+Log: 1.12 phone check passed (mine). /status pitch parked (chat-default). (logged by chat)
+Queue after this: ROADMAP 1.14 library list: scroll, sort, basic title filter.
+Read: `ROADMAP.md` (1.13), `VISION.md` (player parts only), `app/App.tsx`, `app/README.md`.
 
 ## Parts
-a. **App shell.** Real Expo app (React Native + TypeScript) in `app/`, name "The Vault", bundle ID `io.github.traastarr.thevault`. One screen: the title and a laptop line that reads the server's song count over Tailscale, or says "laptop not reachable". Nothing else; no player yet.
-b. **Build.** Point the build workflow at `app/` so it makes an unsigned `.ipa` named for The Vault, standard runner, full Xcode log on failure kept. The spike build keeps working or is cleanly retired from the workflow (say which). Run it once and report pass/fail and size.
-c. **Prove and hand over.** Typecheck passes, repo check clean (no `.ipa`, no Tailscale address in the repo: the server address comes from a setting on the phone or an untracked file), guard test, STATUS. REPORT gives me plain sideload steps: download the `.ipa`, install with SideStore, open.
-Limits: no player, no downloads, no tags. Don't touch Vault Spike on the phone. Don't change the bundle ID once set.
+a. **Player screen.** In The Vault, a player screen fed by a short list of fake songs (made-up titles, no real names): title, play/pause, seek bar, next, previous. Buttons change what's shown (title, play state, position moving while "playing"). No real audio, no server calls for this screen.
+b. **Keep the laptop line.** The 1.12 screen and saved address still work; reach the player from it with one tap.
+c. **Build and hand over.** Typecheck, repo check, guard test. Same build and sideload path. REPORT gives plain phone steps.
+Limits: no real playback, no downloads, no library list yet. Don't change the bundle ID.
 
-**Stop line:** if the session runs long, finish a and the workflow change; the run itself can wait for my next `/next`.
+**Stop line:** if long, finish a and b; the build run can wait.
 
 ## Phone check
-1. Install The Vault with SideStore. It opens from the home screen with its name under the icon. With the laptop server running, it shows the song count (1,395). Stop the server, reopen: it says the laptop isn't reachable. Vault Spike still opens.
+1. Open The Vault, tap into the player. Play/pause toggles, the seek bar moves and can be dragged, next/previous change the title. Laptop line still shows the count with the server on.

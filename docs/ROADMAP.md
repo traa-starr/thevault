@@ -32,7 +32,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [x] 1.11 Build upkeep: full Xcode log saved on a failed build *(built, unproven until a build fails)*
 
 *Phone*
-- [ ] 1.12 Real app, built and sideloaded
+- [x] 1.12 Real app, built and sideloaded *(phone-verified 2026-11-01)*
 - [ ] 1.13 Prototype: player screen, tappable with fake data
 - [ ] 1.14 Library list: scroll, sort, basic title filter
 - [ ] 1.15 Player: play, pause, seek, next, previous, shuffle, queue
