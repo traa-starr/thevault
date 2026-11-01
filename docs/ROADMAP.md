@@ -21,7 +21,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 *Laptop*
 - [x] 1.1 Library folder and database (songs, files, versions, tags, groups, links) *(built and self-tested; my check: open `E:\VaultLibrary`)*
 - [x] 1.2 Read-only scanner: `Music`, `Session Music` (loose files + `#FREEMONEY THE MIXTAPE` only), `tape`, iCloud root; re-scan finds new files
-- [ ] 1.3 Cloud-only files (982 of 1,718): downloaded to the laptop one at a time, only when played or kept, with a progress count and a disk space check
+- [ ] 1.3 Cloud-only files (917 of 1,546 places at the 1.2 scan): downloaded to the laptop one at a time, only when played or kept, with a progress count and a disk space check
 - [ ] 1.4 Duplicates: the same file in two folders is one song
 - [ ] 1.5 Auto "mine" detection, unknown by default
 - [ ] 1.6 Source tag (FL), title and date filled in from the file
