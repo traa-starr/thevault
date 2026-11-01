@@ -1,16 +1,16 @@
-# NEXT: Duplicates, then title, date and source (ROADMAP 1.4 + 1.6)
+# NEXT: Auto "mine" detection (ROADMAP 1.5)
 Written by chat, 2026-11-01.
-Log: 1.2 scanner accepted (chat). Doctor also compares the music fingerprint before and after every scan (chat-default). Duplicate = same hash, or a skipped copy from my sorting file; same name with different content is a version, not a duplicate (Phase 4); hashless cloud-only files match only by name and size, marked "likely" (chat-default). Title = filename without ending; date = embedded date if local, else modified time, marked which; source "FL" as a marked guess on every file; cloud-only files never opened (chat-default). (logged by chat)
-Queue after this: ROADMAP 1.5 auto "mine" detection (unknown by default, `tape` = mine, my verdicts always win), then 1.8 server. Then 1.10 `doctor` (Tailscale, server, guard, library marker, `test_library.py`, music fingerprint before/after a scan).
-Read: `ROADMAP.md` (1.4, 1.6), `DECISIONS.md` (Duplicates rule, Title date and source, Scanner records places and files separately, Skipped copies), `server/README.md`.
+Log: Songs step accepted (chat). Doctor also flags songs with no present place (chat-default). Auto-mine order: my verdict > `tape` or `#FREEMONEY THE MIXTAPE` = mine > artist name as a whole word in title or local tag = "likely mine" (guess) > unknown; auto never says "not mine" (chat-default). (logged by chat)
+Queue after this: ROADMAP 1.8 server (serves known songs by id only, over Tailscale, with seeking). Then 1.10 `doctor` (Tailscale, server, guard, library marker, `test_library.py`, music fingerprint before/after a scan, songs with no present place).
+Read: `ROADMAP.md` (1.5), `DECISIONS.md` ("Mine" rule, Everything in `tape` is mine, Session Music scope, Auto "mine" rules for 1.5), `server/README.md`.
 
 ## Parts
-a. **Duplicates (1.4).** Every place in `sources` that holds the same content, or is a skipped copy of a kept file, points to one song. A song shows how many places it lives in. Hashless cloud-only files with the same name and size as another place are linked as "likely", never merged for sure. Same name, different content stays separate. All of it through the journal, so a rebuild gets it back. No file is touched.
-b. **Title, date, source (1.6).** Fill title from the filename, date from the embedded tag when the file is local, else modified time (store which). Set source "FL" as a guess, stored as a guess. My own edits, when they come, always win over a guess. Never open a cloud-only file.
-c. **Prove it.** Self-test with the fake music folder: byte-identical copies in two folders become one song; a skipped copy joins its kept file's song; same name, different content stays two songs; a cloud-only twin is "likely"; guesses never overwrite a manual value; all survive a rebuild. Then the real run with counts only: songs, songs with more than one place, "likely" links, dates from tag vs modified time. Music folders unchanged before and after (fingerprint). Guard test, repo check, then STATUS.
-Limits: no downloading, no audio copied, no server, no phone code, no grouping of versions. Music folders never written to. No song names or paths in the repo or REPORT beyond counts.
+a. **Rules.** Each song gets a mine status: my verdict if I gave one; else "mine" from folder (`tape`, `#FREEMONEY THE MIXTAPE`); else "likely mine" from an artist name as a whole word in the title or a local file's tag; else unknown. Stored as a guess with its reason, through the journal. Never overwrites a verdict, never says "not mine", never opens a cloud-only file.
+b. **Show it.** `vault_cli.py check` gets a Mine line: mine (mine verdict / folder), likely mine, unknown, counts only.
+c. **Prove it.** Self-test with the fake folder: verdict beats folder and name; `tape` = mine; `l1` inside another word doesn't match; cloud-only uses title only; a rerun changes nothing; survives a rebuild. Real run, counts only. Music folders unchanged (fingerprint). Guard test, repo check, then STATUS.
+Limits: no server, no phone code, no downloading. Music folders never written to. No song names in the repo or REPORT beyond counts.
 
 **Stop line:** if the session runs long, finish a and its tests; b waits.
 
 ## Phone check
-None. My check: `python server/vault_cli.py check E:\VaultLibrary` shows the song count and the duplicate counts Code reported.
+None. My check: `python server/vault_cli.py check E:\VaultLibrary` shows the Mine line with the counts Code reported.
