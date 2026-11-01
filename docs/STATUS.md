@@ -1,24 +1,22 @@
 # Status
 
-**Phase 0 closed.** Updated 2026-10-31 by Code. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
+**Phase 1 started.** Updated 2026-11-01 by Code. How we work: `WORKFLOW.md`. Build order: `ROADMAP.md`.
 
 **In progress:** nothing.
-**Next up:** me: check `E:\VaultLibrary`, commit and push, then `Review.` in chat.
-**Current task:** `NEXT.md` "Library folder and database" is built (ROADMAP 1.1); waiting for chat's review.
+**Next up:** me: run the laptop check, commit, then `Review.` in chat.
+**Last task:** `NEXT.md` "Read-only scanner" (ROADMAP 1.2), built.
 
 ## Done
-- Music guard proven; music folders unchanged after the spikes. `.gitignore` proven. Untethered audited.
-- Spikes D1-D6 passed or logged: `SPIKE-RESULTS.md`. First iOS build and D4c sideload passed.
-- Architecture memo finished (G1). The four calls approved 2026-10-31 (G2). Phase 0 closed (G3).
+- Phase 0 closed: guard, spikes, first iOS build, architecture and storage calls. Details in `DECISIONS.md` and `SPIKE-RESULTS.md`.
 - ROADMAP 1.11 built: full Xcode log saved on a failed build. Not proven until a build fails.
-- Storage options decided: shape C (journal), tags on the song, audio filed `audio/<code>/<real filename>`.
-- Duplicate names done: 1,395 files, no repeated names (`flip` kept on purpose). Decisions in `spike/output/triage-decisions.json` (gitignored).
-- **ROADMAP 1.1 built (2026-10-31):** library at `E:\VaultLibrary` with marker, `audio/`, `phone/`, `vault.db`, `journal.jsonl`, and a copy of my sorting file. Code in `server/vault_server/`. Self-test passes (28 checks). Empty so far: no scanner yet.
+- Duplicate names done: 1,395 files, no repeated names (`flip` kept on purpose). Sorting file in `E:\VaultLibrary\triage-decisions.json`.
+- ROADMAP 1.1 built and accepted: library at `E:\VaultLibrary`, self-test 28 checks.
+- ROADMAP 1.2 built: 1,546 files recorded, 217 verdicts from my sorting file, 1,327 unsorted. Music folders unchanged.
 
-## Queue after NEXT
-1. ROADMAP 1.2 read-only scanner, including turning my name lists into per-file verdicts, not names.
-2. Options on how sorting works, then the stream-and-sort items 1.19-1.22.
-3. ROADMAP 1.10 `doctor` script: also confirm the library marker is found before any scan or backup runs (and run the library self-test, Code's pitch).
+## Queue
+1. ROADMAP 1.4 duplicates + 1.6 source tag, title and date from the file (fast-lane OK).
+2. ROADMAP 1.5 auto "mine" detection, then 1.8 server.
+3. ROADMAP 1.10 `doctor`: Tailscale, server, guard, library marker found, and `test_library.py`.
 
 ## Open questions
 - How sorting mine / not mine works on the phone (swipe each, bulk by folder first, short previews): options before ROADMAP 1.19.
@@ -28,6 +26,9 @@
 - `ANY WAY new limit.wav` is the newest version but wav only: needs a compressed render (ROADMAP 1.7).
 - The 8 same-render copies keep the `Music` copy (chat-default, not stated by me): say if wrong.
 - 26 date-only names and the auto-named `Untitled...` files wait for later.
+
+- `Session Music` top-level loose files: kept in the scan (chat-default). Say if they should go too.
+- Any sorted "keep" that sits in another artist's subfolder: the scanner lists it for me.
 
 ## Phone checks pending
 None.

@@ -20,7 +20,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 **Order inside Phase 1:** laptop 1.1-1.2, 1.4-1.6, 1.8 · phone 1.12-1.15 · stream and sort 1.19-1.22 · then, for kept songs only, 1.3, 1.7, 1.16-1.18. Reordered 2026-10-31 (DECISIONS).
 *Laptop*
 - [x] 1.1 Library folder and database (songs, files, versions, tags, groups, links) *(built and self-tested; my check: open `E:\VaultLibrary`)*
-- [ ] 1.2 Read-only scanner: `Music`, `Session Music`, `tape`, iCloud root; re-scan finds new files
+- [x] 1.2 Read-only scanner: `Music`, `Session Music` (loose files + `#FREEMONEY THE MIXTAPE` only), `tape`, iCloud root; re-scan finds new files
 - [ ] 1.3 Cloud-only files (982 of 1,718): downloaded to the laptop one at a time, only when played or kept, with a progress count and a disk space check
 - [ ] 1.4 Duplicates: the same file in two folders is one song
 - [ ] 1.5 Auto "mine" detection, unknown by default

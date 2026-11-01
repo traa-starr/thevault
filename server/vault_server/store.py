@@ -12,7 +12,7 @@ import sqlite3
 import uuid
 from datetime import datetime, timezone
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -28,6 +28,20 @@ CREATE TABLE IF NOT EXISTS files (
     orig_path TEXT NOT NULL,
     size INTEGER,
     mtime REAL,
+    status TEXT NOT NULL DEFAULT 'present' CHECK (status IN ('present', 'missing_at_source')),
+    first_seen TEXT NOT NULL,
+    last_seen TEXT NOT NULL
+);
+
+-- One row per place a file was found. Byte-identical copies share a file_key but each has its own row here.
+CREATE TABLE IF NOT EXISTS sources (
+    path TEXT PRIMARY KEY,
+    file_key TEXT NOT NULL,
+    folder TEXT NOT NULL,
+    name TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    mtime REAL NOT NULL,
+    cloud_only INTEGER NOT NULL,
     status TEXT NOT NULL DEFAULT 'present' CHECK (status IN ('present', 'missing_at_source')),
     first_seen TEXT NOT NULL,
     last_seen TEXT NOT NULL
@@ -63,7 +77,8 @@ CREATE TABLE IF NOT EXISTS group_members (
 );
 CREATE TABLE IF NOT EXISTS verdicts (
     file_key TEXT PRIMARY KEY,
-    verdict TEXT NOT NULL CHECK (verdict IN ('keep', 'not_mine')),
+    verdict TEXT NOT NULL CHECK (verdict IN ('keep', 'not_mine', 'skip')),
+    copy_of TEXT,
     ts TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS links (
@@ -86,9 +101,10 @@ REQUIRED = {
     "verdict": ("file_key", "verdict"),
     "group": ("group_id", "state", "song_ids"),
     "link": ("link_id", "version_id", "kind", "target", "state"),
+    "sorting_applied": (),
 }
 CHOICES = {
-    "verdict": ("verdict", ("keep", "not_mine")),
+    "verdict": ("verdict", ("keep", "not_mine", "skip")),
     "group": ("state", ("confirmed", "rejected")),
     "link": ("state", ("proposed", "confirmed", "rejected")),
 }
@@ -101,8 +117,7 @@ def now():
 class Store:
     def __init__(self, db_path, journal_path):
         self.journal_path = journal_path
-        self.conn = sqlite3.connect(db_path)
-        self.conn.row_factory = sqlite3.Row
+        self.conn = self._connect(db_path)
         self.conn.execute("PRAGMA foreign_keys=ON")
         self.conn.executescript(SCHEMA)
         self.conn.execute("INSERT OR IGNORE INTO meta VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
@@ -110,6 +125,20 @@ class Store:
         self.journal_path.touch(exist_ok=True)
         self.known_ids = set()
         self._catch_up()
+
+    @staticmethod
+    def _connect(db_path):
+        """An older database is thrown away: scan results get rescanned and mine comes back from the journal."""
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        has_meta = conn.execute("SELECT 1 FROM sqlite_master WHERE name='meta'").fetchone()
+        row = has_meta and conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()
+        if row and int(row["value"]) < SCHEMA_VERSION:
+            conn.close()
+            os.unlink(db_path)
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+        return conn
 
     def close(self):
         self.conn.close()
@@ -203,7 +232,7 @@ class Store:
         elif kind == "tag_remove":
             c.execute("DELETE FROM tags WHERE id=?", (d["tag_id"],))
         elif kind == "verdict":
-            c.execute("INSERT OR REPLACE INTO verdicts VALUES (?,?,?)", (d["file_key"], d["verdict"], ts))
+            c.execute("INSERT OR REPLACE INTO verdicts VALUES (?,?,?,?)", (d["file_key"], d["verdict"], d.get("copy_of"), ts))
         elif kind == "group":
             c.execute("INSERT OR REPLACE INTO groups VALUES (?,?,?)", (d["group_id"], d["state"], ts))
             c.execute("DELETE FROM group_members WHERE group_id=?", (d["group_id"],))
@@ -211,6 +240,8 @@ class Store:
         elif kind == "link":
             c.execute("INSERT OR REPLACE INTO links VALUES (?,?,?,?,?,?)",
                       (d["link_id"], d["version_id"], d["kind"], d["target"], d["state"], ts))
+        elif kind == "sorting_applied":
+            pass  # only the journal line matters: the sorting file is turned into verdicts once
         else:
             raise ValueError(f"Journal has an unknown kind of change: {kind!r}")
         c.execute("INSERT INTO changes VALUES (?,?,?)", (entry["id"], kind, ts))
@@ -227,6 +258,24 @@ class Store:
                    ON CONFLICT(file_key) DO UPDATE SET orig_name=excluded.orig_name, orig_path=excluded.orig_path,
                        size=excluded.size, mtime=excluded.mtime, status='present', last_seen=excluded.last_seen""",
                 (file_key, full_hash, code, orig_name, orig_path, size, mtime, stamp, stamp))
+
+    def upsert_source(self, path, file_key, folder, name, size, mtime, cloud_only, stamp):
+        """Add or update one place a file was found. Touches only `sources`."""
+        with self.conn:
+            self.conn.execute(
+                """INSERT INTO sources (path, file_key, folder, name, size, mtime, cloud_only, first_seen, last_seen)
+                   VALUES (?,?,?,?,?,?,?,?,?)
+                   ON CONFLICT(path) DO UPDATE SET file_key=excluded.file_key, size=excluded.size, mtime=excluded.mtime,
+                       cloud_only=excluded.cloud_only, status='present', last_seen=excluded.last_seen""",
+                (path, file_key, folder, name, size, mtime, int(cloud_only), stamp, stamp))
+
+    def mark_missing(self, stamp):
+        """Anything this scan didn't see is marked, never removed, so a file that comes back picks up where it was."""
+        with self.conn:
+            self.conn.execute("UPDATE sources SET status='missing_at_source' WHERE last_seen < ?", (stamp,))
+            self.conn.execute("""UPDATE files SET status = CASE WHEN EXISTS (SELECT 1 FROM sources s
+                                     WHERE s.file_key = files.file_key AND s.status = 'present')
+                                 THEN 'present' ELSE 'missing_at_source' END""")
 
     def snapshot(self):
         """All of mine, as plain rows, for comparing before and after a rebuild."""

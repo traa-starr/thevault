@@ -2,6 +2,10 @@
 
     python server/test_library.py
 """
+import ctypes
+import json
+import os
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -11,6 +15,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
+from vault_server import scanner  # noqa: E402
 from vault_server.library import (JOURNAL_NAME, DB_NAME, MARKER_NAME, LibraryMissing, LibraryRefused,  # noqa: E402
                                   init_library, open_library)
 
@@ -28,6 +33,148 @@ def new_song(lib, name, file_hash):
     ids = dict(song_id=str(uuid.uuid4()), version_id=str(uuid.uuid4()))
     lib.store.record("song_new", dict(ids, file_key=key, orig_name=name))
     return ids, key, code
+
+
+def write_audio(path, text):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(text.encode())
+
+
+def verdict_of(lib, path):
+    return dict(scanner.verdict_by_path(lib)).get(str(path))
+
+
+def scanner_checks(tmp):
+    SM, FM = "Session Music", "#FREEMONEY THE MIXTAPE"
+    music = tmp / "CloudRoot"
+    for rel, text in {"Music/song one.mp3": "one", "Music/sub/song two.m4a": "two", "Music/notes.txt": "x",
+                      "Music/shared.mp3": "same bytes", "tape/shared.mp3": "same bytes", "tape/tape song.mp3": "t",
+                      "Music/someone else.mp3": "se", "tape/someone else.mp3": "se2",
+                      "Music/flip.mp3": "f1", "tape/flip.mp3": "f2", "Music/spin.mp3": "spin",
+                      "Music/cloud song.mp3": "cloud bytes", "Music/cloud copy.mp3": "cloud copy",
+                      "Beats/beat.wav": "b", "loose.wav": "loose", f"{SM}/loose sm.mp3": "lsm",
+                      f"{SM}/{FM}/mixtape.mp3": "mix", f"{SM}/Other Artist/theirs.mp3": "theirs",
+                      f"{SM}/Other Artist/mine there.mp3": "minethere", f"{SM}/Third/x.mp3": "third"}.items():
+        write_audio(music / rel, text)
+    cloud = music / "Music" / "cloud song.mp3"
+    cloud_copy = music / "Music" / "cloud copy.mp3"
+    for p in (cloud, cloud_copy):
+        ctypes.windll.kernel32.SetFileAttributesW(str(p), 0x1000)  # the "offline" mark cloud-only files can carry
+    check("pretend cloud-only file really has the cloud mark", scanner.is_cloud_only(os.stat(cloud)))
+
+    opened = []
+    real_hash = scanner.hash_file
+    scanner.hash_file = lambda p: (opened.append(str(p)), real_hash(p))[1]
+
+    lib = init_library(tmp / "scanlib")
+    first = scanner.scan(lib, music)
+    rows = {r["path"]: r for r in lib.store.conn.execute("SELECT * FROM sources")}
+    check("every audio file in scope is recorded, nothing else", len(rows) == 15, str(len(rows)))
+    check("other artist subfolders are never recorded", not any("Other Artist" in p or "Third" in p for p in rows))
+    check("subfolders left out are counted", first["artist subfolders skipped"] == 2)
+    check("the mixtape subfolder and loose files are in", any(p.endswith("mixtape.mp3") for p in rows)
+          and any(p.endswith("loose sm.mp3") for p in rows) and any(p.endswith("loose.wav") for p in rows))
+    check("beats folder stays out", not any("beat.wav" in p for p in rows))
+    check("a cloud-only file is never read", str(cloud) not in opened and str(cloud_copy) not in opened and len(opened) > 5)
+    row = rows[str(cloud)]
+    check("a cloud-only file gets the src key, a mark and no hash", row["file_key"].startswith("src:") and row["cloud_only"] == 1
+          and lib.store.conn.execute("SELECT hash FROM files WHERE file_key=?", (row["file_key"],)).fetchone()[0] is None)
+    check("a local file gets a full hash and a short code", lib.store.conn.execute(
+        "SELECT f.code FROM files f JOIN sources s USING (file_key) WHERE s.name='song one.mp3'").fetchone()[0])
+    check("byte-identical copies each get their own row", sum(r["name"] == "shared.mp3" for r in rows.values()) == 2)
+    check("no audio is copied into the library", not any((tmp / "scanlib" / "audio").iterdir()))
+
+    before = {t: lib.store.conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in ("sources", "files")}
+    opened.clear()
+    again = scanner.scan(lib, music)
+    check("re-scan adds nothing and reads nothing it already knows", again["new files"] == 0 and opened == [] and before ==
+          {t: lib.store.conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in ("sources", "files")})
+    write_audio(music / "tape" / "new one.mp3", "new")
+    check("a new file shows up on the next run", scanner.scan(lib, music)["new files"] == 1)
+    (music / "tape" / "new one.mp3").unlink()
+    scanner.scan(lib, music)
+    check("a vanished file is marked, not removed", lib.store.conn.execute(
+        "SELECT status FROM sources WHERE name='new one.mp3'").fetchone()[0] == "missing_at_source")
+
+    sorting = {"not_mine_names": ["someone else", "spin", "nothing like this"], "keep_all_names": ["flip"],
+               "group2": [{"key": "shared", "verdict": "mine", "keep": [{"folder": "tape", "name": "shared.mp3"}],
+                           "skip": [{"folder": "Music", "name": "shared.mp3"}]},
+                          {"key": "gone", "verdict": "mine", "keep": [{"folder": "Music", "name": "gone.mp3"}], "skip": []},
+                          {"key": "mine there", "verdict": "mine", "keep": [{"folder": SM, "name": "mine there.mp3"}], "skip": []}],
+               "group3": [{"key": "cloud", "verdict": "mine", "keep": [{"folder": "Music", "name": "cloud song.mp3"}],
+                           "skip": [{"folder": "Music", "name": "cloud copy.mp3"}]},
+                          {"key": "loose", "verdict": "not mine", "keep": [{"folder": "CloudRoot", "name": "loose.wav"}], "skip": []}]}
+    (tmp / "scanlib" / "triage-decisions.json").write_text(json.dumps(sorting), encoding="utf-8")
+    result = scanner.apply_sorting(lib, music)
+    want = {"tape/tape song.mp3": "keep", "tape/shared.mp3": "keep", "Music/shared.mp3": "skip", "tape/someone else.mp3": "not_mine",
+            "Music/someone else.mp3": "not_mine", "Music/flip.mp3": "keep", "tape/flip.mp3": "keep", "Music/spin.mp3": "not_mine",
+            "Music/cloud song.mp3": "keep", "Music/cloud copy.mp3": "skip", "loose.wav": "not_mine", "Music/song one.mp3": None}
+    for rel, v in want.items():
+        check(f"verdict for {rel} is {v}", verdict_of(lib, music / rel) == v, str(verdict_of(lib, music / rel)))
+    check("a skipped copy says which file it copies", lib.store.conn.execute(
+        "SELECT copy_of FROM verdicts WHERE verdict='skip' AND copy_of LIKE '%shared.mp3'").fetchone() is not None)
+    check("names matching no file are listed, not guessed", "gone.mp3" in result["names matching no file"]
+          and "nothing like this" in result["names matching no file"])
+    check("a keep only in an artist subfolder is listed for me, not imported",
+          result["keeps only in another artist's subfolder"] == ["mine there.mp3"]
+          and verdict_of(lib, music / SM / "Other Artist" / "mine there.mp3") is None)
+    check("a tape file overruled by not mine is flagged", result["tape files marked not mine"] == ["someone else.mp3"])
+
+    lines = (tmp / "scanlib" / JOURNAL_NAME).read_text(encoding="utf-8").count("\n")
+    write_audio(music / "Music" / "spin.mp3", "a different song, same name")
+    scanner.scan(lib, music)
+    scanner.apply_sorting(lib, music)
+    check("applying the sorting again adds nothing", (tmp / "scanlib" / JOURNAL_NAME).read_text(encoding="utf-8").count("\n") == lines)
+    check("a future file sharing a not-mine name stays unsorted", verdict_of(lib, music / "Music" / "spin.mp3") is None)
+    mine = lib.store.snapshot()
+    lib.close()
+
+    (tmp / "scanlib" / DB_NAME).unlink()
+    lib = open_library(tmp / "scanlib")
+    check("verdicts survive a database rebuild from the journal", lib.store.snapshot() == mine and len(mine["verdicts"]) > 5)
+    scanner.scan(lib, music)
+    check("after the rebuild and a re-scan each file has its verdict back", verdict_of(lib, music / "Music" / "shared.mp3") == "skip"
+          and verdict_of(lib, cloud) == "keep")
+    check("sorting still counts as applied after the rebuild", "note" in scanner.apply_sorting(lib, music))
+
+    # the hash arrives: the verdict follows the file to its new key
+    ctypes.windll.kernel32.SetFileAttributesW(str(cloud), 0x80)
+    scanner.scan(lib, music)
+    check("verdict carries over when a cloud-only file reaches the laptop", verdict_of(lib, cloud) == "keep" and lib.store.conn.execute(
+        "SELECT file_key FROM sources WHERE path=?", (str(cloud),)).fetchone()[0].startswith("hash:"))
+    lib.close()
+
+    # database from before this step upgrades itself, journal intact
+    conn = sqlite3.connect(tmp / "scanlib" / DB_NAME)
+    conn.execute("UPDATE meta SET value='1' WHERE key='schema_version'")
+    conn.commit()
+    conn.close()
+    lib = open_library(tmp / "scanlib")
+    check("an older database is rebuilt from the journal", lib.store.conn.execute("SELECT COUNT(*) FROM verdicts").fetchone()[0] > 5)
+    scanner.scan(lib, music)
+
+    steady = scanner.fingerprint(music)
+    check("fingerprint is steady when nothing changed", steady == scanner.fingerprint(music))
+    write_audio(music / "tape" / "touched.mp3", "x")
+    check("fingerprint changes when a file appears", steady != scanner.fingerprint(music))
+
+    # stops
+    for missing in (music / SM / FM, music / "tape"):
+        moved = Path(str(missing) + " gone")
+        missing.rename(moved)
+        try:
+            scanner.scan(lib, music)
+            check(f"scan stops if {missing.name} isn't found", False)
+        except scanner.ScanStopped:
+            check(f"scan stops if {missing.name} isn't found", True)
+        moved.rename(missing)
+    check("a stopped scan marks nothing missing", lib.store.conn.execute(
+        "SELECT status FROM sources WHERE name='tape song.mp3'").fetchone()[0] == "present")
+    lib.close()
+    scanner.hash_file = real_hash
+    r = subprocess.run([sys.executable, str(HERE / "vault_cli.py"), "scan", str(tmp / "no-library-here"), str(music)],
+                       capture_output=True, text=True)
+    check("scan with no library says Library missing", r.returncode != 0 and "Library missing" in r.stdout)
 
 
 def main():
@@ -132,13 +279,14 @@ def main():
     # crash between journal and database: journal line exists, database never got it
     late = {"id": str(uuid.uuid4()), "ts": "2026-10-31T12:00:00.000000Z", "kind": "tag_add",
             "data": {"tag_id": "late", "song_id": b["song_id"], "text": "from the journal"}}
-    import json
     with open(root / JOURNAL_NAME, "a", encoding="utf-8") as f:
         f.write(json.dumps(late) + "\n" + '{"id": "torn-')
     lib = open_library(root)
     check("a journal line the database missed is applied on open; a torn last line is ignored",
           lib.store.conn.execute("SELECT text FROM tags WHERE id='late'").fetchone() is not None)
     lib.close()
+
+    scanner_checks(tmp)
 
     print()
     print("ALL PASSED" if not failures else f"{len(failures)} FAILED: {failures}")

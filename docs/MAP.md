@@ -8,7 +8,7 @@ From the interview and read-only scans, 2026-10-31. No Tailscale hostnames or IP
 | This repo | `E:\dev\thevault` | Remote: `github.com/traa-starr/thevault` (public) |
 | iCloud Drive | `C:\Users\illus\iCloudDrive` | **Locked.** ~2,240 files |
 | My songs (mostly) | `iCloudDrive\Music` | 443 audio files, ~1.9 GB. FL bounces and BandLab exports land here together |
-| Mixed: mine + other artists | `iCloudDrive\Session Music` | 1,233 audio files, ~5.2 GB, in artist subfolders. More of mine than expected |
+| Mixed: mine + other artists | `iCloudDrive\Session Music` | 1,233 audio files, ~5.2 GB, in artist subfolders. Scanned: loose files + `#FREEMONEY THE MIXTAPE` only; other artist subfolders are not mine and excluded |
 | Mine | `iCloudDrive\tape` | 23 audio files, ~0.1 GB |
 | Loose files | `iCloudDrive\` root | Included in the scan |
 | Not in the main scan | `iCloudDrive\Beats`, `traa stems`, `Wreck 2`, `Jazz`, `SILENT FLEX` | Beats and stems. Locked anyway |
