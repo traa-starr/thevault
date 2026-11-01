@@ -8,7 +8,7 @@ The whole route, in build order. `VISION.md` says what the app is; `NEXT.md` say
 - New ideas go into Parked unless I promote them. A reorder is logged in DECISIONS. Chat flags any NEXT that isn't next here.
 - Short on purpose: no how-to here. Design stays in the options memos.
 
-**Why this order:** each phase needs the one before it. I can't tag songs I can't play. Search needs tags. Grouping relies on
+**Why this order:** each phase needs the one before it. I sort mine from not mine first, by streaming, so nothing that isn't mine is ever stored on the phone. I can't tag songs I can't play. Search needs tags. Grouping relies on
 songs being known. Sources and BandLab complete the library. Finishing songs only works once they're all in one place.
 
 ## Gate: before any app code
@@ -16,16 +16,17 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [x] G2 I approve 4 calls: client option, library location, database backup, BandLab method
 - [x] G3 Close Phase 0: fold its DECISIONS rows into a summary, start `app/` and `server/`
 
-## Phase 1: Player (Checkpoint 1). "It's my music player now"
+## Phase 1: Sort, then play (Checkpoint 1). "My catalogue is sorted, and it's my music player"
+**Order inside Phase 1:** laptop 1.1-1.2, 1.4-1.6, 1.8 · phone 1.12-1.15 · stream and sort 1.19-1.22 · then, for kept songs only, 1.3, 1.7, 1.16-1.18. Reordered 2026-10-31 (DECISIONS).
 *Laptop*
 - [ ] 1.1 Library folder and database (songs, files, versions, tags, groups, links)
 - [ ] 1.2 Read-only scanner: `Music`, `Session Music`, `tape`, iCloud root; re-scan finds new files
-- [ ] 1.3 Handle cloud-only files (982 of 1,718): fetch gradually, with a progress count and a disk space check
+- [ ] 1.3 Cloud-only files (982 of 1,718): downloaded to the laptop one at a time, only when played or kept, with a progress count and a disk space check
 - [ ] 1.4 Duplicates: the same file in two folders is one song
 - [ ] 1.5 Auto "mine" detection, unknown by default
 - [ ] 1.6 Source tag (FL), title and date filled in from the file
-- [ ] 1.7 Compressed phone copies (~192 kbps)
-- [ ] 1.8 Server: serves known songs by id only, over Tailscale
+- [ ] 1.7 Compressed phone copies (~192 kbps), kept songs only
+- [ ] 1.8 Server: serves known songs by id only, over Tailscale; streams with seeking, so the phone keeps no copy
 - [ ] 1.9 Nightly database backup to C: (G2), with a warning when it is skipped
 - [ ] 1.10 `doctor` script: checks Tailscale, server and guard before phone tests, stops test servers after
 - [x] 1.11 Build upkeep: full Xcode log saved on a failed build *(built, unproven until a build fails)*
@@ -36,17 +37,23 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [ ] 1.14 Library list: scroll, sort, basic title filter
 - [ ] 1.15 Player: play, pause, seek, next, previous, shuffle, queue
 - [ ] 1.16 Background and lock-screen playback
-- [ ] 1.17 Songs stored on the phone: downloads with progress, storage limit, offline play
-- [ ] 1.18 Survival test: app data survives a SideStore re-sign. **Must pass before tagging starts; tags can't be replaced**
+- [ ] 1.17 Kept songs stored on the phone: downloads with progress, storage limit, offline play
+- [ ] 1.18 Survival test: app data survives a SideStore re-sign. **Must pass before real tagging (Phase 2); tags can't be replaced.** Sorting verdicts and quick tags save straight to the laptop, so they don't wait on it
 
-**Done when:** I play a song at home and away with the screen locked and the laptop asleep, and app data survives a re-sign.
+*Stream and sort (needs the laptop on and reachable)*
+- [ ] 1.19 Prototype: sorting card, tappable with fake data
+- [ ] 1.20 Stream any song from the laptop: tap and it plays, nothing saved to the phone, seeking works
+- [ ] 1.21 Sorting session: card for a random unsorted song, one-tap Keep / Not mine, optional quick tag, progress counter. Verdicts save to the laptop. Mine filter; my manual choice always wins. First pass is getting songs out
+- [ ] 1.22 Import list: only kept songs are imported; not-mine songs stay out of the library and the app
+
+**Done when:** I've sorted my catalogue from the phone without downloading it, then play a kept song at home and away with the screen locked and the laptop asleep, and app data survives a re-sign.
 
 ## Phase 2: Tagging (Checkpoint 2). "My songs start having memory"
 - [ ] 2.1 Prototype: tagging card, tappable with fake data
 - [ ] 2.2 Tagging session: flashcards, random songs favoring untagged, progress counter, normal player controls
 - [ ] 2.3 Tap at a moment, type or dictate a line; it saves as a timestamped tag
 - [ ] 2.4 Tap a tag to jump to that moment; edit and delete tags
-- [ ] 2.5 One-tap "not mine" on the card, Mine filter everywhere, manual choice always wins
+- [ ] 2.5 "Not mine" stays one tap on the tagging card and the Mine filter works everywhere; the main sorting is done in 1.21
 - [ ] 2.6 Tags save on the phone first, sync to the laptop when reachable, show sync state
 - [ ] 2.7 Restore test: wipe the phone's copy, get all tags back from the laptop
 
@@ -110,8 +117,9 @@ with that line" · widgets · Whisper draft tags · "similar meaning" search sec
 ## Decisions to raise, one step before each blocks
 | Before | Call | Note |
 |---|---|---|
-| 1.1 | How songs, files and versions are stored | Hard to undo; Code brings options |
-| 1.3 | How many cloud-only songs to pull down | ~7.7 GB scanned in total, and many aren't mine |
+| 1.1 | Audio filing: fingerprint folder or mirrored names | Shape C and tags-on-song decided. Waits for the duplicate-names report |
+| 1.3 | Laptop disk use for cloud-only downloads | Only played or kept songs download now; Code reports the size |
+| 1.19 | How sorting works: swipe each, bulk by folder or name first, short preview clips | 1,000+ songs must go fast; options come with the prototype |
 | 1.18 | What to do if data doesn't survive a re-sign | Restore from laptop, or pay $99 |
 | Phase 3 | Does search run on the phone or the laptop? | The spike tested search on the laptop only; offline search needs it on the phone. Test before building |
 | Phase 5 | FL project backup | Declined 2026-10-31. Parked; don't raise unless I do |
