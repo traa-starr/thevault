@@ -30,6 +30,9 @@ d. Queue, remaining-time tap, now-playing bar.
 **Stop line:** queue and remaining-time tap wait if long.
 **Phone checks:** locked play, next and auto-advance; queue; browse the Library with the bar.
 
+## Batch 3d: Queue and player feel
+**ROADMAP:** 1.15 polish, owner's notes 2026-11-02. Smooth edge-zone auto-scroll; Queue from the mini player and back to where it came from; Back button and swipe-up Queue on the player; eye icon with slide animation. Brief in `NEXT.md`.
+
 ## Batch 4: Real sorting
 **ROADMAP:** 1.21, built from the batch 2 prototype.
 a. `/sorting/sets`: folders and repeated name patterns. Only songs with no verdict of mine from anywhere; a set with none left disappears. Set songs open inline in the list (prototype keeper).

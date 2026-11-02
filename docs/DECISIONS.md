@@ -194,3 +194,8 @@ The short version. Full rows with options and reasons are below; nothing was del
 | Shuffle off after drag (2026-11-01) | Goes back to list order and forgets the drag (chat-default, Code's recommendation) | Reversible |
 | Drag package pick (2026-11-02) | `react-native-reorderable-list`, with gesture-handler, reanimated and worklets at Expo's pinned versions (Code) | Kept up to date, unlike `react-native-draggable-flatlist`; reversible |
 | Player sheet (2026-11-02) | A look-alike sheet with its own top grab area replaces the iOS sheet (Code) | iOS can't limit its pull-down to one area; reversible |
+| Batch 3c passed (2026-11-02) | All 5 phone checks passed: drag lands where released, sheet stays put and closes from the grab area, auto-scroll, order holds while locked, Undo keeps the drag (mine) | Closes the 3b drag retry |
+| Lift vibration (2026-11-02) | Code's pitch parked, not in Batch 4 (chat-default) | Keeps Batch 4 on sorting. Reversible |
+| Batch 3d inserted (2026-11-02) | Owner's player notes become Batch 3d before Batch 4: same screens, fresh code, small (chat) | Fixes feel before sorting builds on the player. Reversible |
+| Queue paths and buttons (2026-11-02) | Mini player: tap = player, swipe up = Queue. Queue closes to where it was opened. Player: Queue button removed, swipe-up strip opens Queue, Back in its spot. Hide = eye icon, buttons slide down/up (mine) | Owner's design |
+| Auto-scroll zones (2026-11-02) | Of the list's own area: top 30% up, middle 40% safe, bottom 30% down; speed ramps toward the edge (chat-default; owner proposed thirds) | A bigger safe zone makes drops easier; the ramp gives slow control near the line and speed at the edge. Reversible |

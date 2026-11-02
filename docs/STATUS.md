@@ -1,10 +1,10 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-02 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 1 started.** Updated 2026-11-02 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 
 **In progress:** nothing.
-**Next up:** me: phone checks (new build first), then `Review.`
-**Current task:** `NEXT.md` "Batch 3c, Queue drag that works".
+**Next up:** Code: `/next` (Batch 3d).
+**Current task:** `NEXT.md` "Batch 3d, Queue and player feel".
 
 ## Done
 - Phase 0 closed: details in `DECISIONS.md` and `SPIKE-RESULTS.md`.
@@ -17,15 +17,15 @@
 - Batch 2 verified 2026-11-01: nightly backup, full pull, Hidden Restore, sorting prototype. Closes 1.3, 1.9, 1.19.
 - Board set up and met twice 2026-11-01: batch 3, then batches 4 and 4b.
 - Batch 3 phone-verified 2026-11-01: shared player, bar, playlist player, lock screen, queue, time tap. Closes 1.15, 1.16.
-- Batch 3b phone 2026-11-01: buttons at the bottom, hide toggle, toast placement passed. Queue drag failed: 3c built 2026-11-02, not yet on a phone or through the iOS build.
+- Batch 3b phone 2026-11-01: buttons at the bottom, hide toggle, toast placement passed. Queue drag fixed in 3c, phone-verified 2026-11-02 (all 5 checks).
 
 ## Queue
-0. Batch 3c: Queue drag that works (built, phone checks open).
-1. Batch 4: Real sorting (only unsorted songs, inline set songs).
+0. Batch 3d: Queue and player feel (in NEXT).
+1. Batch 4: Real sorting (brief ready: `queued/NEXT-batch-4.md`).
 2. Batch 4b: Versions, manual (ROADMAP 1.23).
 3. Batch 5: Import and copies.
 4. Batch 6: Offline and finish.
-5. Parked (Code's pitches): server `/status` count-only answer; A-Z jump strip; doctor's fail line names changed files; Hidden count on the Hidden link.
+5. Parked (Code's pitches): server `/status` count-only answer; A-Z jump strip; doctor's fail line names changed files; Hidden count on the Hidden link; light vibration when a queue song lifts.
 
 ## Open questions
 - Board seats didn't load by name in batch 3's session, though the files are there. Meetings can keep running them as general helpers.
@@ -37,4 +37,4 @@
 - `Session Music` top-level loose files kept in the scan (chat-default): say if they should go.
 - 26 date-only names and the `Untitled...` files wait for later.
 ## Checks pending
-- Batch 3c: 5 checks in `REPORT.md`. Keep an eye out: does the bar ever say "Skipped..."?
+- None. Still watching: does the bar ever say "Skipped..."?
