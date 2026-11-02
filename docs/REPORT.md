@@ -1,35 +1,34 @@
 # Report
 
-**Step:** Batch 3b, player polish, 2026-11-01. Parts 0, a, b and c built. None of it has run on a phone yet.
+**Step:** Batch 3c, Queue drag that works, 2026-11-02. Parts a, b and c built. None of it has run on a phone yet.
 
 ## Verified by running
-- Play-order self-test: ALL PASSED, with 8 new move tests. Typecheck: no errors. iOS bundle export: succeeded. Repo check: clean.
-- Not tested by running: layout, drag, lock screen. Read from React Native's source: swipe-to-close is off, and a drag takes the touch before the row lets go.
-- **Board seats loaded by name: no.** Ran as general helpers, as NEXT allowed.
+- Typecheck: no errors. Play-order self-test: ALL PASSED. iOS bundle export: succeeded. Expo version check: up to date. Repo check: clean.
+- Read from source: Expo's build adds the animation compile step by itself, so no extra config file is needed.
+- **Not proven:** the export only packs the JavaScript. The new packages include phone-side code, so the first real proof is the GitHub Actions build.
+- Not tested by running: the drag, the grab area, auto-scroll.
+## Why the old drag failed
+Most likely iOS's own sheet pull-down took the finger and cancelled the touch, so the code dropped the song back in place. That fits "snaps back" and "pulls the sheet", but it comes from reading the code, not from a test on the phone.
 ## Needs the phone
-Install the new build first.
-1. Open the full player. Pass: Mine and Not mine sit at the bottom, Not mine under your right thumb, nothing cramped.
-2. Tap Hide buttons, close the app fully, reopen and play. Pass: still hidden; Show buttons brings them back. While hidden, nothing else on the page moves.
-3. Tap Not mine, then Undo. Pass: the toast sits above the buttons, never on them.
-4. Queue: hold a song in Up next, drag it two places up, release. Pass: it snaps, music doesn't restart; Next plays that order, also from the lock screen.
-5. Drag a song, lock the phone, let two songs finish, open Queue. Pass: the dragged order still holds, right song playing.
-6. Shuffle on, drag a row, tap Not mine, then Undo within 5 seconds. Pass: song back at its second, the drag still there.
-7. Drag a long way down in Queue, past the bottom edge. Pass: the list scrolls by itself, the sheet doesn't move or fight you.
-8. Nothing to force: note if the bar ever shows the stuck message.
+Run the build and install it first.
+1. Queue: hold a song in Up next, drag it two places up, release. Pass: the others slide aside, it lands there, music doesn't restart; Next plays that order, also from the lock screen.
+2. Drag a song down. Pass: the sheet stays put. Then swipe down from the top grab area. Pass: the player closes.
+3. Drag a long way down, past the bottom edge. Pass: the list scrolls by itself.
+4. Drag a song, lock the phone, let two songs finish, open Queue. Pass: order held, right song playing.
+5. Shuffle on, drag a row, tap Not mine, then Undo within 5 seconds. Pass: song back at its second, the drag still there.
 ## Changed
-- `app/Player.tsx`, `app/playerStore.ts`, `app/playOrder.ts`, `app/playOrder.test.mjs`.
-- `docs/board/batch-3b.md` (new), `docs/REPORT.md`, `docs/STATUS.md`, `docs/DECISIONS.md`.
+- `app/Player.tsx`, `app/package.json`, `app/package-lock.json`.
+- `docs/REPORT.md`, `docs/STATUS.md`, `docs/DECISIONS.md`.
 ## Differed from NEXT.md
-- No drag package added: React Native's built-in touch handling does it, so no new moving part in the build. If check 7 feels bad, that's the first thing to swap.
-- Board splits: "Hide buttons" / "Show buttons" on the left, since "Hide" by Not mine reads as hiding the song. Back and Queue stay in the middle. Hold is 300 ms.
-- Board extras: Not mine ignores a second tap for half a second; links went up to 44 tall; Undo keeps a drag made during its 5 seconds; drag is off in Sort, whose order is thrown away.
-- The bar shows the same line as the full player, so "Skipped..." and "Played every song" appear there too.
-- No vibration on lift: it needs a new package. The row lifting is the cue.
+- The player is no longer a real iOS sheet. iOS can't limit its pull-down to one area, so it's now a look-alike with its own grab area. Same size and rounded top; the screen behind no longer dims.
+- Package: `react-native-reorderable-list`, not the better-known `react-native-draggable-flatlist`, whose last release is older and predates these versions. It needs `react-native-gesture-handler`, `react-native-reanimated` and `react-native-worklets`, at Expo's pinned versions.
+- Swiping the grab area closes the player from Queue too, as check 2 asks. Back in Queue still goes to the full player.
+- The lifted row is 75% see-through and slightly bigger: the package's default look. Auto-scroll speed is also its default, and it may feel fast.
 ## Not done
 Nothing in NEXT left out.
 ## Decisions needed
-- Shuffle off after a drag goes back to list order and forgets the drag. Recommend keeping it. Default: stays.
+None.
 ## Proposed next step
 Batch 4, Real sorting, once these checks pass.
 ## Pitch
-Swipe the player sheet down to close: code comments say it works, but React Native has it off by default. One setting, and it matches what the board agreed.
+A light vibration when a song lifts: it tells your thumb the hold worked without looking. Needs one small package.

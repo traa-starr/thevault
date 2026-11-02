@@ -192,3 +192,5 @@ The short version. Full rows with options and reasons are below; nothing was del
 | Drag package (2026-11-01) | Built-in touch handling failed on the phone; Code now uses a well-known drag-and-drop list package (chat) | Reversible; must build in iOS export |
 | Sheet vs drag (2026-11-01) | While a song is held, the player sheet can't move. Swipe-to-close only from the top grab area, never from inside the Queue list. Code's swipe-to-close pitch folded in on that condition (chat) | Fixes the fight in check 4 |
 | Shuffle off after drag (2026-11-01) | Goes back to list order and forgets the drag (chat-default, Code's recommendation) | Reversible |
+| Drag package pick (2026-11-02) | `react-native-reorderable-list`, with gesture-handler, reanimated and worklets at Expo's pinned versions (Code) | Kept up to date, unlike `react-native-draggable-flatlist`; reversible |
+| Player sheet (2026-11-02) | A look-alike sheet with its own top grab area replaces the iOS sheet (Code) | iOS can't limit its pull-down to one area; reversible |

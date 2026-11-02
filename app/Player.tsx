@@ -1,15 +1,20 @@
 // What you see of the player: the bar, the full player as a sheet, the queue and the Undo toast. The player itself is
 // playerStore.ts, so closing any of these never touches the music.
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, FlatList, LayoutAnimation, Modal, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Dimensions, Modal, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
+import ReorderableList, { useIsActive, useReorderableDrag, type ReorderableListDragEndEvent, type ReorderableListReorderEvent } from 'react-native-reorderable-list';
 import { player, usePlayer } from './playerStore';
 
 const ROW_HEIGHT = 48;
 const HOLD_MS = 300; // not lower: a hold let go just short of this jumps to the song
-const SLIDE_MS = 150;
-const SETTLE_ROW_MS = 120;
-const EDGE_MS = 50;
-const EDGE_STEP = 8;
+const SLIDE_MS = 220;
+const EDGE_ZONE = 0.15; // the share of the list, top and bottom, that scrolls it during a drag
+const SHEET_TOP = 54; // clears the status bar and leaves the screen behind showing, like an iOS sheet
+const CLOSE_PULL = 120;
+const CLOSE_SPEED = 0.8;
+const CLOSE_MS = 180;
 
 const clock = (seconds: number) => {
   const whole = Math.floor(seconds);
@@ -167,89 +172,57 @@ function FullPlayer() {
   );
 }
 
-/** Up next while a row is lifted: the frozen rows, with the lifted one moved to its slot. */
+/** Up next with one row moved to its slot. */
 const withRowAt = (rows: string[], id: string, slot: number) => {
   const out = rows.filter((one) => one !== id);
   out.splice(slot, 0, id);
   return out;
 };
 
+function QueueRow({ id, sorting }: { id: string; sorting: boolean }) {
+  const lift = useReorderableDrag();
+  const lifted = useIsActive();
+  return (
+    <Pressable
+      style={[s.queueRow, lifted && s.queueLifted]}
+      onPress={() => player.jump(id)}
+      onLongPress={sorting ? undefined : lift}
+      delayLongPress={HOLD_MS}
+    >
+      <Text style={s.queueSong} numberOfLines={1}>{player.titleOf(id)}</Text>
+      {sorting ? null : <Text style={s.queueGrip}>≡</Text>}
+    </Pressable>
+  );
+}
+
 function Queue() {
   const { song, order, marks, sorting } = usePlayer();
   const live = useMemo(() => player.upNext(), [order, marks]);
   // Rows stay frozen while one is lifted, so a song ending mid-drag can't move them under the finger.
-  const [lifted, setLifted] = useState<{ id: string; rows: string[] } | null>(null);
-  const [slot, setSlot] = useState(0);
-  const floatY = useRef(new Animated.Value(0)).current;
-  const list = useRef<FlatList<string>>(null);
-  const drag = useRef({ active: false, grabbed: false, id: '', rows: [] as string[], from: 0, slot: 0, dy: 0, startOffset: 0 });
-  const offset = useRef(0);
-  const listHeight = useRef(0);
-  const edgeTimer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
-  useEffect(() => () => clearInterval(edgeTimer.current), []);
+  const [frozen, setFrozen] = useState<string[] | null>(null);
+  const rows = frozen ?? live;
+  const shown = useRef(rows);
+  shown.current = rows;
 
-  // Where the lifted row sits on screen: it follows the finger whatever the list has scrolled to.
-  const onScreen = () => drag.current.from * ROW_HEIGHT + drag.current.dy - drag.current.startOffset;
+  const freeze = useCallback(() => setFrozen(shown.current), []);
+  const thaw = useCallback(() => setFrozen(null), []);
+  const onDragStart = useCallback(() => {
+    'worklet';
+    runOnJS(freeze)();
+  }, [freeze]);
+  // A row dropped where it started never reaches onReorder, so it thaws here.
+  const onDragEnd = useCallback((e: ReorderableListDragEndEvent) => {
+    'worklet';
+    if (e.from === e.to) runOnJS(thaw)();
+  }, [thaw]);
 
-  const place = () => {
-    const d = drag.current;
-    floatY.setValue(onScreen());
-    const next = Math.min(Math.max(Math.round((onScreen() + offset.current) / ROW_HEIGHT), 0), d.rows.length - 1);
-    if (next !== d.slot) {
-      d.slot = next;
-      LayoutAnimation.configureNext(LayoutAnimation.create(SLIDE_MS, 'easeInEaseOut', 'opacity'));
-      setSlot(next);
-    }
+  const onReorder = ({ from, to }: ReorderableListReorderEvent) => {
+    const id = shown.current[from];
+    const moved = withRowAt(shown.current, id, to);
+    setFrozen(null);
+    player.moveUpNext(id, to > 0 ? moved[to - 1] : null);
   };
 
-  const edgeScroll = () => {
-    const y = onScreen();
-    const most = Math.max(drag.current.rows.length * ROW_HEIGHT - listHeight.current, 0);
-    const step = y < ROW_HEIGHT ? -EDGE_STEP : y > listHeight.current - ROW_HEIGHT * 2 ? EDGE_STEP : 0;
-    const to = Math.min(Math.max(offset.current + step, 0), most);
-    if (to === offset.current) return;
-    offset.current = to;
-    list.current?.scrollToOffset({ offset: to, animated: false });
-    place();
-  };
-
-  const lift = (id: string, index: number) => {
-    const d = drag.current;
-    Object.assign(d, { active: true, grabbed: false, id, rows: live, from: index, slot: index, dy: 0, startOffset: offset.current });
-    floatY.setValue(index * ROW_HEIGHT - offset.current);
-    setSlot(index);
-    setLifted({ id, rows: live });
-  };
-
-  const finish = (apply: boolean) => {
-    const d = drag.current;
-    if (!d.active) return;
-    d.active = false;
-    clearInterval(edgeTimer.current);
-    const rows = withRowAt(d.rows, d.id, d.slot);
-    if (apply) player.moveUpNext(d.id, d.slot > 0 ? rows[d.slot - 1] : null);
-    Animated.timing(floatY, { toValue: d.slot * ROW_HEIGHT - offset.current, duration: SETTLE_ROW_MS, useNativeDriver: false }).start(() => setLifted(null));
-  };
-
-  // Only claims the touch once a row is lifted. Until then the list scrolls and rows tap as usual.
-  const pan = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponderCapture: () => drag.current.active,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: () => {
-        drag.current.grabbed = true;
-        edgeTimer.current = setInterval(edgeScroll, EDGE_MS);
-      },
-      onPanResponderMove: (_, g) => {
-        drag.current.dy = g.dy;
-        place();
-      },
-      onPanResponderRelease: () => finish(true),
-      onPanResponderTerminate: () => finish(false),
-    }),
-  ).current;
-
-  const rows = lifted ? withRowAt(lifted.rows, lifted.id, slot) : live;
   return (
     <View style={s.queue}>
       <View style={s.queueHeader}>
@@ -261,54 +234,68 @@ function Queue() {
       <Text style={s.queueLabel}>Now playing</Text>
       <Text style={s.queueNow} numberOfLines={1}>{song?.title}</Text>
       <Text style={s.queueLabel}>Up next</Text>
-      <View style={s.queueList} onLayout={(e) => (listHeight.current = e.nativeEvent.layout.height)} {...pan.panHandlers}>
-        <FlatList
-          ref={list}
-          data={rows}
-          scrollEnabled={!lifted}
-          scrollEventThrottle={16}
-          onScroll={(e) => (offset.current = e.nativeEvent.contentOffset.y)}
-          getItemLayout={(_, index) => ({ length: ROW_HEIGHT, offset: ROW_HEIGHT * index, index })}
-          keyExtractor={(id) => id}
-          ListEmptyComponent={<Text style={s.queueEmpty}>Nothing after this song</Text>}
-          renderItem={({ item, index }) => (
-            <Pressable
-              style={[s.queueRow, lifted?.id === item && s.queueGap]}
-              onPress={() => player.jump(item)}
-              onLongPress={sorting ? undefined : () => lift(item, index)}
-              delayLongPress={HOLD_MS}
-              // lifted but never moved: no drag took the touch, so letting go puts it back
-              onPressOut={() => {
-                if (!drag.current.grabbed) finish(false);
-              }}
-            >
-              <Text style={s.queueSong} numberOfLines={1}>{player.titleOf(item)}</Text>
-              {sorting ? null : <Text style={s.queueGrip}>≡</Text>}
-            </Pressable>
-          )}
-        />
-        {lifted ? (
-          <Animated.View style={[s.queueRow, s.queueLifted, { transform: [{ translateY: floatY }, { scale: 1.02 }] }]} pointerEvents="none">
-            <Text style={s.queueSong} numberOfLines={1}>{player.titleOf(lifted.id)}</Text>
-            <Text style={s.queueGrip}>≡</Text>
-          </Animated.View>
-        ) : null}
-      </View>
+      <ReorderableList
+        style={s.queueList}
+        data={rows}
+        dragEnabled={!sorting}
+        shouldUpdateActiveItem
+        animationDuration={SLIDE_MS}
+        autoscrollThreshold={EDGE_ZONE}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onReorder={onReorder}
+        keyExtractor={(id) => id}
+        ListEmptyComponent={<Text style={s.queueEmpty}>Nothing after this song</Text>}
+        renderItem={({ item }) => <QueueRow id={item} sorting={sorting} />}
+      />
     </View>
   );
 }
 
-/** Swiping the sheet down does the same as its Back button. */
+/**
+ * Not an iOS sheet: its own pull-down fights a held song and can't be limited to one area. Only the grab area at the
+ * top pulls this one, so nothing inside it can move it.
+ */
 export function PlayerSheet() {
   const { sheet, song } = usePlayer();
+  const visible = sheet !== 'none' && !!song;
+  const pulled = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) pulled.setValue(0);
+  }, [visible, pulled]);
+
+  const grab = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderMove: (_, g) => pulled.setValue(Math.max(g.dy, 0)),
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > CLOSE_PULL || g.vy > CLOSE_SPEED) {
+          Animated.timing(pulled, { toValue: Dimensions.get('window').height, duration: CLOSE_MS, useNativeDriver: true }).start(() => player.open('none'));
+        } else {
+          Animated.spring(pulled, { toValue: 0, useNativeDriver: true }).start();
+        }
+      },
+      onPanResponderTerminate: () => Animated.spring(pulled, { toValue: 0, useNativeDriver: true }).start(),
+    }),
+  ).current;
+
   return (
     <Modal
-      visible={sheet !== 'none' && !!song}
+      visible={visible}
+      transparent
       animationType="slide"
-      presentationStyle="pageSheet"
       onRequestClose={() => player.open(sheet === 'queue' ? 'player' : 'none')}
     >
-      {sheet === 'queue' ? <Queue /> : <FullPlayer />}
+      <GestureHandlerRootView style={s.sheetRoot}>
+        <Animated.View style={[s.sheet, { transform: [{ translateY: pulled }] }]}>
+          <View style={s.grabArea} {...grab.panHandlers}>
+            <View style={s.grabMark} />
+          </View>
+          {sheet === 'queue' ? <Queue /> : <FullPlayer />}
+        </Animated.View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -320,6 +307,10 @@ const s = StyleSheet.create({
   barDetail: { color: '#888', fontSize: 12, marginTop: 2 },
   barButton: { paddingVertical: 12, paddingHorizontal: 10 },
   barButtonText: { color: '#8ab4f8', fontSize: 15, fontWeight: '600' },
+  sheetRoot: { flex: 1 },
+  sheet: { flex: 1, marginTop: SHEET_TOP, backgroundColor: '#111', borderTopLeftRadius: 12, borderTopRightRadius: 12, overflow: 'hidden' },
+  grabArea: { height: 44, alignItems: 'center', justifyContent: 'center' },
+  grabMark: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#555' },
   page: { flex: 1, backgroundColor: '#111' },
   pageTop: { flex: 1, justifyContent: 'center', paddingHorizontal: 24, paddingTop: 8, gap: 12 },
   dock: { height: 160, justifyContent: 'flex-end', paddingHorizontal: 24, paddingBottom: 40 },
@@ -349,15 +340,14 @@ const s = StyleSheet.create({
   toastUndo: { color: '#8ab4f8', fontSize: 16, fontWeight: '700' },
   link: { color: '#8ab4f8', fontSize: 15, paddingHorizontal: 8, paddingVertical: 13, textAlign: 'center' },
   linkOn: { color: '#fff', fontWeight: '700' },
-  queue: { flex: 1, backgroundColor: '#111', paddingTop: 20, paddingHorizontal: 16 },
+  queue: { flex: 1, backgroundColor: '#111', paddingHorizontal: 16 },
   queueHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   queueTitle: { color: '#fff', fontSize: 26, fontWeight: '700' },
   queueLabel: { color: '#888', fontSize: 13, marginTop: 8, marginBottom: 4 },
   queueNow: { color: '#fff', fontSize: 17, fontWeight: '600', marginBottom: 12 },
   queueList: { flex: 1 },
-  queueRow: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', borderBottomColor: '#2a2a2a', borderBottomWidth: 1 },
-  queueGap: { opacity: 0 },
-  queueLifted: { position: 'absolute', left: 0, right: 0, top: 0, paddingHorizontal: 8, backgroundColor: '#2a2a2a', borderRadius: 6, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+  queueRow: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderBottomColor: '#2a2a2a', borderBottomWidth: 1 },
+  queueLifted: { backgroundColor: '#2a2a2a', borderRadius: 6 },
   queueSong: { flex: 1, color: '#fff', fontSize: 16 },
   queueGrip: { color: '#555', fontSize: 20, paddingLeft: 16 },
   queueEmpty: { color: '#888', fontSize: 15, paddingTop: 16 },
