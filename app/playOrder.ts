@@ -59,6 +59,26 @@ export function jumpTo(order: Order, id: string): Order {
   return at < 0 ? order : { ...order, at, furthest: Math.max(order.furthest, at) };
 }
 
+/** Moves a song to right after `afterId`, or right after the current song if that's null. Works by id, because Up next
+ * rows wrap round and hide songs, so a row number isn't a place in the sequence. Keeps the same songs on the played side
+ * of `furthest`, so the move can't let an avoided song into a shuffle. The same order back means nothing changed. */
+export function moveInOrder(order: Order, id: string, afterId: string | null): Order {
+  const current = currentId(order);
+  const from = order.sequence.indexOf(id);
+  if (id === current || id === afterId || from < 0 || order.removed.includes(id)) return order;
+  const sequence = order.sequence.filter((one) => one !== id);
+  const currentAt = sequence.indexOf(current);
+  const afterAt = afterId === null ? -1 : sequence.indexOf(afterId);
+  // a shuffle doesn't wrap: a song that has played by now is behind, so the move lands right after the current song
+  const anchor = afterAt < 0 || (order.shuffle && afterAt < currentAt) ? currentAt : afterAt;
+  sequence.splice(anchor + 1, 0, id);
+  if (sequence.every((one, i) => one === order.sequence[i])) return order;
+  const to = anchor + 1;
+  const wasPlayed = from <= order.furthest;
+  const furthest = wasPlayed ? order.furthest - (to > order.furthest ? 1 : 0) : order.furthest + (to <= order.furthest ? 1 : 0);
+  return { ...order, sequence, at: sequence.indexOf(current), furthest };
+}
+
 /** The moves ahead of this song, for Up next and the player's window. Stops when none is left, or at `count`. */
 export function walkAhead(order: Order, count: number, avoid: string[] = []): Order[] {
   const out: Order[] = [];

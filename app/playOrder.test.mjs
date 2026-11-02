@@ -1,6 +1,6 @@
 // Self-test for the play order: node --experimental-strip-types app/playOrder.test.mjs
 import assert from 'node:assert/strict';
-import { currentId, jumpTo, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored } from './playOrder.ts';
+import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored } from './playOrder.ts';
 
 const keep = () => 0.999; // shuffling with this leaves the list as it was
 const abcd = ['a', 'b', 'c', 'd'];
@@ -93,6 +93,52 @@ const tests = {
     const gone = nextInOrder(removeFromOrder(list('c')));
     assert.deepEqual(upNext(gone, 99), ['a', 'b']);
     assert.deepEqual(upNext(startOrder(['a'], 'a', false), 99), []);
+  },
+  'move: to first and to after a row, list left alone': () => {
+    const order = list('a');
+    assert.deepEqual(upNext(moveInOrder(order, 'd', null), 99), ['d', 'b', 'c']);
+    assert.deepEqual(upNext(moveInOrder(order, 'b', 'd'), 99), ['c', 'd', 'b']);
+    assert.deepEqual(order.list, abcd);
+    assert.deepEqual(order.sequence, abcd);
+  },
+  'move: same place gives the same order back': () => {
+    const order = list('a');
+    assert.equal(moveInOrder(order, 'b', null), order);
+    assert.equal(moveInOrder(order, 'c', 'b'), order);
+  },
+  'move: the playing song and removed songs stay put': () => {
+    const order = nextInOrder(removeFromOrder(list('a')));
+    assert.equal(moveInOrder(order, 'b', 'c'), order);
+    assert.equal(moveInOrder(order, 'a', 'c'), order);
+  },
+  'move: a wrapped row across the current song keeps the current song': () => {
+    const moved = moveInOrder(list('c'), 'b', null);
+    assert.equal(currentId(moved), 'c');
+    assert.deepEqual(upNext(moved, 99), ['b', 'd', 'a']);
+    assert.equal(currentId(previousInOrder(moved)), 'a');
+  },
+  'move: a shuffle plays the new order, and shuffle off goes back to list order': () => {
+    const moved = moveInOrder(mixed('a'), 'd', null);
+    assert.deepEqual(walk(moved), ['d', 'b', 'c']);
+    assert.deepEqual(upNext(setShuffle(moved, false, keep), 99), ['b', 'c', 'd']);
+  },
+  'move: an after-song that has already played lands right after the current one': () => {
+    const c = nextInOrder(nextInOrder(mixed('a', ['a', 'b', 'c', 'd', 'e'])));
+    assert.deepEqual(walk(moveInOrder(c, 'e', 'a')), ['e', 'd']);
+  },
+  'move: an unplayed song dragged among played ones doesn\'t let an avoided song in': () => {
+    const back = previousInOrder(nextInOrder(mixed('a'))); // at a, b already played
+    const moved = moveInOrder(back, 'd', null); // a d b c
+    assert.equal(moved.furthest, 2);
+    assert.deepEqual(walk(moved, ['c']), ['d', 'b']);
+  },
+  'move: a played song dragged past the played ones keeps the others played': () => {
+    const ids = ['a', 'b', 'c', 'd'];
+    const atC = nextInOrder(nextInOrder(mixed('a', ids)));
+    const back = previousInOrder(previousInOrder(atC)); // at a, b and c played
+    const moved = moveInOrder(back, 'b', 'd'); // a c d b
+    assert.equal(moved.furthest, 1);
+    assert.deepEqual(walk(moved), ['c', 'd', 'b']);
   },
   'pending not mine leaves the list, pending mine marks it': () => {
     const songs = [{ id: 'a', mine: 'unknown', sorted: false }, { id: 'b', mine: 'likely mine', sorted: false }, { id: 'c', mine: 'unknown', sorted: false }];

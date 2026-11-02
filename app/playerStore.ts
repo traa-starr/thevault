@@ -5,7 +5,7 @@ import { File, Paths } from 'expo-file-system';
 import { useSyncExternalStore } from 'react';
 import { createEngine, type Engine, type Sound } from './engine';
 import { addChange } from './outbox';
-import { currentId, jumpTo, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
+import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
 
 export type PlayerSong = { id: string; title: string; mine: string; sorted: boolean };
 type Mark = { mine: string; sorted: boolean };
@@ -26,6 +26,7 @@ const MAX_BAD_IN_A_ROW = 3;
 const MAX_STUCK_PROBES = 3;
 const FAILED_QUICKLY_MS = 3000;
 const UP_NEXT_SHOWN = 200;
+const NOT_MINE_GUARD_MS = 500; // the next song arrives under the same thumb, so a double tap can't hide two
 
 type State = {
   order: Order | null;
@@ -40,10 +41,12 @@ type State = {
   message: string;
   sheet: Sheet;
   timeLeft: boolean;
+  buttonsHidden: boolean;
   marks: Record<string, Mark>;
 };
 
 const timeLeftFile = () => new File(Paths.document, 'time-left.txt');
+const buttonsHiddenFile = () => new File(Paths.document, 'buttons-hidden.txt');
 
 let state: State = {
   order: null,
@@ -58,6 +61,7 @@ let state: State = {
   message: '',
   sheet: 'none',
   timeLeft: timeLeftFile().exists,
+  buttonsHidden: buttonsHiddenFile().exists,
   marks: {},
 };
 let url = '';
@@ -73,6 +77,7 @@ let badInARow = 0;
 let stuckProbes = 0;
 let everLoaded = false;
 let trackStarted = 0;
+let lastNotMine = 0;
 let undoTimer: ReturnType<typeof setTimeout> | undefined;
 let stallTimer: ReturnType<typeof setInterval> | undefined;
 const listeners = new Set<() => void>();
@@ -362,6 +367,21 @@ export const player = {
     replaceAhead(order, index);
   },
 
+  /** A dragged Up next row, applied to the order as it is now: a song may have ended during the drag. Never touches the sound. */
+  moveUpNext(id: string, afterId: string | null) {
+    if (!state.order) return;
+    const moved = moveInOrder(state.order, id, afterId);
+    if (moved === state.order) return;
+    const index = engine?.windowed ? engine.index() : 0;
+    // the player may be on a new song it hasn't announced yet: what it holds is what's really playing
+    const held = engine?.windowed ? track[index]?.id : undefined;
+    const order = held && held !== currentId(moved) ? jumpTo(moved, held) : moved;
+    // every order the player holds is from before the drag: landing on one would undo it, so they all re-find their song
+    track = track.map((one, i) => (i <= index ? { id: one.id, order: i === index ? order : null } : one));
+    update({ order, song: songNow(order) });
+    replaceAhead(order, index);
+  },
+
   tapMine() {
     const song = state.song;
     if (!song) return;
@@ -380,7 +400,8 @@ export const player = {
 
   tapNotMine() {
     const { song, order, time } = state;
-    if (!song || !order) return;
+    if (!song || !order || Date.now() - lastNotMine < NOT_MINE_GUARD_MS) return;
+    lastNotMine = Date.now();
     addChange('mine_set', song.id, 'not mine');
     clearTimeout(undoTimer);
     undoTimer = setTimeout(() => update({ undo: null }), UNDO_MS);
@@ -421,7 +442,12 @@ export const player = {
     addChange('mine_restore', undo.id);
     const { [undo.id]: _, ...marks } = state.marks;
     update({ marks });
-    loadOrder(undo.order, undo.at, true);
+    // same list: keep what changed since the tap, such as a Queue drag. Another list: back to the saved one.
+    const now = state.order;
+    const order = now && now.list === undo.order.list
+      ? jumpTo({ ...now, removed: now.removed.filter((id) => id !== undo.id) }, undo.id)
+      : undo.order;
+    loadOrder(order, undo.at, true);
   },
 
   /** Sort borrows the player: the library's song, second and order go on a stack, and the sort list gets its own order. */
@@ -469,6 +495,13 @@ export const player = {
     if (state.timeLeft) file.delete();
     else file.create();
     update({ timeLeft: !state.timeLeft });
+  },
+
+  toggleButtonsHidden() {
+    const file = buttonsHiddenFile();
+    if (state.buttonsHidden) file.delete();
+    else file.create();
+    update({ buttonsHidden: !state.buttonsHidden });
   },
 
   isMine: () => (state.song ? markOf(state.song).mine === 'mine' : false),

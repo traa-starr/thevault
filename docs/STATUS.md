@@ -1,9 +1,9 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-01 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 1 started.** Updated 2026-11-01 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 
 **In progress:** nothing.
-**Next up:** Code: `/next` (batch 3b).
+**Next up:** me: phone checks, then Review.
 **Current task:** `NEXT.md` "Batch 3b, player polish".
 
 ## Done
@@ -17,6 +17,7 @@
 - Batch 2 verified 2026-11-01: nightly backup, full pull, Hidden Restore, sorting prototype. Closes 1.3, 1.9, 1.19.
 - Board set up and met twice 2026-11-01: batch 3, then batches 4 and 4b.
 - Batch 3 phone-verified 2026-11-01: shared player, bar, playlist player, lock screen, queue, time tap. Closes 1.15, 1.16.
+- Batch 3b built 2026-11-01, not yet on a phone: buttons at the bottom, hide toggle, Queue drag, stuck message on the bar.
 
 ## Queue
 1. Batch 4: Real sorting (only unsorted songs, inline set songs).
@@ -35,4 +36,4 @@
 - `Session Music` top-level loose files kept in the scan (chat-default): say if they should go.
 - 26 date-only names and the `Untitled...` files wait for later.
 ## Checks pending
-- None until batch 3b is built.
+- Batch 3b: 8 checks in `REPORT.md`.
