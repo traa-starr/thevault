@@ -57,6 +57,9 @@ or open questions. It rewrites NEXT only if the idea should beat the current tas
 One NEXT = one batch from `BATCH-PLAN.md`, 2-3 phone checks. Split earlier only where I must see A before B is worth building, or before
 something hard to undo. A NEXT may have a stop line: parts after it happen only if the session has room.
 
+## Design board
+Before batches with new screens or flows, Code runs the four board seats (`BOARD.md`) and writes `docs/board/<batch>.md`. Chat turns it into NEXT. Advisory only.
+
 ## Decisions
 - Reversible and technical: chat or Code decides, logs it, tells me in one line.
 - Taste, scope, money: a recommendation and a default, asked once.

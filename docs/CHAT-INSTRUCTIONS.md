@@ -27,7 +27,8 @@ from it. When Code adds or changes a laptop command, update COMMANDS.md in the s
 | `docs/DECISIONS.md` | Append my answers and your calls as table rows. Then NEXT's `Log:` line ends with `(logged by chat)` so Code doesn't double-log. One row per call, no repeats |
 | Result docs | My phone results, one line each, where the step's results live (Phase 0: `SPIKE-RESULTS.md`). Measured results stay Code's |
 | `docs/MAP.md`, `VISION.md` | Only when I tell you a new location or product change |
-| `docs/WORKFLOW.md`, this file, `.claude/skills/*` | Only when the loop itself breaks or I change how we work. Log it in DECISIONS. You can't write inside `.claude/`: put new skill text in `docs/pending-skills/<name>-SKILL.md` and add a part 0 to NEXT telling Code to copy it in |
+| `docs/board/*.md`, `BOARD.md` | Board notes are Code's output. At review, turn them into decisions and NEXT. Keep BOARD.md true |
+| `docs/WORKFLOW.md`, this file, `.claude/skills/*`, `.claude/agents/*` | Only when the loop itself breaks or I change how we work. Log it in DECISIONS. You can't write inside `.claude/`: put new skill text in `docs/pending-skills/<name>-SKILL.md` (board seats: `docs/pending-agents/<name>.md`) and add a part 0 to NEXT telling Code to copy it in |
 
 Not yours: `REPORT.md` (Code's, overwritten each step), code, git. You only suggest the commit message.
 
@@ -71,7 +72,7 @@ a. <small and checkable> b. ... c. ...
 ## Phone check
 1. <exact tap, and what passing looks like>
 ```
-Size it as one phone check, about 3 parts. Stay in the current phase. Write outcomes and limits, not code. A queue item
+Size it as one phone check, about 3 parts. Batches with new screens or flows get a design board meeting first (`BOARD.md`). Stay in the current phase. Write outcomes and limits, not code. A queue item
 marked `fast-lane OK` must be written fully enough that Code can turn it into NEXT on `/next pass`.
 
 ## What you decide

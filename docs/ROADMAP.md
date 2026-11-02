@@ -17,17 +17,17 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [x] G3 Close Phase 0: fold its DECISIONS rows into a summary, start `app/` and `server/`
 
 ## Phase 1: Sort, then play (Checkpoint 1). "My catalogue is sorted, and it's my music player"
-**Order inside Phase 1:** batches in `BATCH-PLAN.md`: first write + 1.18 stamp · 1.9, 1.3, 1.19 · 1.15, 1.16 · 1.21 · 1.22, 1.7 · 1.17, 1.18 final. Reordered 2026-11-01 (DECISIONS).
+**Order inside Phase 1:** batches in `BATCH-PLAN.md`: first write + 1.18 stamp · 1.9, 1.3, 1.19 · 1.15, 1.16 · 1.21 · 1.23 · 1.22, 1.7 · 1.17, 1.18 final. Reordered 2026-11-01 (DECISIONS).
 *Laptop*
 - [x] 1.1 Library folder and database (songs, files, versions, tags, groups, links) *(built and self-tested; my check: open `E:\VaultLibrary`)*
 - [x] 1.2 Read-only scanner: `Music`, `Session Music` (loose files + `#FREEMONEY THE MIXTAPE` only), `tape`, iCloud root; re-scan finds new files
-- [ ] 1.3 Cloud-only files (864 places, 2.9 GB, 2026-11-01): all pulled to the laptop once, up front, one at a time, with a progress count, stopping under 10 GB free on C:
+- [x] 1.3 Cloud-only files (864 places, 2.9 GB, 2026-11-01): all pulled to the laptop once, up front, one at a time, with a progress count, stopping under 10 GB free on C: *(laptop-verified 2026-11-01)*
 - [x] 1.4 Duplicates: the same file in two folders is one song
 - [x] 1.5 Auto "mine" detection, unknown by default
 - [x] 1.6 Source tag (FL), title and date filled in from the file
 - [ ] 1.7 Compressed phone copies (~192 kbps), kept songs only
 - [x] 1.8 Server: serves known songs by id only, over Tailscale; streams with seeking, so the phone keeps no copy *(phone-verified 2026-11-01 in Safari)*
-- [ ] 1.9 Nightly database backup to C: (G2), with a warning when it is skipped
+- [x] 1.9 Nightly database backup to C: (G2), with a warning when it is skipped *(laptop-verified 2026-11-01)*
 - [x] 1.10 `doctor` script: checks Tailscale, server and guard before phone tests, stops test servers after; warns when the scan is old *(phone-verified 2026-11-01)*
 - [x] 1.11 Build upkeep: full Xcode log saved on a failed build *(built, unproven until a build fails)*
 
@@ -41,10 +41,11 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [ ] 1.18 Survival test: app data survives a SideStore re-sign. **Must pass before real tagging (Phase 2); tags can't be replaced.** Sorting verdicts and quick tags save straight to the laptop, so they don't wait on it *(first half passed 2026-11-01: stamp kept across a refresh)*
 
 *Stream and sort (needs the laptop on and reachable)*
-- [ ] 1.19 Prototype: sorting card, tappable with fake data
+- [x] 1.19 Prototype: sorting card, tappable with fake data *(phone-verified 2026-11-01)*
 - [x] 1.20 Stream any song from the laptop: tap and it plays, nothing saved to the phone, seeking works *(phone-verified 2026-11-01)*
-- [ ] 1.21 Sorting session: card for a random unsorted song, one-tap Keep / Not mine, optional quick tag, progress counter. Verdicts save to the laptop. Mine filter; my manual choice always wins. First pass is getting songs out
+- [ ] 1.21 Sorting session: card for a random unsorted song, one-tap Keep / Not mine, optional quick tag, progress counter. Verdicts save to the laptop. Mine filter; my manual choice always wins. First pass is getting songs out. Never shows a song I already sorted anywhere *(Hidden list + Restore phone-verified 2026-11-01)*
 - [ ] 1.22 Import list: only kept songs are imported; not-mine songs stay out of the library and the app
+- [ ] 1.23 Versions, manual: "this is another version of song X" from library, player or sort, any time; versions as a second layer of sort. Pulled forward from 4.1/4.7 (DECISIONS 2026-11-01); name and fingerprint proposals stay in Phase 4
 
 **Done when:** I've sorted my catalogue from the phone without downloading it, then play a kept song at home and away with the screen locked and the laptop asleep, and app data survives a re-sign.
 
@@ -71,7 +72,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 **Done when:** the 20 searches pass and I find a song from a half-remembered line.
 
 ## Phase 4: Groups (Checkpoint 4). "Versions live together"
-- [ ] 4.1 "Add to group / New group" button on player and card
+- [ ] 4.1 "Add to group / New group" button on player and card *(manual linking moved to 1.23)*
 - [ ] 4.2 Name proposals, with the two D3 bugs fixed: FL's `-001` numbering; generic names like `Project_N` never grouped by name alone
 - [ ] 4.3 Audio fingerprint proposals: 0.8+ high confidence, 0.65-0.8 "maybe"
 - [ ] 4.4 Auto-name from the title; strip a trailing number only when other files share the base

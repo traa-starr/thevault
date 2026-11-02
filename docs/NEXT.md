@@ -1,20 +1,24 @@
-# NEXT: Batch 2: Safety and pull
+# NEXT: Board setup and first meeting (batches 3, 4, 4b)
 Written by chat, 2026-11-01.
-Log: Batch 1 passed all 9 phone checks; backup folder is `C:\VaultBackup` (chat-default); Code's "Undo returns to the spot" pitch goes into batch 3 with the shared player (chat-default) (logged by chat)
-Queue after this: Batch 3 "The real player" (`BATCH-PLAN.md`), plus Undo returning to the spot in the song.
-Read: `BATCH-PLAN.md` (Batch 2), `BLUEPRINT.md` (backup, `/health`, pull-cloud section), `MAP.md`, then `server/vault_cli.py`, `server/vault_server/server.py`, `app/Library.tsx`.
+Log: Batch 2 passed all laptop and phone checks; prototype feedback (inline "show songs" is the keeper; sort only shows songs I haven't sorted anywhere); manual versions linking pulled into Phase 1 as batch 4b and ROADMAP 1.23; design board set up; sort borrows the shared player (starting idea, board refines) (logged by chat)
+Queue after this: Batch 3 "The real player", written by chat from the board notes.
+Read: `docs/BOARD.md`, `docs/pending-agents/*.md`, `BATCH-PLAN.md` (batches 3, 4, 4b), `BLUEPRINT.md` (App, Sorting), `VISION.md` (Groups, Design), `app/App.tsx`, `app/Library.tsx`, `app/Prototype.tsx`.
+Session: Opus medium. **No app or server code. No new packages.** Docs only.
 ## Parts
-a. **Nightly backup (ROADMAP 1.9).** A `backup` laptop command copies `vault.db` and `journal.jsonl` to `C:\VaultBackup`, keeps 14 copies, and skips with a plain warning while E: is unplugged. A Windows scheduled task runs it nightly; give me the one command to set that up and I run it. `/health` and doctor show the last backup's age. MAP gets the path.
-b. **Pull cloud songs (ROADMAP 1.3).** `pull-cloud` laptop command as in the blueprint: one at a time, progress count, stops under 10 GB free on C:, safe to stop and rerun, read-only. First prove on 3-5 files that doctor's fingerprint check still passes after a pull. Don't run the full pull: give me the command. Then check the known gap: a kept song that was cloud-only keeps its verdict after the pull and a scan.
-c. **Hidden list (part of 1.21).** A Hidden screen reachable from the Library, listing not-mine songs from `/songs?hidden=1`, with Restore per song that goes through the outbox like Undo.
-**Stop line:** d waits if the session runs long.
-d. **Sorting prototype (ROADMAP 1.19).** Fake data only: bulk sweep screen and a song card, with buttons and swipe. Nothing saved.
-Limits: nothing writes to a music folder; the pull only reads, so iCloud downloads in its usual spot. No new packages unless a part can't work without one; note it in REPORT.
-## Laptop check
-1. Run the backup command once. Pass: a dated copy shows up in `C:\VaultBackup`, and doctor shows its age.
-2. Run the full pull. Pass: it finishes with the count it said at the start (or stops cleanly at the space limit), then the scan runs and doctor passes.
+0. Copy the four files in `docs/pending-agents/` into `.claude/agents/` unchanged. Confirm they load.
+a. **Meeting 1: batch 3, the real player.** Brief all four seats on: one shared player I can control from every screen
+   (bar plus lock screen); how sorting borrows the player (my starting idea: sort plays through the same player and pauses
+   the library queue, which picks back up when I leave sort; the board can do better); Undo returns to the spot in the
+   song; what Back does. Write `docs/board/batch-3.md` in the BOARD.md format.
+b. **Meeting 2: batches 4 and 4b, sorting and versions.** My notes from the prototype: it's okay; my favorite part is
+   opening a set's songs right in the list without leaving the screen. Sort must be smart: anything I already sorted
+   anywhere (library, player, sort) never shows again; only questionable songs stay. Versions are a second layer of sort,
+   but not every song has versions and titles alone won't always show them, so I must be able to say "this is another
+   version of song X" from library, player or sort at any time. The app doesn't have to say "groups". Settled (DECISIONS "Versions rules"): called Versions; only my songs
+   get them; one canon version picked by ear, changeable any time; only canon plays and shows as one Library row; other
+   versions open in a separate view; wrong link = Undo toast + Remove there. Board designs that view, how a link is made
+   in two taps, and the "Not sure" choice in sort. The logic seat gives options for how versions are stored, marked owner picks (Phase 4's name proposals,
+   fingerprint proposals, merge and split must fit later). Write `docs/board/batch-4-versions.md`.
+**Stop line:** b waits if the session runs long.
 ## Phone check
-Setup: push, run Build iOS (unsigned), install the new `TheVault.ipa` in SideStore, start the server.
-1. Play a song that was cloud-only before the pull. Pass: it plays and seeks.
-2. Library, open Hidden, tap Restore on a song. Pass: it leaves Hidden and is back in the Library, count one higher.
-3. Prototype: sweep a set, then swipe and tap through a few cards. Report how it feels: fast enough, buttons in the right place, swipe directions right.
+None: docs only. Wrap, then I type `Review.` in chat.
