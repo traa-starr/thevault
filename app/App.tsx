@@ -1,10 +1,11 @@
 // One screen: the title and whether the laptop answers. The laptop's address is typed here and stays on the phone, never in the repo.
 import { File, Paths } from 'expo-file-system';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Library from './Library';
 import { flush, startOutbox } from './outbox';
+import { NowPlayingBar, PlayerSheet, UndoToast } from './Player';
 import Prototype from './Prototype';
 
 const PORT = 8787;
@@ -92,33 +93,37 @@ export default function App() {
     setEditing(false);
   };
 
+  // The player lives outside the screens, so changing screen never touches it.
+  const withPlayer = (screen: ReactNode) => (
+    <View style={s.root}>
+      <StatusBar style="light" />
+      <View style={s.screen}>
+        {screen}
+        <UndoToast />
+      </View>
+      <NowPlayingBar />
+      <PlayerSheet />
+    </View>
+  );
+
   if (inPrototype) {
-    return (
-      <>
-        <StatusBar style="light" />
-        <Prototype onBack={() => setInPrototype(false)} />
-      </>
-    );
+    return withPlayer(<Prototype url={address ? serverUrl(address) : ''} onBack={() => setInPrototype(false)} />);
   }
 
   if (inLibrary) {
-    return (
-      <>
-        <StatusBar style="light" />
-        <Library
-          url={serverUrl(address)}
-          onBack={() => {
-            setInLibrary(false);
-            check();
-          }}
-        />
-      </>
+    return withPlayer(
+      <Library
+        url={serverUrl(address)}
+        onBack={() => {
+          setInLibrary(false);
+          check();
+        }}
+      />,
     );
   }
 
-  return (
+  return withPlayer(
     <View style={s.page}>
-      <StatusBar style="light" />
       <Text style={s.title}>The Vault</Text>
       {editing ? (
         <>
@@ -155,11 +160,13 @@ export default function App() {
         <Text style={s.link}>Sorting prototype</Text>
       </Pressable>
       <Text style={s.stamp}>Data since {stamp}</Text>
-    </View>
+    </View>,
   );
 }
 
 const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#111' },
+  screen: { flex: 1 },
   page: { flex: 1, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 },
   title: { color: '#fff', fontSize: 34, fontWeight: '700' },
   line: { color: '#ddd', fontSize: 18 },

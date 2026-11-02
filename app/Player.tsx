@@ -1,37 +1,13 @@
-// The player: streams songs from the laptop, nothing saved on the phone. Leaving it stops the music.
-// Mine and Not mine go through the outbox, so they work with the laptop off.
-import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import { useEffect, useRef, useState } from 'react';
-import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
-import { addChange } from './outbox';
-import { nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, type Order } from './playOrder';
-
-export type PlayerSong = { id: string; title: string; mine: string; sorted: boolean };
-
-const UPDATE_MS = 500;
-const STALL_MS = 10000;
-const PROBE_TIMEOUT_MS = 5000;
-const UNDO_MS = 5000;
+// What you see of the player: the bar, the full player as a sheet, the queue and the Undo toast. The player itself is
+// playerStore.ts, so closing any of these never touches the music.
+import { useMemo, useRef, useState } from 'react';
+import { FlatList, Modal, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { player, usePlayer } from './playerStore';
 
 const clock = (seconds: number) => {
   const whole = Math.floor(seconds);
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 };
-
-// A stuck player doesn't say why, so ask the server. HEAD opens no music file.
-async function whyStuck(audioUrl: string) {
-  const abort = new AbortController();
-  const timer = setTimeout(() => abort.abort(), PROBE_TIMEOUT_MS);
-  try {
-    const r = await fetch(audioUrl, { method: 'HEAD', signal: abort.signal });
-    if (r.ok) return 'Still trying to load this song…';
-    return r.status === 409 ? 'This song is cloud only now' : "Couldn't play this song";
-  } catch {
-    return 'Laptop not reachable';
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 type SeekBarProps = { value: number; max: number; onDrag: (value: number) => void; onDrop: (value: number) => void };
 
@@ -69,198 +45,158 @@ function SeekBar({ value, max, onDrag, onDrop }: SeekBarProps) {
   );
 }
 
-type PlayerProps = { url: string; songs: PlayerSong[]; start: number; shuffle: boolean; onBack: () => void };
+/** The 5-second Undo. Sits above the bar and survives changing screens, because it belongs to the player. */
+export function UndoToast() {
+  const { undo, message } = usePlayer();
+  if (message) {
+    return (
+      <View style={s.toast}>
+        <Text style={s.toastText}>{message}</Text>
+      </View>
+    );
+  }
+  if (!undo) return null;
+  return (
+    <Pressable style={s.toast} onPress={player.tapUndo}>
+      <Text style={s.toastText} numberOfLines={1}>Hidden: {undo.title}</Text>
+      <Text style={s.toastUndo}>Undo</Text>
+    </Pressable>
+  );
+}
 
-export default function Player({ url, songs, start, shuffle, onBack }: PlayerProps) {
-  const player = useAudioPlayer(null, { updateInterval: UPDATE_MS });
-  const status = useAudioPlayerStatus(player);
-  const [order, setOrder] = useState(() => startOrder(start, shuffle));
-  const [wanted, setWanted] = useState(true);
+/** Near the bottom of every screen once something has played. */
+export function NowPlayingBar() {
+  const { song, wanted, sorting } = usePlayer();
+  if (!song) return null;
+  return (
+    <Pressable style={s.bar} onPress={() => player.open('player')}>
+      <View style={s.barText}>
+        <Text style={s.barTitle} numberOfLines={1}>{song.title}</Text>
+        <Text style={s.barDetail}>{sorting ? 'Sorting' : wanted ? 'Playing' : 'Paused'}</Text>
+      </View>
+      <Pressable style={s.barButton} onPress={player.toggle} hitSlop={8}>
+        <Text style={s.barButtonText}>{wanted ? 'Pause' : 'Play'}</Text>
+      </Pressable>
+      <Pressable style={s.barButton} onPress={player.next} hitSlop={8}>
+        <Text style={s.barButtonText}>Next</Text>
+      </Pressable>
+    </Pressable>
+  );
+}
+
+function FullPlayer() {
+  const { song, order, wanted, time, duration, note, trouble, timeLeft, sorting } = usePlayer();
   const [dragAt, setDragAt] = useState<number | null>(null);
   const [seekingTo, setSeekingTo] = useState<number | null>(null);
-  const [note, setNote] = useState('');
-  const [trouble, setTrouble] = useState('');
-  const [marks, setMarks] = useState<Record<string, { mine: string; sorted: boolean }>>({});
-  const [undo, setUndo] = useState<{ order: Order; id: string } | null>(null);
-  const song = songs[order.current];
-  const audioUrl = (id: string) => `${url}/songs/${id}/audio`;
-  const markOf = (one: PlayerSong) => marks[one.id] ?? one;
-  // while sorting, shuffle only lands on songs not yet called mine
-  const avoid = () => songs.flatMap((one, position) => (markOf(one).mine === 'mine' ? [position] : []));
-
-  const load = (index: number) => {
-    setSeekingTo(null);
-    setNote('');
-    setWanted(true);
-    player.replace({ uri: audioUrl(songs[index].id) });
-    player.play();
-  };
-
-  useEffect(() => {
-    let live = true;
-    setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'doNotMix' })
-      .catch(() => {})
-      .finally(() => {
-        if (live) load(start);
-      });
-    return () => {
-      live = false;
-    };
-  }, []);
-
-  const next = (finished: boolean) => {
-    const moved = nextInOrder(order, songs.length, Math.random, avoid());
-    if (moved) {
-      setOrder(moved);
-      load(moved.current);
-      return;
-    }
-    setNote('Played every song in this list');
-    if (finished) {
-      setWanted(false);
-      player.pause();
-      player.seekTo(0).catch(() => {});
-    }
-  };
-
-  const previous = () => {
-    const moved = previousInOrder(order, songs.length);
-    if (moved) {
-      setOrder(moved);
-      load(moved.current);
-    } else {
-      player.seekTo(0).catch(() => {});
-    }
-  };
-
-  const tapMine = () => {
-    const mark = markOf(song);
-    if (mark.mine === 'mine' && mark.sorted) {
-      addChange('mine_restore', song.id);
-      const { [song.id]: mine, ...others } = marks;
-      setMarks(mine ? others : { ...marks, [song.id]: { mine: 'unknown', sorted: false } });
-    } else {
-      addChange('mine_set', song.id, 'mine');
-      setMarks({ ...marks, [song.id]: { mine: 'mine', sorted: true } });
-    }
-  };
-
-  const tapNotMine = () => {
-    addChange('mine_set', song.id, 'not mine');
-    setUndo({ order, id: song.id });
-    const out = removeFromOrder(order);
-    const moved = nextInOrder(out, songs.length, Math.random, avoid());
-    setOrder(moved ?? out);
-    if (moved) {
-      load(moved.current);
-    } else {
-      setNote('No more songs in this list');
-      setWanted(false);
-      player.pause();
-    }
-  };
-
-  const tapUndo = () => {
-    if (!undo) return;
-    addChange('mine_restore', undo.id);
-    setOrder(undo.order);
-    load(undo.order.current);
-    setUndo(null);
-  };
-
-  useEffect(() => {
-    if (!undo) return;
-    const timer = setTimeout(() => setUndo(null), UNDO_MS);
-    return () => clearTimeout(timer);
-  }, [undo]);
-
-  const toggle = () => {
-    if (wanted) player.pause();
-    else player.play();
-    setWanted(!wanted);
-  };
 
   const drop = async (value: number) => {
     setDragAt(null);
-    if (!status.duration) return;
+    if (!duration) return;
     setSeekingTo(value);
-    try {
-      await player.seekTo(value);
-    } catch {
-      // the song changed or the player closed while seeking: nothing to do
-    }
+    await player.seek(value);
     setSeekingTo(null);
   };
 
-  useEffect(() => {
-    if (status.didJustFinish) next(true);
-  }, [status.didJustFinish]);
-
-  // No progress while it should be playing: say why. Any progress clears the message.
-  useEffect(() => {
-    setTrouble('');
-    if (!wanted) return;
-    let live = true;
-    const timer = setInterval(async () => {
-      const why = await whyStuck(audioUrl(song.id));
-      if (live) setTrouble(why);
-    }, STALL_MS);
-    return () => {
-      live = false;
-      clearInterval(timer);
-    };
-  }, [wanted, song.id, status.currentTime, url]);
-
-  const shown = Math.min(dragAt ?? seekingTo ?? status.currentTime, status.duration || 0);
-  const isMine = markOf(song).mine === 'mine';
-  const isOut = order.removed.includes(order.current);
+  const shown = Math.min(dragAt ?? seekingTo ?? time, duration || 0);
+  const isMine = player.isMine();
   return (
     <View style={s.page}>
-      <Text style={s.title} numberOfLines={2}>{song.title}</Text>
+      <Text style={s.title} numberOfLines={2}>{song?.title}</Text>
       <Text style={s.note}>{trouble || note || ' '}</Text>
-      <SeekBar value={shown} max={status.duration} onDrag={setDragAt} onDrop={drop} />
+      <SeekBar value={shown} max={duration} onDrag={setDragAt} onDrop={drop} />
       <View style={s.times}>
         <Text style={s.time}>{clock(shown)}</Text>
-        <Text style={s.time}>{clock(status.duration)}</Text>
+        <Pressable style={s.timeTap} onPress={player.toggleTimeLeft}>
+          <Text style={s.time}>{timeLeft ? `-${clock(Math.max(duration - shown, 0))}` : clock(duration)}</Text>
+        </Pressable>
       </View>
       <View style={s.controls}>
-        <Pressable style={s.button} onPress={previous}>
+        <Pressable style={s.button} onPress={player.previous}>
           <Text style={s.buttonText}>Previous</Text>
         </Pressable>
-        <Pressable style={[s.button, s.play]} onPress={toggle}>
+        <Pressable style={[s.button, s.play]} onPress={player.toggle}>
           <Text style={[s.buttonText, s.playText]}>{wanted ? 'Pause' : 'Play'}</Text>
         </Pressable>
-        <Pressable style={s.button} onPress={() => next(false)}>
+        <Pressable style={s.button} onPress={player.next}>
           <Text style={s.buttonText}>Next</Text>
         </Pressable>
       </View>
-      {isOut ? null : (
+      {player.isOut() || sorting ? null : (
         <View style={s.controls}>
-          <Pressable style={[s.button, isMine && s.mineOn]} onPress={tapMine}>
+          <Pressable style={[s.button, isMine && s.mineOn]} onPress={player.tapMine}>
             <Text style={[s.buttonText, isMine && s.playText]}>Mine</Text>
           </Pressable>
-          <Pressable style={s.button} onPress={tapNotMine}>
+          <Pressable style={s.button} onPress={player.tapNotMine}>
             <Text style={s.buttonText}>Not mine</Text>
           </Pressable>
         </View>
       )}
-      <Pressable onPress={() => setOrder(setShuffle(order, !order.shuffle))}>
-        <Text style={[s.link, order.shuffle && s.linkOn]}>{order.shuffle ? 'Shuffle: on' : 'Shuffle: off'}</Text>
+      {sorting ? null : (
+        <Pressable onPress={() => player.setShuffleOn(!order?.shuffle)}>
+          <Text style={[s.link, order?.shuffle && s.linkOn]}>{order?.shuffle ? 'Shuffle: on' : 'Shuffle: off'}</Text>
+        </Pressable>
+      )}
+      <Pressable onPress={() => player.open('queue')}>
+        <Text style={s.link}>Queue</Text>
       </Pressable>
-      <Pressable onPress={onBack}>
+      <Pressable onPress={() => player.open('none')}>
         <Text style={s.link}>Back</Text>
       </Pressable>
-      {undo ? (
-        <Pressable style={s.toast} onPress={tapUndo}>
-          <Text style={s.toastText} numberOfLines={1}>Hidden: {songs.find((one) => one.id === undo.id)?.title}</Text>
-          <Text style={s.toastUndo}>Undo</Text>
-        </Pressable>
-      ) : null}
+      <UndoToast />
     </View>
   );
 }
 
+function Queue() {
+  const { song, order, marks } = usePlayer();
+  const ids = useMemo(() => player.upNext(), [order, marks]);
+  return (
+    <View style={s.queue}>
+      <View style={s.queueHeader}>
+        <Pressable onPress={() => player.open('player')}>
+          <Text style={s.link}>Back</Text>
+        </Pressable>
+        <Text style={s.queueTitle}>Queue</Text>
+      </View>
+      <Text style={s.queueLabel}>Now playing</Text>
+      <Text style={s.queueNow} numberOfLines={1}>{song?.title}</Text>
+      <Text style={s.queueLabel}>Up next</Text>
+      <FlatList
+        data={ids}
+        keyExtractor={(id) => id}
+        ListEmptyComponent={<Text style={s.queueEmpty}>Nothing after this song</Text>}
+        renderItem={({ item }) => (
+          <Pressable style={s.queueRow} onPress={() => player.jump(item)}>
+            <Text style={s.queueSong} numberOfLines={1}>{player.titleOf(item)}</Text>
+          </Pressable>
+        )}
+      />
+    </View>
+  );
+}
+
+/** Swiping the sheet down does the same as its Back button. */
+export function PlayerSheet() {
+  const { sheet, song } = usePlayer();
+  return (
+    <Modal
+      visible={sheet !== 'none' && !!song}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={() => player.open(sheet === 'queue' ? 'player' : 'none')}
+    >
+      {sheet === 'queue' ? <Queue /> : <FullPlayer />}
+    </Modal>
+  );
+}
+
 const s = StyleSheet.create({
+  bar: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 16, paddingRight: 8, paddingTop: 10, paddingBottom: 30, backgroundColor: '#222', borderTopColor: '#333', borderTopWidth: 1 },
+  barText: { flex: 1 },
+  barTitle: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  barDetail: { color: '#888', fontSize: 12, marginTop: 2 },
+  barButton: { paddingVertical: 12, paddingHorizontal: 10 },
+  barButtonText: { color: '#8ab4f8', fontSize: 15, fontWeight: '600' },
   page: { flex: 1, backgroundColor: '#111', justifyContent: 'center', padding: 24, gap: 16 },
   title: { color: '#fff', fontSize: 30, fontWeight: '700', textAlign: 'center' },
   note: { color: '#888', fontSize: 14, textAlign: 'center', marginBottom: 24 },
@@ -268,8 +204,9 @@ const s = StyleSheet.create({
   track: { height: 6, borderRadius: 3, backgroundColor: '#444', overflow: 'hidden' },
   filled: { height: 6, backgroundColor: '#8ab4f8' },
   knob: { position: 'absolute', width: 18, height: 18, borderRadius: 9, marginLeft: -9, backgroundColor: '#fff' },
-  times: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -12 },
+  times: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: -12 },
   time: { color: '#ddd', fontSize: 14, fontVariant: ['tabular-nums'] },
+  timeTap: { paddingVertical: 14, paddingLeft: 32 },
   controls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 16 },
   button: { paddingVertical: 14, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, borderColor: '#555' },
   buttonText: { color: '#fff', fontSize: 16 },
@@ -281,4 +218,12 @@ const s = StyleSheet.create({
   toastUndo: { color: '#8ab4f8', fontSize: 16, fontWeight: '700' },
   link: { color: '#8ab4f8', fontSize: 15, padding: 8, textAlign: 'center' },
   linkOn: { color: '#fff', fontWeight: '700' },
+  queue: { flex: 1, backgroundColor: '#111', paddingTop: 20, paddingHorizontal: 16 },
+  queueHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  queueTitle: { color: '#fff', fontSize: 26, fontWeight: '700' },
+  queueLabel: { color: '#888', fontSize: 13, marginTop: 8, marginBottom: 4 },
+  queueNow: { color: '#fff', fontSize: 17, fontWeight: '600', marginBottom: 12 },
+  queueRow: { height: 48, justifyContent: 'center', borderBottomColor: '#2a2a2a', borderBottomWidth: 1 },
+  queueSong: { color: '#fff', fontSize: 16 },
+  queueEmpty: { color: '#888', fontSize: 15, paddingTop: 16 },
 });

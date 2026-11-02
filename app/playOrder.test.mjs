@@ -1,87 +1,99 @@
 // Self-test for the play order: node --experimental-strip-types app/playOrder.test.mjs
 import assert from 'node:assert/strict';
-import { nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, withPending, withoutRestored } from './playOrder.ts';
+import { currentId, jumpTo, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored } from './playOrder.ts';
 
-const first = () => 0; // always the first song left
-const walk = (order, count, avoid = []) => {
+const keep = () => 0.999; // shuffling with this leaves the list as it was
+const abcd = ['a', 'b', 'c', 'd'];
+const list = (current, removed = []) => startOrder(abcd, current, false, keep, removed);
+const mixed = (current, ids = abcd) => startOrder(ids, current, true, keep);
+const walk = (order, avoid = []) => {
   const seen = [];
-  for (let o = nextInOrder(order, count, first, avoid); o; o = nextInOrder(o, count, first, avoid)) seen.push(o.current);
+  for (let o = nextInOrder(order, avoid); o; o = nextInOrder(o, avoid)) seen.push(currentId(o));
   return seen;
 };
 const tests = {
   'list order wraps both ways': () => {
-    assert.equal(nextInOrder(startOrder(2, false), 3).current, 0);
-    assert.equal(previousInOrder(startOrder(0, false), 3).current, 2);
+    assert.equal(currentId(nextInOrder(list('d'))), 'a');
+    assert.equal(currentId(previousInOrder(list('a'))), 'd');
   },
-  'one song in list order plays itself again': () => assert.equal(nextInOrder(startOrder(0, false), 1).current, 0),
-  'shuffle plays each song once, then stops': () => assert.deepEqual(walk(startOrder(1, true), 4), [0, 2, 3]),
+  'one song in list order plays itself again': () => assert.equal(currentId(nextInOrder(startOrder(['a'], 'a', false))), 'a'),
+  'shuffle plays each song once, then stops': () => assert.deepEqual(walk(mixed('b')), ['a', 'c', 'd']),
+  'shuffle really mixes, with the tapped song first': () => {
+    const order = startOrder(abcd, 'a', true, () => 0);
+    assert.equal(order.sequence[0], 'a');
+    assert.deepEqual([...order.sequence].sort(), abcd);
+    assert.notDeepEqual(order.sequence, abcd);
+  },
   'shuffle previous goes back, then stops at the first': () => {
-    const two = nextInOrder(startOrder(1, true), 3, first);
-    const back = previousInOrder(two, 3);
-    assert.equal(back.current, 1);
-    assert.equal(previousInOrder(back, 3), null);
-    assert.equal(nextInOrder(back, 3, first).current, two.current);
+    const two = nextInOrder(mixed('b'));
+    const back = previousInOrder(two);
+    assert.equal(currentId(back), 'b');
+    assert.equal(previousInOrder(back), null);
+    assert.equal(currentId(nextInOrder(back)), currentId(two));
   },
   'list order skips a removed song both ways': () => {
-    const out = removeFromOrder(startOrder(1, false));
-    const next = nextInOrder(out, 3);
-    assert.equal(next.current, 2);
-    assert.equal(previousInOrder(next, 3).current, 0);
-    assert.equal(nextInOrder(next, 3).current, 0);
-    assert.equal(nextInOrder(nextInOrder(next, 3), 3).current, 2);
+    const next = nextInOrder(removeFromOrder(list('b')));
+    assert.equal(currentId(next), 'c');
+    assert.equal(currentId(previousInOrder(next)), 'a');
   },
-  'list order with every song removed ends': () => assert.equal(nextInOrder(removeFromOrder(startOrder(0, false)), 1), null),
+  'list order with every song removed ends': () => assert.equal(nextInOrder(removeFromOrder(startOrder(['a'], 'a', false))), null),
   'shuffle: removed song never returns and Previous still works': () => {
-    const a = startOrder(0, true);
-    const b = nextInOrder(a, 4, first); // 1
-    const out = removeFromOrder(b);
-    const c = nextInOrder(out, 4, first); // 2
-    assert.equal(c.current, 2);
-    assert.equal(previousInOrder(c, 4).current, 0);
-    assert.deepEqual(walk(c, 4), [3]);
-  },
-  'shuffle: removing mid-history moves on to the next played song': () => {
-    const a = startOrder(0, true);
-    const b = nextInOrder(a, 4, first);
-    const c = nextInOrder(b, 4, first);
-    const backAtB = previousInOrder(c, 4);
-    const out = removeFromOrder(backAtB);
-    const next = nextInOrder(out, 4, first);
-    assert.equal(next.current, c.current);
-    assert.equal(previousInOrder(next, 4).current, 0);
-  },
-  'shuffle: removing the very first song': () => {
-    const out = removeFromOrder(startOrder(2, true));
-    const next = nextInOrder(out, 3, first);
-    assert.equal(next.current, 0);
-    assert.equal(previousInOrder(next, 3), null);
+    const b = nextInOrder(mixed('a'));
+    const c = nextInOrder(removeFromOrder(b));
+    assert.equal(currentId(c), 'c');
+    assert.equal(currentId(previousInOrder(c)), 'a');
+    assert.deepEqual(walk(c), ['d']);
   },
   'shuffle: stopped on a removed last song, Previous still reaches the one before': () => {
-    const b = nextInOrder(startOrder(0, true), 2, first);
+    const b = nextInOrder(mixed('a', ['a', 'b']));
     const out = removeFromOrder(b);
-    assert.equal(nextInOrder(out, 2, first), null);
-    assert.equal(previousInOrder(out, 2).current, 0);
-    assert.equal(previousInOrder(removeFromOrder(startOrder(0, true)), 2), null);
+    assert.equal(nextInOrder(out), null);
+    assert.equal(currentId(previousInOrder(out)), 'a');
+    assert.equal(previousInOrder(removeFromOrder(mixed('a', ['a', 'b']))), null);
   },
   'undo is the saved order, unchanged': () => {
-    const b = nextInOrder(startOrder(0, true), 3, first);
+    const b = nextInOrder(mixed('a'));
     const saved = JSON.stringify(b);
     removeFromOrder(b);
     assert.equal(JSON.stringify(b), saved);
   },
-  'switching shuffle keeps removed songs out': () => {
-    const out = setShuffle(removeFromOrder(startOrder(0, false)), true);
-    assert.deepEqual(walk(out, 3), [1, 2]);
-    const back = setShuffle(nextInOrder(out, 3, first), false);
-    assert.deepEqual(back.removed, [0]);
-    assert.equal(nextInOrder(back, 3).current, 2);
+  'switching shuffle keeps removed songs out and the same song current': () => {
+    const out = setShuffle(removeFromOrder(list('a')), true, keep);
+    assert.equal(currentId(out), 'a');
+    assert.deepEqual(walk(out), ['b', 'c', 'd']);
+    const back = setShuffle(nextInOrder(out), false, keep);
+    assert.deepEqual(back.removed, ['a']);
+    assert.equal(currentId(back), 'b');
+    assert.equal(currentId(previousInOrder(back)), 'd');
   },
-  'shuffle never lands on an avoided song': () => assert.deepEqual(walk(startOrder(0, true), 5, [2, 4]), [1, 3]),
-  'list order still plays an avoided song': () => assert.equal(nextInOrder(startOrder(1, false), 3, first, [2]).current, 2),
-  'a tapped avoided song still plays, and shuffle moves on from it': () => {
-    assert.deepEqual(walk(startOrder(2, true), 3, [2]), [0, 1]);
+  'shuffle never lands on an avoided song': () => assert.deepEqual(walk(mixed('a'), ['b', 'd']), ['c']),
+  'list order still plays an avoided song': () => assert.equal(currentId(nextInOrder(list('a'), ['b'])), 'b'),
+  'a tapped avoided song still plays, and shuffle moves on from it': () => assert.deepEqual(walk(mixed('c'), ['c']), ['a', 'b', 'd']),
+  'everything avoided ends shuffle': () => assert.equal(nextInOrder(mixed('a', ['a', 'b']), ['b']), null),
+  'a played song stays reachable after it becomes avoided': () => {
+    const b = nextInOrder(mixed('a'));
+    assert.equal(currentId(nextInOrder(previousInOrder(b), ['b'])), 'b');
   },
-  'everything avoided ends shuffle': () => assert.equal(nextInOrder(startOrder(0, true), 2, first, [1]), null),
+  'jump keeps removed songs out and carries on from there': () => {
+    const jumped = jumpTo(removeFromOrder(list('b')), 'd');
+    assert.equal(currentId(jumped), 'd');
+    assert.equal(currentId(nextInOrder(jumped)), 'a');
+    assert.equal(currentId(nextInOrder(nextInOrder(jumped))), 'c');
+  },
+  'window: ahead wraps in list order, behind is nearest last': () => {
+    assert.deepEqual(walkAhead(list('c'), 3).map(currentId), ['d', 'a', 'b']);
+    assert.deepEqual(walkBack(list('b'), 2).map(currentId), ['d', 'a']);
+  },
+  'window: a shuffle has nothing behind at the start, and ends': () => {
+    assert.deepEqual(walkBack(mixed('a'), 2), []);
+    assert.deepEqual(walkAhead(mixed('c'), 9).map(currentId), ['a', 'b', 'd']);
+  },
+  'Up next shows each song once and drops removed ones': () => {
+    assert.deepEqual(upNext(list('c'), 99), ['d', 'a', 'b']);
+    const gone = nextInOrder(removeFromOrder(list('c')));
+    assert.deepEqual(upNext(gone, 99), ['a', 'b']);
+    assert.deepEqual(upNext(startOrder(['a'], 'a', false), 99), []);
+  },
   'pending not mine leaves the list, pending mine marks it': () => {
     const songs = [{ id: 'a', mine: 'unknown', sorted: false }, { id: 'b', mine: 'likely mine', sorted: false }, { id: 'c', mine: 'unknown', sorted: false }];
     const out = withPending(songs, [

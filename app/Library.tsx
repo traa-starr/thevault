@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Hidden from './Hidden';
 import { flush, useOutbox } from './outbox';
-import Player from './Player';
+import { player } from './playerStore';
 import { withPending } from './playOrder';
 
 type Song = { id: string; title: string; where: string; date: string | null; mine: string; sorted: boolean };
@@ -24,7 +24,6 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
   const [attempt, setAttempt] = useState(0);
   const [sort, setSort] = useState<Sort>('title');
   const [filter, setFilter] = useState('');
-  const [playing, setPlaying] = useState<{ songs: Song[]; start: number; shuffle: boolean } | null>(null);
   const [showHidden, setShowHidden] = useState(false);
 
   useEffect(() => {
@@ -77,16 +76,12 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
   const playable = useMemo(() => shown.filter((song) => song.where === 'laptop'), [shown]);
 
   // while sorting, shuffle only lands on songs not yet called mine; tapping one still plays it
-  const shuffleable = useMemo(() => playable.flatMap((song, i) => (song.mine === 'mine' ? [] : [i])), [playable]);
+  const shuffleable = useMemo(() => playable.filter((song) => song.mine !== 'mine'), [playable]);
 
-  const open = (start: number, shuffle: boolean) => {
+  const open = (start: Song, shuffle: boolean) => {
     Keyboard.dismiss();
-    setPlaying({ songs: playable, start, shuffle });
-  };
-
-  const closePlayer = () => {
-    setPlaying(null);
-    setAttempt(attempt + 1);
+    player.playList(url, playable, start.id, shuffle);
+    player.open('player');
   };
 
   const closeHidden = () => {
@@ -96,9 +91,8 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
 
   return (
     <View style={s.fill}>
-    {playing ? <Player url={url} {...playing} onBack={closePlayer} /> : null}
     {showHidden ? <Hidden url={url} onBack={closeHidden} /> : null}
-    <View style={[s.page, (playing || showHidden) && s.hidden]}>
+    <View style={[s.page, showHidden && s.hidden]}>
       <View style={s.header}>
         <Pressable onPress={onBack}>
           <Text style={s.link}>Back</Text>
@@ -161,7 +155,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
               <Pressable
                 style={s.row}
                 disabled={item.where !== 'laptop'}
-                onPress={() => open(playable.indexOf(item), false)}
+                onPress={() => open(item, false)}
               >
                 <Text style={[s.rowTitle, item.where !== 'laptop' && s.rowOff]} numberOfLines={1}>{item.title}</Text>
                 <Text style={s.rowDetail} numberOfLines={1}>{detail(item)}</Text>

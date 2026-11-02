@@ -1,7 +1,9 @@
 // Sorting prototype (ROADMAP 1.19): made-up songs only, nothing is saved or sent. It exists to judge how sorting feels
 // before the real one is built: a bulk sweep of whole sets, then one card at a time with buttons or a swipe.
-import { useMemo, useRef, useState } from 'react';
+// Cards borrow the shared player with real songs from the laptop, so leaving them can be tested. Verdicts stay made up.
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { player, usePlayer, type PlayerSong } from './playerStore';
 
 type Verdict = 'mine' | 'not mine';
 type Fake = { id: string; title: string; likely: boolean };
@@ -24,7 +26,7 @@ const makeSets = (): FakeSet[] => {
   ];
 };
 
-export default function Prototype({ onBack }: { onBack: () => void }) {
+export default function Prototype({ url, onBack }: { url: string; onBack: () => void }) {
   const sets = useMemo(makeSets, []);
   const [verdicts, setVerdicts] = useState<Record<string, Verdict>>({});
   const [open, setOpen] = useState<string | null>(null);
@@ -40,6 +42,7 @@ export default function Prototype({ onBack }: { onBack: () => void }) {
   if (cards) {
     return (
       <Cards
+        url={url}
         songs={cards}
         verdicts={verdicts}
         onMark={(song, value) => mark([song], value)}
@@ -109,7 +112,8 @@ export default function Prototype({ onBack }: { onBack: () => void }) {
   );
 }
 
-function Cards({ songs, verdicts, onMark, onDone }: {
+function Cards({ url, songs, verdicts, onMark, onDone }: {
+  url: string;
   songs: Fake[];
   verdicts: Record<string, Verdict>;
   onMark: (song: Fake, value: Verdict | null) => void;
@@ -120,6 +124,36 @@ function Cards({ songs, verdicts, onMark, onDone }: {
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const x = useRef(new Animated.Value(0)).current;
   const song = songs[index];
+  const [audio, setAudio] = useState<PlayerSong[]>([]);
+  const { order, song: playing, time } = usePlayer();
+  const undoAt = useRef(0);
+
+  // one real song per card, for sound only. The app's Back buttons all pass through here, so it always gives the player back.
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const r = await fetch(`${url}/songs`);
+        const data: { songs: (PlayerSong & { where: string })[] } = await r.json();
+        const real = data.songs.filter((one) => one.where === 'laptop' && !one.sorted).slice(0, songs.length);
+        if (!live) return;
+        setAudio(real);
+        player.enterSort(url, real);
+      } catch {
+        // laptop off: the cards still work, silently
+      }
+    })();
+    return () => {
+      live = false;
+      player.leaveSort();
+    };
+  }, []);
+
+  // lock-screen next moves the card too, with no verdict
+  useEffect(() => {
+    const at = audio.findIndex((one) => one.id === playing?.id);
+    if (at >= 0 && at !== index) setIndex(at);
+  }, [order]);
 
   // the pan handler is made once, so it reads the current card through a ref
   const latest = useRef({ decide: (_: Verdict) => {} });
@@ -129,8 +163,11 @@ function Cards({ songs, verdicts, onMark, onDone }: {
     setUndo({ index, song });
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setUndo(null), UNDO_MS);
+    undoAt.current = time;
     setIndex(index + 1);
     x.setValue(0);
+    if (audio[index + 1]) player.jump(audio[index + 1].id);
+    else if (audio.length) player.pause();
   };
 
   const pan = useRef(
@@ -149,6 +186,7 @@ function Cards({ songs, verdicts, onMark, onDone }: {
     if (!undo) return;
     onMark(undo.song, null);
     setIndex(undo.index);
+    if (audio[undo.index]) player.jump(audio[undo.index].id, undoAt.current);
     setUndo(null);
     clearTimeout(timer.current);
   };
@@ -179,7 +217,7 @@ function Cards({ songs, verdicts, onMark, onDone }: {
           >
             <Text style={s.cardTitle}>{song.title}</Text>
             <Text style={s.cardNote}>{song.likely ? 'Likely mine' : 'Not sure'}</Text>
-            <Text style={s.cardHint}>(a real card would be playing from about 30% in)</Text>
+            <Text style={s.cardHint}>{playing ? `Sound: ${playing.title}` : '(no sound: laptop not reachable)'}</Text>
           </Animated.View>
           <Text style={s.swipeHint}>← not mine · mine →</Text>
           <View style={s.row}>
