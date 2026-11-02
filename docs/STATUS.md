@@ -1,10 +1,10 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-01 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 1 started.** Updated 2026-11-01 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 
 **In progress:** nothing.
-**Next up:** me: commit, then `Review.` in chat (no phone checks).
-**Current task:** `NEXT.md` "Board setup and first meeting" done. Notes: `board/batch-3.md`, `board/batch-4-versions.md`.
+**Next up:** me: new Code session, `/next`.
+**Current task:** `NEXT.md` "Batch 3, the real player".
 
 ## Done
 - Phase 0 closed: details in `DECISIONS.md` and `SPIKE-RESULTS.md`.
@@ -18,15 +18,15 @@
 - Board set up and met twice 2026-11-01: batch 3, then batches 4 and 4b.
 
 ## Queue
-1. Batch 3: The real player, plus Undo returns to the spot in the song (Code's pitch). Board has met.
-2. Batch 4: Real sorting (only unsorted songs, inline set songs).
-3. Batch 4b: Versions, manual (ROADMAP 1.23).
-4. Batch 5: Import and copies.
-5. Batch 6: Offline and finish.
-6. Parked (Code's pitches): server `/status` count-only answer; A-Z jump strip; doctor's fail line names changed files; Hidden count on the Hidden link.
+1. Batch 4: Real sorting (only unsorted songs, inline set songs).
+2. Batch 4b: Versions, manual (ROADMAP 1.23).
+3. Batch 5: Import and copies.
+4. Batch 6: Offline and finish.
+5. Parked (Code's pitches): server `/status` count-only answer; A-Z jump strip; doctor's fail line names changed files; Hidden count on the Hidden link.
 
 ## Open questions
-- How versions are stored: owner picks from the board's options (`board/batch-4-versions.md`, question 1).
+- How versions are stored: owner picks (`board/batch-4-versions.md` Q1). Needed before batch 4b.
+- Not mine on a Main with versions (default: pick new Main) and when Not sure songs return (default: when the pile is opened). Needed before batch 4.
 - Do the board seats load by name in a new session? Not yet seen; they were added mid-session.
 - Does SideStore keep app data across re-signs? Kept across a refresh in batch 1; final test in batch 6. Plan if not: restore from the laptop.
 - Does BandLab export keep the title, and what formats? (ROADMAP 5.1)
