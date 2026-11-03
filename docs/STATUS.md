@@ -1,9 +1,9 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-02 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 1 started.** Updated 2026-11-02 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 
 **In progress:** nothing.
-**Next up:** Code: `/next` (Batch 3d).
+**Next up:** me: phone checks, then Review.
 **Current task:** `NEXT.md` "Batch 3d, Queue and player feel".
 
 ## Done
@@ -37,4 +37,4 @@
 - `Session Music` top-level loose files kept in the scan (chat-default): say if they should go.
 - 26 date-only names and the `Untitled...` files wait for later.
 ## Checks pending
-- None. Still watching: does the bar ever say "Skipped..."?
+- Batch 3d phone checks 1-4 (in REPORT). Still watching: does the bar ever say "Skipped..."?

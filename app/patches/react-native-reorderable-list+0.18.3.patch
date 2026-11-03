@@ -1,0 +1,102 @@
+diff --git a/node_modules/react-native-reorderable-list/src/components/ReorderableListCore.tsx b/node_modules/react-native-reorderable-list/src/components/ReorderableListCore.tsx
+index 1ed661b..c860b9d 100644
+--- a/node_modules/react-native-reorderable-list/src/components/ReorderableListCore.tsx
++++ b/node_modules/react-native-reorderable-list/src/components/ReorderableListCore.tsx
+@@ -38,6 +38,7 @@ import Animated, {
+   useAnimatedScrollHandler,
+   useComposedEventHandler,
+   useDerivedValue,
++  useFrameCallback,
+   useSharedValue,
+   withDelay,
+   withTiming,
+@@ -54,6 +55,10 @@ import {ReorderableListCell} from './ReorderableListCell';
+ import {usePropAsSharedValue, useStableCallback} from '../hooks';
+ import {deferIdleTask} from './helpers';
+ 
++// The Vault patch: auto-scroll speed in points a second, at the zone line and at the list's edge.
++const AUTOSCROLL_MIN_SPEED = 60;
++const AUTOSCROLL_MAX_SPEED = 1100;
++
+ const AnimatedFlatList = Animated.createAnimatedComponent(
+   FlatList,
+ ) as unknown as <T>(
+@@ -874,7 +879,12 @@ const ReorderableListCore = <T,>(
+         // 1. Within the threshold area (start or end of list)
+         // 2. Have dragged in the same direction as the scroll
+         // 3. Not already in autoscroll mode
+-        if (dragDirection.value === scrollDirection()) {
++        // The Vault patch: a plain list scrolls whenever the finger is in a zone, once it has moved after the lift.
++        const zone = scrollDirection();
++        const wantsScroll = scrollViewScrollOffsetXY
++          ? dragDirection.value === zone
++          : zone !== 0 && dragDirection.value !== 0;
++        if (wantsScroll) {
+           // When the first two conditions are met and it's already in autoscroll mode,
+           // we let it continue (no-op).
+           if (state.value !== ReorderableListState.AUTOSCROLL) {
+@@ -893,6 +903,7 @@ const ReorderableListCore = <T,>(
+     () => autoscrollTrigger.value,
+     () => {
+       if (
++        scrollViewScrollOffsetXY &&
+         autoscrollTrigger.value !== lastAutoscrollTrigger.value &&
+         state.value === ReorderableListState.AUTOSCROLL
+       ) {
+@@ -930,6 +941,56 @@ const ReorderableListCore = <T,>(
+     },
+   );
+ 
++  // The Vault patch: a plain list scrolls a little every frame instead of in jumps, slow at the zone line and
++  // faster toward the edge.
++  useFrameCallback(frame => {
++    'worklet';
++    if (
++      scrollViewScrollOffsetXY ||
++      state.value !== ReorderableListState.AUTOSCROLL
++    ) {
++      return;
++    }
++
++    const zone = scrollDirection();
++    if (zone === 0) {
++      return;
++    }
++
++    const xy = getRelativeListXY();
++    const area = computeThresholdArea();
++    const depth =
++      zone < 0
++        ? (area.start - xy) / Math.max(area.start, 1)
++        : (xy - area.end) / Math.max(flatListSize.value - area.end, 1);
++    const eased = Math.pow(Math.min(Math.max(depth, 0), 1), 1.5);
++    const perSecond =
++      (AUTOSCROLL_MIN_SPEED +
++        (AUTOSCROLL_MAX_SPEED - AUTOSCROLL_MIN_SPEED) * eased) *
++      autoscrollSpeedScale;
++    const ms = Math.min(frame.timeSincePreviousFrame ?? 16, 50);
++
++    const last = itemCount.value - 1;
++    const contentEnd =
++      last >= 0 ? itemOffset.value[last] + itemSize.value[last] : 0;
++    const maxOffset = Math.max(0, contentEnd - flatListSize.value);
++    const from = flatListScrollOffsetXY.value;
++    const to = Math.min(
++      Math.max(from + (zone * perSecond * ms) / 1000, 0),
++      maxOffset,
++    );
++    if (Math.abs(to - from) < 0.01) {
++      return;
++    }
++
++    scrollTo(
++      flatListRef as unknown as AnimatedRef<Animated.ScrollView>,
++      horizontalProp.value ? to : 0,
++      horizontalProp.value ? 0 : to,
++      false,
++    );
++  });
++
+   // flatlist scroll handler
+   const handleScroll = useAnimatedScrollHandler(e => {
+     flatListScrollOffsetXY.value = horizontalProp.value

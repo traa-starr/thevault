@@ -10,11 +10,16 @@ import { player, usePlayer } from './playerStore';
 const ROW_HEIGHT = 48;
 const HOLD_MS = 300; // not lower: a hold let go just short of this jumps to the song
 const SLIDE_MS = 220;
-const EDGE_ZONE = 0.15; // the share of the list, top and bottom, that scrolls it during a drag
+const EDGE_ZONE = 0.3; // the share of the list, top and bottom, that scrolls it during a drag; the middle 40% is safe
 const SHEET_TOP = 54; // clears the status bar and leaves the screen behind showing, like an iOS sheet
 const CLOSE_PULL = 120;
 const CLOSE_SPEED = 0.8;
 const CLOSE_MS = 180;
+const SWIPE_UP = 40;
+const SWIPE_UP_SPEED = 0.4;
+const HIDE_MS = 250;
+const EYE_DROP = 64; // the verdict row's height plus the gap above it, so the hidden eye sits where the buttons were
+const VERDICT_DROP = 120; // far enough to leave the bottom of the screen
 
 const clock = (seconds: number) => {
   const whole = Math.floor(seconds);
@@ -57,6 +62,32 @@ function SeekBar({ value, max, onDrag, onDrop }: SeekBarProps) {
   );
 }
 
+/** Touch handlers that call onSwipe on an upward swipe and leave taps to whatever is inside. */
+function useSwipeUp(onSwipe: () => void) {
+  const latest = useRef(onSwipe);
+  latest.current = onSwipe;
+  return useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => g.dy < -8 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderRelease: (_, g) => {
+        if (g.dy < -SWIPE_UP || g.vy < -SWIPE_UP_SPEED) latest.current();
+      },
+    }),
+  ).current.panHandlers;
+}
+
+/** Open eye while the buttons show, crossed out while they're hidden. Drawn, so it needs no icon package. */
+function EyeIcon({ crossed }: { crossed: boolean }) {
+  return (
+    <View style={s.eye}>
+      <View style={s.eyeLid}>
+        <View style={s.eyePupil} />
+      </View>
+      {crossed ? <View style={s.eyeSlash} /> : null}
+    </View>
+  );
+}
+
 /** The 5-second Undo. Sits above the bar and survives changing screens, because it belongs to the player. */
 export function UndoToast({ aboveButtons = false }: { aboveButtons?: boolean }) {
   const { undo, message } = usePlayer();
@@ -80,20 +111,24 @@ export function UndoToast({ aboveButtons = false }: { aboveButtons?: boolean }) 
 /** Near the bottom of every screen once something has played. */
 export function NowPlayingBar() {
   const { song, wanted, sorting, trouble, note } = usePlayer();
+  const swipe = useSwipeUp(() => player.open('queue'));
   if (!song) return null;
   return (
-    <Pressable style={s.bar} onPress={() => player.open('player')}>
-      <View style={s.barText}>
-        <Text style={s.barTitle} numberOfLines={1}>{song.title}</Text>
-        <Text style={s.barDetail} numberOfLines={2}>{trouble || note || (sorting ? 'Sorting' : wanted ? 'Playing' : 'Paused')}</Text>
-      </View>
-      <Pressable style={s.barButton} onPress={player.toggle} hitSlop={8}>
-        <Text style={s.barButtonText}>{wanted ? 'Pause' : 'Play'}</Text>
+    // Tap opens the player; swipe up opens Queue straight away.
+    <View {...swipe}>
+      <Pressable style={s.bar} onPress={() => player.open('player')}>
+        <View style={s.barText}>
+          <Text style={s.barTitle} numberOfLines={1}>{song.title}</Text>
+          <Text style={s.barDetail} numberOfLines={2}>{trouble || note || (sorting ? 'Sorting' : wanted ? 'Playing' : 'Paused')}</Text>
+        </View>
+        <Pressable style={s.barButton} onPress={player.toggle} hitSlop={8}>
+          <Text style={s.barButtonText}>{wanted ? 'Pause' : 'Play'}</Text>
+        </Pressable>
+        <Pressable style={s.barButton} onPress={player.next} hitSlop={8}>
+          <Text style={s.barButtonText}>Next</Text>
+        </Pressable>
       </Pressable>
-      <Pressable style={s.barButton} onPress={player.next} hitSlop={8}>
-        <Text style={s.barButtonText}>Next</Text>
-      </Pressable>
-    </Pressable>
+    </View>
   );
 }
 
@@ -101,6 +136,12 @@ function FullPlayer() {
   const { song, order, wanted, time, duration, note, trouble, timeLeft, sorting, buttonsHidden } = usePlayer();
   const [dragAt, setDragAt] = useState<number | null>(null);
   const [seekingTo, setSeekingTo] = useState<number | null>(null);
+  const swipe = useSwipeUp(() => player.open('queue'));
+  const hidden = useRef(new Animated.Value(buttonsHidden ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(hidden, { toValue: buttonsHidden ? 1 : 0, duration: HIDE_MS, useNativeDriver: true }).start();
+  }, [buttonsHidden, hidden]);
 
   const drop = async (value: number) => {
     setDragAt(null);
@@ -140,22 +181,32 @@ function FullPlayer() {
             <Text style={[s.link, order?.shuffle && s.linkOn]}>{order?.shuffle ? 'Shuffle: on' : 'Shuffle: off'}</Text>
           </Pressable>
         )}
-        <Pressable onPress={() => player.open('queue')}>
-          <Text style={s.link}>Queue</Text>
-        </Pressable>
         <Pressable onPress={() => player.open('none')}>
           <Text style={s.link}>Back</Text>
         </Pressable>
       </View>
+      <View style={s.queueStrip} {...swipe}>
+        <View style={s.grabMark} />
+        <Text style={s.queueHint}>Swipe up for Queue</Text>
+      </View>
       {/* Keeps its height with the buttons hidden or gone, so nothing above it jumps. */}
       <View style={s.dock}>
         {sorting ? null : (
-          <Pressable style={s.hideTap} onPress={player.toggleButtonsHidden}>
-            <Text style={s.hideText}>{buttonsHidden ? 'Show buttons' : 'Hide buttons'}</Text>
-          </Pressable>
+          <Animated.View style={{ transform: [{ translateY: hidden.interpolate({ inputRange: [0, 1], outputRange: [0, EYE_DROP] }) }] }}>
+            <Pressable
+              style={s.hideTap}
+              onPress={player.toggleButtonsHidden}
+              accessibilityLabel={buttonsHidden ? 'Show buttons' : 'Hide buttons'}
+            >
+              <EyeIcon crossed={buttonsHidden} />
+            </Pressable>
+          </Animated.View>
         )}
-        <View style={s.verdicts}>
-          {buttonsHidden || player.isOut() || sorting ? null : (
+        <Animated.View
+          style={[s.verdicts, { transform: [{ translateY: hidden.interpolate({ inputRange: [0, 1], outputRange: [0, VERDICT_DROP] }) }] }]}
+          pointerEvents={buttonsHidden ? 'none' : 'auto'}
+        >
+          {player.isOut() || sorting ? null : (
             <>
               <Pressable style={[s.verdict, isMine && s.mineOn]} onPress={player.tapMine}>
                 <Text style={[s.verdictText, isMine && s.playText]}>Mine</Text>
@@ -165,7 +216,7 @@ function FullPlayer() {
               </Pressable>
             </>
           )}
-        </View>
+        </Animated.View>
       </View>
       <UndoToast aboveButtons />
     </View>
@@ -226,7 +277,7 @@ function Queue() {
   return (
     <View style={s.queue}>
       <View style={s.queueHeader}>
-        <Pressable onPress={() => player.open('player')}>
+        <Pressable onPress={player.closeQueue}>
           <Text style={s.link}>Back</Text>
         </Pressable>
         <Text style={s.queueTitle}>Queue</Text>
@@ -257,9 +308,12 @@ function Queue() {
  * top pulls this one, so nothing inside it can move it.
  */
 export function PlayerSheet() {
-  const { sheet, song } = usePlayer();
+  const { sheet, song, queueFrom } = usePlayer();
   const visible = sheet !== 'none' && !!song;
   const pulled = useRef(new Animated.Value(0)).current;
+  // Queue opened from the player pulls down to the player, not all the way out.
+  const toPlayer = useRef(false);
+  toPlayer.current = sheet === 'queue' && queueFrom === 'player';
 
   useEffect(() => {
     if (visible) pulled.setValue(0);
@@ -272,7 +326,12 @@ export function PlayerSheet() {
       onPanResponderMove: (_, g) => pulled.setValue(Math.max(g.dy, 0)),
       onPanResponderRelease: (_, g) => {
         if (g.dy > CLOSE_PULL || g.vy > CLOSE_SPEED) {
-          Animated.timing(pulled, { toValue: Dimensions.get('window').height, duration: CLOSE_MS, useNativeDriver: true }).start(() => player.open('none'));
+          const back = toPlayer.current;
+          Animated.timing(pulled, { toValue: Dimensions.get('window').height, duration: CLOSE_MS, useNativeDriver: true }).start(() => {
+            if (!back) return player.open('none');
+            player.open('player');
+            Animated.timing(pulled, { toValue: 0, duration: CLOSE_MS, useNativeDriver: true }).start();
+          });
         } else {
           Animated.spring(pulled, { toValue: 0, useNativeDriver: true }).start();
         }
@@ -286,7 +345,7 @@ export function PlayerSheet() {
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={() => player.open(sheet === 'queue' ? 'player' : 'none')}
+      onRequestClose={() => (sheet === 'queue' ? player.closeQueue() : player.open('none'))}
     >
       <GestureHandlerRootView style={s.sheetRoot}>
         <Animated.View style={[s.sheet, { transform: [{ translateY: pulled }] }]}>
@@ -315,7 +374,12 @@ const s = StyleSheet.create({
   pageTop: { flex: 1, justifyContent: 'center', paddingHorizontal: 24, paddingTop: 8, gap: 12 },
   dock: { height: 160, justifyContent: 'flex-end', paddingHorizontal: 24, paddingBottom: 40 },
   hideTap: { height: 44, justifyContent: 'center', alignSelf: 'flex-start', paddingRight: 24, marginBottom: 8 },
-  hideText: { color: '#888', fontSize: 13 },
+  eye: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  eyeLid: { width: 28, height: 16, borderRadius: 8, borderWidth: 2, borderColor: '#aaa', alignItems: 'center', justifyContent: 'center' },
+  eyePupil: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#aaa' },
+  eyeSlash: { position: 'absolute', width: 32, height: 2, backgroundColor: '#aaa', transform: [{ rotate: '-35deg' }] },
+  queueStrip: { height: 64, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  queueHint: { color: '#666', fontSize: 12 },
   verdicts: { height: 56, flexDirection: 'row', gap: 12 },
   verdict: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: '#555' },
   verdictText: { color: '#fff', fontSize: 17, fontWeight: '600' },

@@ -40,6 +40,8 @@ type State = {
   undo: Undo | null;
   message: string;
   sheet: Sheet;
+  /** Where Queue was opened from, so closing it goes back there. */
+  queueFrom: 'none' | 'player';
   timeLeft: boolean;
   buttonsHidden: boolean;
   marks: Record<string, Mark>;
@@ -60,6 +62,7 @@ let state: State = {
   undo: null,
   message: '',
   sheet: 'none',
+  queueFrom: 'none',
   timeLeft: timeLeftFile().exists,
   buttonsHidden: buttonsHiddenFile().exists,
   marks: {},
@@ -488,7 +491,12 @@ export const player = {
     loadOrder(spot.order, spot.at, false);
   },
 
-  open: (sheet: Sheet) => update({ sheet }),
+  open(sheet: Sheet) {
+    if (sheet === 'queue' && state.sheet !== 'queue') update({ sheet, queueFrom: state.sheet === 'player' ? 'player' : 'none' });
+    else update({ sheet });
+  },
+
+  closeQueue: () => update({ sheet: state.queueFrom }),
 
   toggleTimeLeft() {
     const file = timeLeftFile();

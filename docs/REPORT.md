@@ -1,34 +1,30 @@
 # Report
 
-**Step:** Batch 3c, Queue drag that works, 2026-11-02. Parts a, b and c built. None of it has run on a phone yet.
+**Step:** Batch 3d, Queue and player feel, 2026-11-02. Parts a, b and c built, including the slide animation. None of it has run on a phone yet.
 
 ## Verified by running
-- Typecheck: no errors. Play-order self-test: ALL PASSED. iOS bundle export: succeeded. Expo version check: up to date. Repo check: clean.
-- Read from source: Expo's build adds the animation compile step by itself, so no extra config file is needed.
-- **Not proven:** the export only packs the JavaScript. The new packages include phone-side code, so the first real proof is the GitHub Actions build.
-- Not tested by running: the drag, the grab area, auto-scroll.
-## Why the old drag failed
-Most likely iOS's own sheet pull-down took the finger and cancelled the touch, so the code dropped the song back in place. That fits "snaps back" and "pulls the sheet", but it comes from reading the code, not from a test on the phone.
+- Typecheck: no errors. Play-order self-test: ALL PASSED. iOS bundle export: succeeded, and the patched scroll code is in the bundle. Repo check: clean.
+- Not tested by running: the scroll feel, the swipes, the slide. They need the phone.
 ## Needs the phone
 Run the build and install it first.
-1. Queue: hold a song in Up next, drag it two places up, release. Pass: the others slide aside, it lands there, music doesn't restart; Next plays that order, also from the lock screen.
-2. Drag a song down. Pass: the sheet stays put. Then swipe down from the top grab area. Pass: the player closes.
-3. Drag a long way down, past the bottom edge. Pass: the list scrolls by itself.
-4. Drag a song, lock the phone, let two songs finish, open Queue. Pass: order held, right song playing.
-5. Shuffle on, drag a row, tap Not mine, then Undo within 5 seconds. Pass: song back at its second, the drag still there.
+1. Queue: drag a song toward the bottom. Pass: nothing scrolls while it's in the middle of the list; inside the bottom part it scrolls smoothly, faster the lower you go. Same going up. Drops in the middle land where released.
+2. On Library, swipe up on the mini player. Pass: Queue opens, music keeps playing; swipe down and you're back on Library. Tap the mini player: the full player opens.
+3. Full player: swipe up on the strip above the buttons. Pass: Queue opens; closing it returns to the full player. Back button closes the player.
+4. Tap the eye. Pass: buttons slide down and away, the eye sits neatly at the bottom; tap again, they slide back up. Survives closing the app.
 ## Changed
-- `app/Player.tsx`, `app/package.json`, `app/package-lock.json`.
+- `app/Player.tsx`, `app/playerStore.ts`, `app/package.json`, `app/package-lock.json`, `app/patches/` (new).
 - `docs/REPORT.md`, `docs/STATUS.md`, `docs/DECISIONS.md`.
 ## Differed from NEXT.md
-- The player is no longer a real iOS sheet. iOS can't limit its pull-down to one area, so it's now a look-alike with its own grab area. Same size and rounded top; the screen behind no longer dims.
-- Package: `react-native-reorderable-list`, not the better-known `react-native-draggable-flatlist`, whose last release is older and predates these versions. It needs `react-native-gesture-handler`, `react-native-reanimated` and `react-native-worklets`, at Expo's pinned versions.
-- Swiping the grab area closes the player from Queue too, as check 2 asks. Back in Queue still goes to the full player.
-- The lifted row is 75% see-through and slightly bigger: the package's default look. Auto-scroll speed is also its default, and it may feel fast.
+- The drag package's settings couldn't make the speed build toward the edge, so I patched the package itself. `patch-package` (a tool that re-applies a small fix after every install) now runs after `npm ci`. The patch is one file, `app/patches/react-native-reorderable-list+0.18.3.patch`.
+- Scrolling now starts as soon as the finger is in a zone after any movement. Before, it only scrolled while you were moving toward the edge. Moving back up inside the bottom zone now slows the scroll instead of stopping it.
+- Speeds are guesses: 60 points a second at the zone line, 1100 at the edge. A row is 48. Easy to tune.
+- The eye is drawn with plain shapes, not an icon package. The strip shows a small grab bar with "Swipe up for Queue" and opens only on a swipe, not a tap.
+- Pulling Queue down when it was opened from the player slides Queue away, then the player slides back up.
 ## Not done
 Nothing in NEXT left out.
 ## Decisions needed
 None.
 ## Proposed next step
-Batch 4, Real sorting, once these checks pass.
+Batch 4, Real sorting, once these checks pass (fast-lane OK).
 ## Pitch
-A light vibration when a song lifts: it tells your thumb the hold worked without looking. Needs one small package.
+Tune the scroll speeds from your phone result: say "slower at the edge" or "faster near the line" and it's a two-number change.
