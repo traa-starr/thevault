@@ -1,10 +1,10 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-02 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 1 started.** Updated 2026-11-02 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 
 **In progress:** nothing.
-**Next up:** me: phone checks, then Review.
-**Current task:** `NEXT.md` "Batch 3d, Queue and player feel".
+**Next up:** Code: `/next` (Batch 4 + swipe fix).
+**Current task:** `NEXT.md` "Batch 4, Real sorting (+ player swipe fix)".
 
 ## Done
 - Phase 0 closed: details in `DECISIONS.md` and `SPIKE-RESULTS.md`.
@@ -18,10 +18,10 @@
 - Board set up and met twice 2026-11-01: batch 3, then batches 4 and 4b.
 - Batch 3 phone-verified 2026-11-01: shared player, bar, playlist player, lock screen, queue, time tap. Closes 1.15, 1.16.
 - Batch 3b phone 2026-11-01: buttons at the bottom, hide toggle, toast placement passed. Queue drag fixed in 3c, phone-verified 2026-11-02 (all 5 checks).
+- Batch 3d phone 2026-11-02: auto-scroll, mini player swipe, eye slide passed. Player strip swipe failed: fix rides in Batch 4 as part 0.
 
 ## Queue
-0. Batch 3d: Queue and player feel (in NEXT).
-1. Batch 4: Real sorting (brief ready: `queued/NEXT-batch-4.md`).
+1. Batch 4: Real sorting + player swipe fix (in NEXT).
 2. Batch 4b: Versions, manual (ROADMAP 1.23).
 3. Batch 5: Import and copies.
 4. Batch 6: Offline and finish.
@@ -37,4 +37,4 @@
 - `Session Music` top-level loose files kept in the scan (chat-default): say if they should go.
 - 26 date-only names and the `Untitled...` files wait for later.
 ## Checks pending
-- Batch 3d phone checks 1-4 (in REPORT). Still watching: does the bar ever say "Skipped..."?
+- Batch 4 phone checks 0-4 (after Code's run). Still watching: does the bar ever say "Skipped..."?
