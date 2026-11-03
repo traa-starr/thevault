@@ -4,7 +4,7 @@ import { setAudioModeAsync } from 'expo-audio';
 import { File, Paths } from 'expo-file-system';
 import { useSyncExternalStore } from 'react';
 import { createEngine, type Engine, type Sound } from './engine';
-import { addChange } from './outbox';
+import { addChange, addChanges } from './outbox';
 import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
 
 export type PlayerSong = { id: string; title: string; mine: string; sorted: boolean };
@@ -12,6 +12,8 @@ type Mark = { mine: string; sorted: boolean };
 type Undo = { order: Order; id: string; title: string; at: number };
 type Spot = { order: Order; at: number };
 export type Sheet = 'none' | 'player' | 'queue';
+/** What a shuffle plays: songs not yet called mine, or only Mine. */
+export type Pool = 'unsorted' | 'mine';
 
 // Swap to 'single' if the playlist player fails on the phone: the bar and everything else keep working.
 const ENGINE = 'playlist';
@@ -45,6 +47,7 @@ type State = {
   timeLeft: boolean;
   buttonsHidden: boolean;
   marks: Record<string, Mark>;
+  pool: Pool;
 };
 
 const timeLeftFile = () => new File(Paths.document, 'time-left.txt');
@@ -66,6 +69,7 @@ let state: State = {
   timeLeft: timeLeftFile().exists,
   buttonsHidden: buttonsHiddenFile().exists,
   marks: {},
+  pool: 'unsorted',
 };
 let url = '';
 const songs = new Map<string, PlayerSong>();
@@ -95,11 +99,11 @@ const titleOf = (id: string) => songs.get(id)?.title ?? '';
 const songNow = (order: Order) => songs.get(currentId(order)) ?? null;
 const markOf = (song: PlayerSong): Mark => state.marks[song.id] ?? song;
 
-// "What shuffle avoids" stays one input: while sorting, shuffle only lands on songs not yet called mine. Batch 4b changes it.
+// "What shuffle avoids" stays one input: the songs outside the pool. Batch 4b changes it.
 const avoid = () => {
-  const out: string[] = [];
+  const out = new Set<string>();
   songs.forEach((song) => {
-    if (markOf(song).mine === 'mine') out.push(song.id);
+    if ((markOf(song).mine === 'mine') !== (state.pool === 'mine')) out.add(song.id);
   });
   return out;
 };
@@ -279,13 +283,13 @@ const canUseWindow = (index: number) => !!engine?.windowed && index >= 0 && inde
 
 export const player = {
   /** A tap on a song in a list. During Sort it replaces the saved library spot, so the sort song keeps playing. */
-  playList(serverUrl: string, list: PlayerSong[], startId: string, shuffle: boolean) {
+  playList(serverUrl: string, list: PlayerSong[], startId: string, shuffle: boolean, pool: Pool = 'unsorted') {
     url = serverUrl;
     list.forEach((song) => songs.set(song.id, song));
     const ids = list.map((song) => song.id);
     const marks = { ...state.marks };
     ids.forEach((id) => delete marks[id]); // the list already holds my latest choices
-    update({ marks });
+    update({ marks, pool });
     const order = startOrder(ids, startId, shuffle);
     if (state.sorting) saved = { order, at: 0 };
     else loadOrder(order, 0, true);
@@ -360,9 +364,10 @@ export const player = {
     loadOrder(jumpTo(state.order, id), at, true);
   },
 
-  setShuffleOn(on: boolean) {
+  setShuffleOn(on: boolean, pool: Pool = state.pool) {
     if (!state.order) return;
     const order = setShuffle(state.order, on);
+    state = { ...state, pool };
     const index = engine?.windowed ? engine.index() : 0;
     // songs already played stay in the player: landing on one re-finds it in the new order
     track = track.map((one, i) => (i <= index ? { id: one.id, order: i === index ? order : null } : one));
@@ -398,6 +403,22 @@ export const player = {
       addChange('mine_set', song.id, 'mine');
       marks[song.id] = { mine: 'mine', sorted: true };
     }
+    update({ marks });
+  },
+
+  /** Verdicts from Sort, sent together. Kept here too, so shuffle and the library's spot see them at once. */
+  judge(list: PlayerSong[], value: 'mine' | 'not mine') {
+    addChanges(list.map((song) => ({ kind: 'mine_set' as const, songId: song.id, value })));
+    const marks = { ...state.marks };
+    list.forEach((song) => (marks[song.id] = { mine: value, sorted: true }));
+    update({ marks });
+  },
+
+  /** Undo for those: each song goes back to what it was before. */
+  unjudge(list: PlayerSong[]) {
+    addChanges(list.map((song) => ({ kind: 'mine_restore' as const, songId: song.id })));
+    const marks = { ...state.marks };
+    list.forEach((song) => (marks[song.id] = { mine: song.mine, sorted: false }));
     update({ marks });
   },
 
@@ -454,14 +475,14 @@ export const player = {
   },
 
   /** Sort borrows the player: the library's song, second and order go on a stack, and the sort list gets its own order. */
-  enterSort(serverUrl: string, list: PlayerSong[]) {
+  enterSort(serverUrl: string, list: PlayerSong[], play = true) {
     url = serverUrl;
     if (!state.sorting && state.order) saved = { order: state.order, at: state.time };
     engine?.pause();
     list.forEach((song) => songs.set(song.id, song));
     state = { ...state, sorting: true };
     const ids = list.map((song) => song.id);
-    if (ids.length) loadOrder(startOrder(ids, ids[0], false), 0, true);
+    if (ids.length) loadOrder(startOrder(ids, ids[0], false), 0, play);
     else update({ sorting: true });
   },
 

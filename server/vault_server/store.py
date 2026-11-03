@@ -196,6 +196,7 @@ class Store:
                 self.conn.commit()
                 self.journal_path.touch(exist_ok=True)
                 self.known_ids = set()
+                self._entries = None  # (journal size, entries), so a sweep's Undo doesn't reread the journal per song
                 self._catch_up()
             except BaseException:
                 self.conn.close()
@@ -264,8 +265,12 @@ class Store:
                 return False
             self._validate(kind, data)
             entry = {"id": change_id, "ts": now(), "kind": kind, "data": data}
+            size = os.path.getsize(self.journal_path)
             self._append(entry)
             self.known_ids.add(change_id)
+            if self._entries and self._entries[0] == size:
+                self._entries[1].append(entry)
+                self._entries = (os.path.getsize(self.journal_path), self._entries[1])
             with self.conn:
                 self._apply(entry)
         return True
@@ -273,8 +278,11 @@ class Store:
     def manual_mine_line(self, song_id):
         """The data of the journal line that set this song's current manual mine value, or None. Each restore cancels
         the latest line not yet cancelled, so restores unwind in order. Follows songs that were merged into this one."""
+        size = os.path.getsize(self.journal_path)
+        if not self._entries or self._entries[0] != size:  # another program wrote to it
+            self._entries = (size, list(self._read_journal()))
         ids, cancelled = {song_id}, 0
-        for entry in reversed(list(self._read_journal())):
+        for entry in reversed(self._entries[1]):
             kind, d = entry["kind"], entry["data"]
             if kind == "song_merge" and d["into_id"] in ids:
                 ids.add(d["from_id"])

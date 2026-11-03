@@ -1,9 +1,9 @@
 # Status
 
-**Phase 1 started.** Updated 2026-11-02 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 1 started.** Updated 2026-11-02 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 
 **In progress:** nothing.
-**Next up:** Code: `/next` (Batch 4 + swipe fix).
+**Next up:** me: phone checks, then Review.
 **Current task:** `NEXT.md` "Batch 4, Real sorting (+ player swipe fix)".
 
 ## Done
@@ -15,17 +15,17 @@
 - Plan approved 2026-11-01: blueprint, batch plan, sizing rule.
 - Batch 1 phone-verified 2026-11-01: Mine / Not mine / Undo, outbox retry, shuffle skips Mine, survival stamp kept across a refresh.
 - Batch 2 verified 2026-11-01: nightly backup, full pull, Hidden Restore, sorting prototype. Closes 1.3, 1.9, 1.19.
-- Board set up and met twice 2026-11-01: batch 3, then batches 4 and 4b.
 - Batch 3 phone-verified 2026-11-01: shared player, bar, playlist player, lock screen, queue, time tap. Closes 1.15, 1.16.
-- Batch 3b phone 2026-11-01: buttons at the bottom, hide toggle, toast placement passed. Queue drag fixed in 3c, phone-verified 2026-11-02 (all 5 checks).
+- Batch 3b phone 2026-11-01 passed; Queue drag fixed in 3c, phone-verified 2026-11-02.
 - Batch 3d phone 2026-11-02: auto-scroll, mini player swipe, eye slide passed. Player strip swipe failed: fix rides in Batch 4 as part 0.
+- Batch 4 built 2026-11-02 (all parts, incl. name sets and swipe fix), unproven on the phone.
 
 ## Queue
-1. Batch 4: Real sorting + player swipe fix (in NEXT).
+1. Batch 4: Real sorting + player swipe fix: built, phone checks pending.
 2. Batch 4b: Versions, manual (ROADMAP 1.23).
 3. Batch 5: Import and copies.
 4. Batch 6: Offline and finish.
-5. Parked (Code's pitches): server `/status` count-only answer; A-Z jump strip; doctor's fail line names changed files; Hidden count on the Hidden link; light vibration when a queue song lifts.
+5. Parked (Code's pitches): split the 638-song folder set; server `/status` count-only answer; A-Z jump strip; doctor's fail line names changed files; Hidden count on the Hidden link; light vibration when a queue song lifts.
 
 ## Open questions
 - Board seats didn't load by name in batch 3's session, though the files are there. Meetings can keep running them as general helpers.
@@ -37,4 +37,4 @@
 - `Session Music` top-level loose files kept in the scan (chat-default): say if they should go.
 - 26 date-only names and the `Untitled...` files wait for later.
 ## Checks pending
-- Batch 4 phone checks 0-4 (after Code's run). Still watching: does the bar ever say "Skipped..."?
+- Batch 4 phone checks 0-5 (REPORT). Still watching: does the bar ever say "Skipped..."?

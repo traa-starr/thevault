@@ -6,7 +6,7 @@ import { AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-na
 import Library from './Library';
 import { flush, startOutbox } from './outbox';
 import { NowPlayingBar, PlayerSheet, UndoToast } from './Player';
-import Prototype from './Prototype';
+import Sort from './Sort';
 
 const PORT = 8787;
 const TIMEOUT_MS = 5000;
@@ -60,7 +60,7 @@ export default function App() {
   const [editing, setEditing] = useState(!address);
   const [line, setLine] = useState('');
   const [inLibrary, setInLibrary] = useState(false);
-  const [inPrototype, setInPrototype] = useState(false);
+  const [inSort, setInSort] = useState(false);
   const [stamp] = useState(survivalStamp);
 
   const check = useCallback(async () => {
@@ -106,8 +106,8 @@ export default function App() {
     </View>
   );
 
-  if (inPrototype) {
-    return withPlayer(<Prototype url={address ? serverUrl(address) : ''} onBack={() => setInPrototype(false)} />);
+  if (inSort) {
+    return withPlayer(<Sort url={serverUrl(address)} onBack={() => setInSort(false)} />);
   }
 
   if (inLibrary) {
@@ -152,13 +152,15 @@ export default function App() {
         </>
       )}
       {address ? (
-        <Pressable onPress={() => setInLibrary(true)}>
-          <Text style={s.link}>Open library</Text>
-        </Pressable>
+        <>
+          <Pressable onPress={() => setInLibrary(true)}>
+            <Text style={s.link}>Open library</Text>
+          </Pressable>
+          <Pressable onPress={() => setInSort(true)}>
+            <Text style={s.link}>Sort</Text>
+          </Pressable>
+        </>
       ) : null}
-      <Pressable onPress={() => setInPrototype(true)}>
-        <Text style={s.link}>Sorting prototype</Text>
-      </Pressable>
       <Text style={s.stamp}>Data since {stamp}</Text>
     </View>,
   );

@@ -1,11 +1,11 @@
 // What you see of the player: the bar, the full player as a sheet, the queue and the Undo toast. The player itself is
 // playerStore.ts, so closing any of these never touches the music.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, Modal, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Dimensions, Modal, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import ReorderableList, { useIsActive, useReorderableDrag, type ReorderableListDragEndEvent, type ReorderableListReorderEvent } from 'react-native-reorderable-list';
-import { player, usePlayer } from './playerStore';
+import { player, usePlayer, type Pool } from './playerStore';
 
 const ROW_HEIGHT = 48;
 const HOLD_MS = 300; // not lower: a hold let go just short of this jumps to the song
@@ -62,6 +62,14 @@ function SeekBar({ value, max, onDrag, onDrop }: SeekBarProps) {
   );
 }
 
+/** Shuffle asks what to play: songs not yet called mine, or only Mine. */
+export const askShuffle = (pick: (pool: Pool) => void) =>
+  Alert.alert('Shuffle', undefined, [
+    { text: 'Unsorted', onPress: () => pick('unsorted') },
+    { text: 'Mine', onPress: () => pick('mine') },
+    { text: 'Cancel', style: 'cancel' },
+  ]);
+
 /** Touch handlers that call onSwipe on an upward swipe and leave taps to whatever is inside. */
 function useSwipeUp(onSwipe: () => void) {
   const latest = useRef(onSwipe);
@@ -71,6 +79,24 @@ function useSwipeUp(onSwipe: () => void) {
       onMoveShouldSetPanResponder: (_, g) => g.dy < -8 && Math.abs(g.dy) > Math.abs(g.dx),
       onPanResponderRelease: (_, g) => {
         if (g.dy < -SWIPE_UP || g.vy < -SWIPE_UP_SPEED) latest.current();
+      },
+    }),
+  ).current.panHandlers;
+}
+
+/**
+ * Touch handlers for an empty area: it takes the touch as the finger lands, like the sheet's grab area, and calls onSwipe
+ * on an upward swipe. Waiting for the finger to move first (useSwipeUp) never got the touch inside the player sheet.
+ */
+function useBlankSwipeUp(onSwipe: () => void) {
+  const latest = useRef(onSwipe);
+  latest.current = onSwipe;
+  return useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderRelease: (_, g) => {
+        if ((g.dy < -SWIPE_UP || g.vy < -SWIPE_UP_SPEED) && Math.abs(g.dy) > Math.abs(g.dx)) latest.current();
       },
     }),
   ).current.panHandlers;
@@ -133,10 +159,10 @@ export function NowPlayingBar() {
 }
 
 function FullPlayer() {
-  const { song, order, wanted, time, duration, note, trouble, timeLeft, sorting, buttonsHidden } = usePlayer();
+  const { song, order, wanted, time, duration, note, trouble, timeLeft, sorting, buttonsHidden, pool } = usePlayer();
   const [dragAt, setDragAt] = useState<number | null>(null);
   const [seekingTo, setSeekingTo] = useState<number | null>(null);
-  const swipe = useSwipeUp(() => player.open('queue'));
+  const swipe = useBlankSwipeUp(() => player.open('queue'));
   const hidden = useRef(new Animated.Value(buttonsHidden ? 1 : 0)).current;
 
   useEffect(() => {
@@ -155,6 +181,7 @@ function FullPlayer() {
   const isMine = player.isMine();
   return (
     <View style={s.page}>
+      <View style={s.spacer} />
       <View style={s.pageTop}>
         <Text style={s.title} numberOfLines={2}>{song?.title}</Text>
         <Text style={s.note}>{trouble || note || ' '}</Text>
@@ -177,18 +204,18 @@ function FullPlayer() {
           </Pressable>
         </View>
         {sorting ? null : (
-          <Pressable onPress={() => player.setShuffleOn(!order?.shuffle)}>
-            <Text style={[s.link, order?.shuffle && s.linkOn]}>{order?.shuffle ? 'Shuffle: on' : 'Shuffle: off'}</Text>
+          <Pressable onPress={() => (order?.shuffle ? player.setShuffleOn(false) : askShuffle((picked) => player.setShuffleOn(true, picked)))}>
+            <Text style={[s.link, order?.shuffle && s.linkOn]}>
+              {order?.shuffle ? `Shuffle: ${pool === 'mine' ? 'Mine' : 'unsorted'}` : 'Shuffle: off'}
+            </Text>
           </Pressable>
         )}
         <Pressable onPress={() => player.open('none')}>
           <Text style={s.link}>Back</Text>
         </Pressable>
       </View>
-      <View style={s.queueStrip} {...swipe}>
-        <View style={s.grabMark} />
-        <Text style={s.queueHint}>Swipe up for Queue</Text>
-      </View>
+      {/* All the blank space down to the buttons: a swipe up opens Queue, a tap does nothing. */}
+      <View style={s.swipeZone} {...swipe} />
       {/* Keeps its height with the buttons hidden or gone, so nothing above it jumps. */}
       <View style={s.dock}>
         {sorting ? null : (
@@ -371,15 +398,15 @@ const s = StyleSheet.create({
   grabArea: { height: 44, alignItems: 'center', justifyContent: 'center' },
   grabMark: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#555' },
   page: { flex: 1, backgroundColor: '#111' },
-  pageTop: { flex: 1, justifyContent: 'center', paddingHorizontal: 24, paddingTop: 8, gap: 12 },
+  spacer: { flex: 1 },
+  pageTop: { paddingHorizontal: 24, gap: 12 },
+  swipeZone: { flex: 1, minHeight: 64 },
   dock: { height: 160, justifyContent: 'flex-end', paddingHorizontal: 24, paddingBottom: 40 },
   hideTap: { height: 44, justifyContent: 'center', alignSelf: 'flex-start', paddingRight: 24, marginBottom: 8 },
   eye: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   eyeLid: { width: 28, height: 16, borderRadius: 8, borderWidth: 2, borderColor: '#aaa', alignItems: 'center', justifyContent: 'center' },
   eyePupil: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#aaa' },
   eyeSlash: { position: 'absolute', width: 32, height: 2, backgroundColor: '#aaa', transform: [{ rotate: '-35deg' }] },
-  queueStrip: { height: 64, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  queueHint: { color: '#666', fontSize: 12 },
   verdicts: { height: 56, flexDirection: 'row', gap: 12 },
   verdict: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: '#555' },
   verdictText: { color: '#fff', fontSize: 17, fontWeight: '600' },

@@ -43,7 +43,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 *Stream and sort (needs the laptop on and reachable)*
 - [x] 1.19 Prototype: sorting card, tappable with fake data *(phone-verified 2026-11-01)*
 - [x] 1.20 Stream any song from the laptop: tap and it plays, nothing saved to the phone, seeking works *(phone-verified 2026-11-01)*
-- [ ] 1.21 Sorting session: card for a random unsorted song, one-tap Keep / Not mine, optional quick tag, progress counter. Verdicts save to the laptop. Mine filter; my manual choice always wins. First pass is getting songs out. Never shows a song I already sorted anywhere *(Hidden list + Restore phone-verified 2026-11-01)*
+- [x] 1.21 Sorting session: card for a random unsorted song, one-tap Keep / Not mine, optional quick tag, progress counter. Verdicts save to the laptop. Mine filter; my manual choice always wins. First pass is getting songs out. Never shows a song I already sorted anywhere *(Hidden list + Restore phone-verified 2026-11-01; built in Batch 4 2026-11-02, phone checks pending)*
 - [ ] 1.22 Import list: only kept songs are imported; not-mine songs stay out of the library and the app
 - [ ] 1.23 Versions, manual: "this is another version of song X" from library, player or sort, any time; versions as a second layer of sort. Pulled forward from 4.1/4.7 (DECISIONS 2026-11-01); name and fingerprint proposals stay in Phase 4
 

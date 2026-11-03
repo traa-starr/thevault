@@ -259,6 +259,59 @@ def write_path(tmp):
     check("a write stays quick with a real-sized journal", results[0]["status"] == "saved" and took < 2, f"{took:.2f}s")
 
 
+def sorting_path(tmp):
+    """GET /sorting: unjudged songs, likely mine first, folder and name sets. Then a big sweep and its Undo."""
+    music, root = tmp / "smusic", tmp / "slib"
+    lib = init_library(root)
+    takes = [add_song(lib, music / "Takes" / f"Mmmm-00{n}.mp3", b"t%d" % n) for n in range(1, 4)]
+    loose = [add_song(lib, music / "Loose" / name, name.encode()) for name in ("Mmmm 4.mp3", "Mmmm (2) copy.mp3", "10.12.mp3")]
+    likely = add_song(lib, music / "Loose" / "zz likely.mp3", b"likely")
+    phone_call = add_song(lib, music / "Loose" / "judged on phone.mp3", b"phone")
+    triage_call = add_song(lib, music / "Loose" / "judged in triage.mp3", b"triage")
+    lone = add_song(lib, music / "Alone" / "only one.mp3", b"one")
+    lib.store.record("song_field", {"song_id": likely, "field": "mine", "value": "likely mine", "origin": "guess", "basis": "title"})
+    lib.store.record("song_field", {"song_id": triage_call, "field": "mine", "value": "mine", "origin": "guess", "basis": "verdict"})
+    songs_module.set_mine(lib.store, phone_call, "not mine")
+    lib.close()
+
+    conn = server.connect_readonly(root)
+    view = server.sorting_view(conn)
+    conn.close()
+    ids = [s["id"] for s in view["songs"]]
+    sets = {s["name"]: s["songs"] for s in view["sets"]}
+    check("sort leaves out songs I judged, on the phone or in triage", phone_call not in ids and triage_call not in ids and len(ids) == 8)
+    check("sort counts every song for progress", view["total"] == 10)
+    check("likely mine comes first", ids[0] == likely)
+    check("folder sets: 2 or more songs, biggest first", list(sets)[:2] == ["Loose", "Takes"] and "Alone" not in sets
+          and sets["Takes"] == takes, list(sets))
+    check("a name set gathers takes across folders", sorted(sets.get("Mmmm…", [])) == sorted(takes + loose[:2]), list(sets))
+    check("a date-only name makes no name set", not any(n.startswith("10") for n in sets))
+    check("names strip numbers and copies", [server.name_stem(x) for x in ("Mmmm-002", "Mmmm 3", "Mmmm (1) copy", "Beat v2", "10.12")]
+          == ["Mmmm", "Mmmm", "Mmmm", "Beat", ""])
+
+    # a big sweep and its Undo, with a journal the size of the real one
+    lib = open_library(root)
+    for _ in range(7200):
+        lib.store.record("song_place", {"path": "x" * 200, "song_id": lone, "state": "likely", "why": "timing"})
+    many = [add_song(lib, music / "Big" / f"song {n}.mp3", b"big%d" % n) for n in range(300)]
+    lib.close()
+    change = lambda kind, song, value=None: {"id": str(uuid.uuid4()), "kind": kind, "data": {"song_id": song, **({"value": value} if value else {})}}
+    start = time.perf_counter()
+    swept = server.apply_changes(root, [change("mine_set", s, "mine") for s in many])
+    sweep_took = time.perf_counter() - start
+    start = time.perf_counter()
+    undone = server.apply_changes(root, [change("mine_restore", s) for s in many])
+    undo_took = time.perf_counter() - start
+    print(f"      sweep of 300 songs: {sweep_took * 1000:.0f} ms, its Undo: {undo_took * 1000:.0f} ms")
+    conn = server.connect_readonly(root)
+    back = {s["id"] for s in server.sorting_view(conn)["songs"]}
+    conn.close()
+    check("a sweep saves every song", all(r["status"] == "saved" for r in swept))
+    check("its Undo puts every one back, and only those", all(r["status"] == "saved" for r in undone) and set(many) <= back
+          and phone_call not in back)
+    check("a 300-song Undo stays quick with a real-sized journal", undo_took < 10, f"{undo_took:.1f}s")
+
+
 def main():
     tmp = Path(tempfile.mkdtemp(prefix="vault-servertest-")).resolve()
     music, root = tmp / "music", tmp / "lib"
@@ -380,6 +433,7 @@ def main():
     except LibraryMissing:
         check("missing library stops the server, creates nothing", not ghost.exists())
     write_path(tmp)
+    sorting_path(tmp)
     print()
     print("ALL PASSED" if not failures else f"{len(failures)} FAILED: {failures}")
     return 1 if failures else 0

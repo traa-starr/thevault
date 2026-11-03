@@ -1,4 +1,4 @@
-"""The server: lists known songs, plays one by id with seeking, and takes my choices from the phone.
+"""The server: lists known songs, plays one by id with seeking, lays out what Sort shows, and takes my choices from the phone.
 
 Music is read-only by construction: a music file is only ever opened in `_open_audio`, in read mode, after its live file
 attributes say it's on the laptop. Every read route uses the database in SQLite's read-only mode. `POST /changes` is the
@@ -39,6 +39,10 @@ NOT_ON_LAPTOP = "not on laptop yet"
 CLIENT_HEADER = "X-Vault-Client"  # a web page can't send this to another site without the server's say-so, which it never gives
 MAX_BODY = 1024 * 1024
 MINE_VALUES = ("mine", "not mine")
+MIN_FOLDER_SET = 2
+MIN_NAME_SET = 3  # two titles alike happen by chance
+NAME_TAIL = re.compile(r"(?:[\s_.\-]*(?:\(\d+\)|v?\d+|copy))+$", re.IGNORECASE)
+LIKELY_FIRST = {"mine": 0, "likely mine": 1}
 
 PAGE = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -100,22 +104,60 @@ def connect_readonly(root):
     return conn
 
 
+PLACE_SQL = """CASE WHEN EXISTS (SELECT 1 FROM song_places p JOIN sources s USING (path)
+                             WHERE p.song_id=g.id AND p.state='sure' AND s.status='present' AND s.cloud_only=0) THEN 'laptop'
+                WHEN EXISTS (SELECT 1 FROM song_places p JOIN sources s USING (path)
+                             WHERE p.song_id=g.id AND s.status='present') THEN 'cloud'
+                ELSE 'gone' END"""
+
+
 def list_songs(conn, hidden=False):
     """Known songs, from the database only: the list never touches the music folders. Not-mine songs are listed only
     when `hidden` is asked for, and then on their own."""
     rows = conn.execute(f"""
         SELECT g.id, g.title, COALESCE(f.value, 'unknown') AS mine, d.value AS date, COALESCE(f.origin = 'manual', 0) AS sorted,
-               CASE WHEN EXISTS (SELECT 1 FROM song_places p JOIN sources s USING (path)
-                                 WHERE p.song_id=g.id AND p.state='sure' AND s.status='present' AND s.cloud_only=0) THEN 'laptop'
-                    WHEN EXISTS (SELECT 1 FROM song_places p JOIN sources s USING (path)
-                                 WHERE p.song_id=g.id AND s.status='present') THEN 'cloud'
-                    ELSE 'gone' END AS place
+               {PLACE_SQL} AS place
         FROM songs g LEFT JOIN song_fields f ON f.song_id=g.id AND f.field='mine'
         LEFT JOIN song_fields d ON d.song_id=g.id AND d.field='date'
         WHERE COALESCE(f.value, 'unknown') {'=' if hidden else '!='} 'not mine'
         ORDER BY place='laptop' DESC, g.title COLLATE NOCASE""")
     return [{"id": r["id"], "title": r["title"], "mine": r["mine"], "where": r["place"], "date": r["date"],
              "sorted": bool(r["sorted"])} for r in rows]
+
+
+def name_stem(title):
+    """What a run of takes shares: 'Mmmm-002', 'Mmmm 3' and 'Mmmm (1) copy' all give 'Mmmm'. '' if no letters are left."""
+    stem = NAME_TAIL.sub("", title).strip(" _.-")
+    return stem if re.search(r"[^\W\d_]", stem) else ""
+
+
+def sorting_view(conn):
+    """What Sort needs: songs nobody has judged yet, likely mine first, and sets of them to sweep, folders first, then
+    repeated name patterns. Judged means my call, from the phone or from the Phase 0 triage."""
+    rows = conn.execute(f"""
+        SELECT g.id, g.title, COALESCE(f.value, 'unknown') AS mine, d.value AS date, {PLACE_SQL} AS place,
+               (SELECT s.folder FROM song_places p JOIN sources s USING (path)
+                WHERE p.song_id=g.id AND p.state='sure' AND s.status='present' ORDER BY s.cloud_only, s.path LIMIT 1) AS folder
+        FROM songs g LEFT JOIN song_fields f ON f.song_id=g.id AND f.field='mine'
+        LEFT JOIN song_fields d ON d.song_id=g.id AND d.field='date'
+        WHERE f.song_id IS NULL OR (f.origin != 'manual' AND COALESCE(f.basis, '') != 'verdict' AND f.value != 'not mine')""")
+    songs = sorted(({"id": r["id"], "title": r["title"], "mine": r["mine"], "where": r["place"], "date": r["date"],
+                     "folder": " / ".join((r["folder"] or "").split(os.sep)) or "Loose files", "sorted": False} for r in rows),
+                   key=lambda s: (LIKELY_FIRST.get(s["mine"], len(LIKELY_FIRST)), s["folder"].casefold(), s["title"].casefold()))
+    by_folder, by_name, names = {}, {}, {}
+    for s in songs:
+        by_folder.setdefault(s["folder"], []).append(s["id"])
+        stem = name_stem(s["title"])
+        if stem:
+            by_name.setdefault(stem.casefold(), []).append(s["id"])
+            names.setdefault(stem.casefold(), stem)
+    biggest_first = lambda groups, least: sorted(((k, v) for k, v in groups.items() if len(v) >= least),
+                                                 key=lambda kv: (-len(kv[1]), kv[0].casefold()))
+    sets = [{"id": f"folder:{k}", "kind": "folder", "name": k, "songs": v} for k, v in biggest_first(by_folder, MIN_FOLDER_SET)]
+    same = {frozenset(x["songs"]) for x in sets}
+    sets += [{"id": f"name:{k}", "kind": "name", "name": f"{names[k]}…", "songs": v}
+             for k, v in biggest_first(by_name, MIN_NAME_SET) if frozenset(v) not in same]
+    return {"total": conn.execute("SELECT COUNT(*) FROM songs").fetchone()[0], "songs": songs, "sets": sets}
 
 
 def health(root, backup_dir=BACKUP_DIR):
@@ -260,6 +302,12 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
                     return self._send(200, PAGE.encode("utf-8"), "text/html; charset=utf-8")
                 if route == "/health":
                     return self._json(200, health(root, backup_dir))
+                if route == "/sorting":
+                    conn = connect_readonly(root)
+                    try:
+                        return self._json(200, sorting_view(conn))
+                    finally:
+                        conn.close()
                 if route == "/songs":
                     hidden = parse_qs(urlsplit(self.path).query).get("hidden") == ["1"]
                     conn = connect_readonly(root)

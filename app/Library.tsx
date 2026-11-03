@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Hidden from './Hidden';
 import { flush, useOutbox } from './outbox';
-import { player } from './playerStore';
+import { askShuffle } from './Player';
+import { player, type Pool } from './playerStore';
 import { withPending } from './playOrder';
 
 type Song = { id: string; title: string; where: string; date: string | null; mine: string; sorted: boolean };
@@ -25,6 +26,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
   const [sort, setSort] = useState<Sort>('title');
   const [filter, setFilter] = useState('');
   const [showHidden, setShowHidden] = useState(false);
+  const [mineOnly, setMineOnly] = useState(false);
 
   useEffect(() => {
     const abort = new AbortController();
@@ -68,20 +70,25 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     return byTitle.sort((a, b) => ((a.date ?? '') < (b.date ?? '') ? 1 : (a.date ?? '') > (b.date ?? '') ? -1 : 0));
   }, [songs, sort]);
 
+  const base = useMemo(() => (mineOnly ? sorted.filter((song) => song.mine === 'mine') : sorted), [sorted, mineOnly]);
+
   const shown = useMemo(() => {
     const wanted = filter.trim().toLowerCase();
-    return wanted ? sorted.filter((song) => song.title.toLowerCase().includes(wanted)) : sorted;
-  }, [sorted, filter]);
+    return wanted ? base.filter((song) => song.title.toLowerCase().includes(wanted)) : base;
+  }, [base, filter]);
 
   const playable = useMemo(() => shown.filter((song) => song.where === 'laptop'), [shown]);
 
-  // while sorting, shuffle only lands on songs not yet called mine; tapping one still plays it
-  const shuffleable = useMemo(() => playable.filter((song) => song.mine !== 'mine'), [playable]);
-
-  const open = (start: Song, shuffle: boolean) => {
+  const open = (start: Song, shuffle: boolean, pool: Pool = mineOnly ? 'mine' : 'unsorted') => {
     Keyboard.dismiss();
-    player.playList(url, playable, start.id, shuffle);
+    player.playList(url, playable, start.id, shuffle, pool);
     player.open('player');
+  };
+
+  // unsorted lands only on songs not yet called mine, Mine only on Mine; tapping any song still plays it
+  const shuffle = (pool: Pool) => {
+    const from = playable.filter((song) => (song.mine === 'mine') === (pool === 'mine'));
+    if (from.length) open(from[Math.floor(Math.random() * from.length)], true, pool);
   };
 
   const closeHidden = () => {
@@ -125,13 +132,18 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
             clearButtonMode="while-editing"
           />
           <View style={s.bar}>
-            <Text style={s.count}>{filter.trim() ? `${number(shown.length)} of ${number(songs.length)}` : `${number(songs.length)} songs`}</Text>
+            <Text style={s.count}>
+              {filter.trim() ? `${number(shown.length)} of ${number(base.length)}` : `${number(base.length)} ${mineOnly ? 'Mine' : 'songs'}`}
+            </Text>
             <View style={s.sorts}>
-              {shuffleable.length ? (
-                <Pressable onPress={() => open(shuffleable[Math.floor(Math.random() * shuffleable.length)], true)}>
+              {playable.length ? (
+                <Pressable onPress={() => (mineOnly ? shuffle('mine') : askShuffle(shuffle))}>
                   <Text style={s.sort}>Shuffle</Text>
                 </Pressable>
               ) : null}
+              <Pressable onPress={() => setMineOnly(!mineOnly)}>
+                <Text style={[s.sort, mineOnly && s.sortOn]}>Mine</Text>
+              </Pressable>
               <Pressable onPress={() => setSort('title')}>
                 <Text style={[s.sort, sort === 'title' && s.sortOn]}>A-Z</Text>
               </Pressable>
@@ -150,7 +162,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
             getItemLayout={(_, index) => ({ length: ROW_HEIGHT, offset: ROW_HEIGHT * index, index })}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={<Text style={s.empty}>No titles match</Text>}
+            ListEmptyComponent={<Text style={s.empty}>{mineOnly && !filter.trim() ? 'No Mine songs yet' : 'No titles match'}</Text>}
             renderItem={({ item }) => (
               <Pressable
                 style={s.row}

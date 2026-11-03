@@ -5,6 +5,7 @@ import type { Change } from './playOrder';
 
 const TIMEOUT_MS = 10000;
 const RETRY_MS = 10000;
+const PER_CHANGE_MS = 50; // a 300-song sweep takes the laptop several seconds
 
 type OutboxState = { pending: Change[]; refused: number };
 
@@ -43,7 +44,7 @@ const newId = () =>
 async function send() {
   const batch = state.pending;
   const abort = new AbortController();
-  const timer = setTimeout(() => abort.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => abort.abort(), TIMEOUT_MS + batch.length * PER_CHANGE_MS);
   try {
     const r = await fetch(`${url}/changes`, {
       method: 'POST',
@@ -83,13 +84,19 @@ export function startOutbox(serverUrl: string) {
   flush();
 }
 
-export function addChange(kind: Change['kind'], songId: string, value?: Change['data']['value']) {
-  const change: Change = { id: newId(), kind, data: { song_id: songId, ...(value ? { value } : {}) } };
-  const pending = [...state.pending, change];
+export type NewChange = { kind: Change['kind']; songId: string; value?: Change['data']['value'] };
+
+/** Saves these and sends them together, so a sweep is one send. */
+export function addChanges(list: NewChange[]) {
+  if (!list.length) return;
+  const made = list.map(({ kind, songId, value }): Change => ({ id: newId(), kind, data: { song_id: songId, ...(value ? { value } : {}) } }));
+  const pending = [...state.pending, ...made];
   save(pending);
   update({ ...state, pending });
   flush();
 }
+
+export const addChange = (kind: Change['kind'], songId: string, value?: Change['data']['value']) => addChanges([{ kind, songId, value }]);
 
 const subscribe = (listener: () => void) => {
   listeners.add(listener);
