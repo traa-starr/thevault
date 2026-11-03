@@ -22,7 +22,7 @@
 
 ## Queue
 1. Batch 4: Real sorting + player swipe fix: built, phone checks pending.
-2. Batch 4b: Versions, manual (ROADMAP 1.23).
+2. Batch 4b: Versions, manual (ROADMAP 1.23). Part 0: queue auto-scroll dead until the list's end has been drawn once (patch measures list length from the last row, which isn't drawn yet on open; use the list's real content size instead). Found by me 2026-11-02.
 3. Batch 5: Import and copies.
 4. Batch 6: Offline and finish.
 5. Parked (Code's pitches): split the 638-song folder set; server `/status` count-only answer; A-Z jump strip; doctor's fail line names changed files; Hidden count on the Hidden link; light vibration when a queue song lifts.
