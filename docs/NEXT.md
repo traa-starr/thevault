@@ -1,18 +1,19 @@
-# NEXT: Batch 4, Real sorting (+ player swipe fix)
-Written by chat, 2026-11-02.
-Log: Batch 3c phone checks 1-5 all passed (mine). Queue drag accepted; closes the 3b drag retry. Lift vibration pitch parked (chat-default). Batch 3d: checks 1, 2, 4 passed, 3 failed (player strip swipe not registering); fix rides along as part 0 to save a build; strip becomes invisible, no labels (mine) (logged by chat)
-Queue after this: Batch 4b "Versions, manual" (ROADMAP 1.23, board notes ready). Then Batch 5 "Import and copies".
-Read: `docs/BATCH-PLAN.md` (Batch 4), `docs/board/batch-4-versions.md` (Agreed 1-5, board splits), DECISIONS rows "How sorting works", "Not sure return", "Batch 4/4b board splits", the batch 2 sorting prototype.
-Session: Opus. ROADMAP 1.21. No board meeting: met 2026-11-01 for this batch.
+# NEXT: Batch 4b, Versions (manual)
+Written by chat, 2026-11-04.
+Log: Batch 4 phone checks 0-5 all passed; "Skipped..." never seen, watch closed (mine). Closes ROADMAP 1.21. Queue auto-scroll fix rides along as part 0 (chat-default) (logged by chat)
+Queue after this: Batch 5 "Import and copies" (ROADMAP 1.22, 1.7). Then Batch 6 "Offline and finish".
+Read: `docs/BATCH-PLAN.md` (Batch 4b), `docs/board/batch-4-versions.md` (Agreed 6-15 and Proposed phone checks), DECISIONS rows "Versions storage", "Not mine on a Main with versions", "Batch 4/4b board splits".
+Session: Opus. ROADMAP 1.23. No board meeting: met 2026-11-01 for this batch.
 ## Parts
-0. **Player swipe fix (from 3d).** Find why the player's swipe-up strip never gets the swipe, one plain line in REPORT (suspects: touch area only as big as its text, or the drag package's touch system swallows it; copy what the working mini player swipe does). Remove the grab bar and "Swipe up for Queue": the whole blank space between the song controls and the bottom buttons catches a swipe up, opens Queue, closing returns to the player. Taps there do nothing; seek, buttons and top grab area unchanged.
-a. **Sets and sweep.** Sort home lists sets: folders first, then repeated name patterns. Only songs nobody has judged yet; a set with none left disappears. Open a set: its songs show inline, fine at 50+ rows. "All mine" / "All not mine" shows the contents first, goes as one send, and Undo puts back only what that sweep changed.
-b. **Cards.** One card per unsorted song, likely mine first, starts about 30% in. Mine / Not mine buttons plus swipe; small Not sure button plus swipe up (song stays unsorted, leaves this pass, counted on Sort home as "Not sure · N", comes back only when I open that pile). 5-second Undo. Progress counter read from the laptop, so it survives a restart. A song judged anywhere else drops out at once.
-c. **Mine filter and shuffle choice.** Library gets a Mine filter. Shuffle asks: unsorted or Mine.
-**Stop line:** part 0 always goes in. name-pattern sets wait (folders go first), then c.
+0. **Queue auto-scroll fix.** Auto-scroll is dead until the list's end has been drawn once: the patch measures list length from the last row, which isn't drawn on open. Use the list's real content size instead. Scrolling must work straight after opening Queue on a long list.
+a. **Storage and link.** New `song_family` table per DECISIONS, rebuildable from the journal. "Another version of…": visible button on the full player, plus Library row and sort card. Picker sheet over the screen, music never stops: short list (recently played first, then same folder/nearest), search above, only Main versions of Mine songs, rows show title, folder, date, length. Board rules 8, 9, 13, 14 (refusals, no chains, one Undo, journal lines through the outbox, order kept). Linking an unsorted song = "Mine and linked".
+b. **Versions view.** "Versions · N" chip on Library row and full player, only when a song has versions. Sheet: Main on top; each row Play, Make main, Remove in a menu. Board rules 11, 12. Library shows one row per family (the Main).
+c. **Rules.** Shuffle plays only the Main. Not mine on a non-Main: leaves the family, hidden, Undo restores both. Not mine on a Main with versions: pick the new Main from a short list; only one other = promoted with a toast.
+**Stop line:** parts 0 and a always go in. Then b. c's Not-mine-on-Main picker can wait (refuse it with a plain line meanwhile).
 ## Phone check
-0. Full player: swipe up anywhere in the blank space above the buttons (no label). Pass: Queue opens; close it, back on the player. Seek and buttons still work.
-1. Sort one song in a set by card, then sweep All mine on the rest, then Undo. Pass: only the swept songs come back; the one sorted by hand stays sorted.
-2. Open a set, play one of its songs, tap Not mine in the player, go back. Pass: gone from the set list and from the cards.
-3. Do 5 cards (one Not sure), kill the app, reopen Sort. Pass: counter kept, "Not sure · 1" shows, no song from those 5 appears again.
-4. Turn shuffle on, pick Mine. Pass: only Mine songs play.
+0. Open Queue on a long list, lift a song straight away and hold it near the bottom edge. Pass: the list scrolls without first scrolling to the end by hand.
+1. Full player > "Another version of…" > pick a song. Pass: music never stops; Library shows one row with "Versions · 2". Undo within 5 seconds splits them.
+2. Library row > "Another version of…" on a third song, pick a version (not the Main) of that family. Pass: it lands under the Main, "Versions · 3".
+3. Laptop off (or server stopped), link another song. Pass: shows as waiting, sends when the laptop is back.
+4. Versions view > Make main on another version > kill and reopen the app. Pass: the new Main holds the Library row, shuffle Mine plays it, the old one is in Versions.
+5. Versions view > Not mine on a non-Main version. Pass: it leaves the family and is hidden; Undo puts it back.
