@@ -26,6 +26,9 @@ const PROBE_TIMEOUT_MS = 5000;
 const UNDO_MS = 5000;
 const UNDO_PROBE_MS = 3000;
 const SETTLE_MS = 2000; // a song just told to play can look paused for this long
+// a song brought back paused can still send a "playing" from the song before it: that never counts as a Play tap
+const HOLD_PAUSED_MS = 3000;
+const AFTER_CLOSE_MS = 900;
 const MAX_BAD_IN_A_ROW = 3;
 const MAX_STUCK_PROBES = 3;
 const FAILED_QUICKLY_MS = 3000;
@@ -83,6 +86,8 @@ let engine: Engine | null = null;
 let modeSet: Promise<unknown> | null = null;
 let track: { id: string; order: Order | null }[] = []; // what the playlist player holds, one per position; null: chosen before a shuffle change
 let settleUntil = 0;
+let holdPausedUntil = 0;
+let afterClose: (() => void) | null = null;
 let lastProgress = 0;
 let lastTime = -1;
 let badInARow = 0;
@@ -159,7 +164,10 @@ function onSound(sound: Sound) {
     lastTime = sound.time;
   }
   // The bar follows what is really playing, so a call, Siri or the lock screen can't leave it showing the wrong thing.
-  if (sound.playing && !state.wanted) changes.wanted = true;
+  if (sound.playing && !state.wanted) {
+    if (Date.now() < holdPausedUntil) engine?.pause();
+    else changes.wanted = true;
+  }
   else if (!sound.playing && !sound.buffering && sound.loaded && state.wanted && Date.now() > settleUntil) changes.wanted = false;
   update(changes);
   if (sound.playing) saveSpot();
@@ -242,6 +250,7 @@ const ensureMode = () =>
 function loadOrder(order: Order, at: number, play: boolean) {
   newTrackStarted();
   settleUntil = play ? Date.now() + SETTLE_MS : 0;
+  holdPausedUntil = play ? 0 : Date.now() + HOLD_PAUSED_MS;
   const id = currentId(order);
   update({ order, song: songNow(order), time: at, duration: 0, wanted: play, note: '', trouble: '' });
   if (!state.sorting) heard(id);
@@ -338,6 +347,7 @@ export const player = {
       saveSpot(true);
     } else {
       settleUntil = Date.now() + SETTLE_MS;
+      holdPausedUntil = 0;
       engine?.play();
       update({ wanted: true, note: '' });
     }
@@ -358,6 +368,7 @@ export const player = {
     badInARow = 0;
     if (engine?.windowed && canUseWindow(engine.index() + 1)) {
       settleUntil = Date.now() + SETTLE_MS;
+      holdPausedUntil = 0;
       engine.next();
       engine.play();
       update({ wanted: true });
@@ -376,6 +387,7 @@ export const player = {
     badInARow = 0;
     if (engine?.windowed && canUseWindow(engine.index() - 1)) {
       settleUntil = Date.now() + SETTLE_MS;
+      holdPausedUntil = 0;
       engine.previous();
       engine.play();
       update({ wanted: true });
@@ -568,6 +580,19 @@ export const player = {
   },
 
   closeQueue: () => update({ sheet: state.queueFrom }),
+
+  /** Closes the player sheet, then runs `then` once it has gone: iOS can't open another sheet over one still closing. */
+  closeThen(then: () => void) {
+    if (state.sheet === 'none') return then();
+    afterClose = then;
+    update({ sheet: 'none' });
+    setTimeout(() => player.runAfterClose(), AFTER_CLOSE_MS); // in case the sheet never says it's gone
+  },
+  runAfterClose() {
+    const then = afterClose;
+    afterClose = null;
+    then?.();
+  },
 
   toggleTimeLeft() {
     const file = timeLeftFile();

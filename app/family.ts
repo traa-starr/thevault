@@ -79,3 +79,22 @@ export function removeEdit(families: Families, song: string, newMain?: string): 
   }
   return make(families, songs);
 }
+
+/** The Main a group of ticked rows gets: a ticked family keeps its Main (the first held, if it's in one), else the first held. */
+export function groupLead(families: Families, ticked: string[]): string | null {
+  if (!ticked.length) return null;
+  const first = mainOf(families, ticked[0]);
+  if (families.has(first)) return first;
+  const family = ticked.find((id) => families.has(mainOf(families, id)));
+  return family ? mainOf(families, family) : first;
+}
+
+/** Every ticked song, with all of its family, becomes a version of one Main, in one edit. Null: already one family. */
+export function groupEdit(families: Families, ticked: string[]): FamilyEdit | null {
+  const lead = groupLead(families, ticked);
+  if (!lead || ticked.length < 2) return null;
+  const songs: Record<string, string | null> = { [lead]: lead };
+  for (const id of ticked) membersOf(families, id).forEach((one) => (songs[one] = lead));
+  if (Object.keys(songs).length < 2) return null;
+  return make(families, songs);
+}

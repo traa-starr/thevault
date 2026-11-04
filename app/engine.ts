@@ -53,7 +53,7 @@ function playlistEngine({ onSound, onTrack }: Handlers): Engine {
       time: waiting ? waiting.at : status.currentTime,
       duration: status.duration,
       playing: status.playing,
-      buffering: status.isBuffering || !!waiting,
+      buffering: status.isBuffering || !!waiting?.play, // a paused song waiting to seek isn't loading anything
       loaded: status.isLoaded,
       finished: status.didJustFinish,
     });
@@ -135,7 +135,7 @@ function singleEngine({ onSound }: Handlers): Engine {
       time: waiting ? waiting.at : status.currentTime,
       duration: status.duration,
       playing: status.playing,
-      buffering: status.isBuffering || !!waiting,
+      buffering: status.isBuffering || !!waiting?.play, // a paused song waiting to seek isn't loading anything
       loaded: status.isLoaded,
       finished: status.didJustFinish,
     });

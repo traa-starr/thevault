@@ -1,15 +1,16 @@
 // The song list from the laptop: scroll, sort, filter by title, tap to play. Only songs on the laptop can play.
-// Choices the laptop hasn't confirmed yet already show here.
+// Choices the laptop hasn't confirmed yet already show here. Hold a row for select mode: tick songs, then group them as
+// versions, or call them Mine or Not mine, all at once with one Undo.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, FlatList, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Hidden from './Hidden';
-import { HomeButton } from './nav';
+import { HomeButton, takeSeed, useSeed } from './nav';
 import { flush, useOutbox } from './outbox';
 import { askShuffle } from './Player';
 import { player, type Pool } from './playerStore';
 import { withPending } from './playOrder';
 import { setLibrary, useVersions, type LibSong } from './versionStore';
-import { startLink, VersionsChip } from './Versions';
+import { VersionsChip } from './Versions';
 import * as versions from './versionStore';
 
 type Song = LibSong;
@@ -27,10 +28,15 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
   const { pending, refused } = useOutbox();
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const [sort, setSort] = useState<Sort>('title');
+  const [sort, setSort] = useState<Sort>('date'); // Newest every time the app opens
   const [filter, setFilter] = useState('');
   const [showHidden, setShowHidden] = useState(false);
   const [mineOnly, setMineOnly] = useState(false);
+  // select mode: the ticked rows, first held first (that one becomes Main)
+  const [selecting, setSelecting] = useState(false);
+  const [ticked, setTicked] = useState<string[]>([]);
+  const rows = useRef<FlatList<Song>>(null);
+  const seed = useSeed();
 
   useEffect(() => {
     const abort = new AbortController();
@@ -103,13 +109,70 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     if (from.length) open(from[Math.floor(Math.random() * from.length)], true, pool);
   };
 
-  // hold a row: link it as another version, or see its versions
-  const rowMenu = (song: Song) =>
-    Alert.alert(song.title, undefined, [
-      { text: 'Another version of…', onPress: () => startLink(url, song) },
-      ...(versions.versionCount(song.id) > 1 ? [{ text: 'Versions', onPress: () => versions.openVersions(song.id) }] : []),
-      { text: 'Cancel', style: 'cancel' as const },
-    ]);
+  const cancelSelect = () => {
+    setSelecting(false);
+    setTicked([]);
+  };
+
+  const tick = (song: Song) =>
+    setTicked((old) => (old.includes(song.id) ? old.filter((id) => id !== song.id) : [...old, song.id]));
+
+  // hold a row: select mode, that row ticked first
+  const hold = (song: Song) => {
+    Keyboard.dismiss();
+    if (selecting) return tick(song);
+    setSelecting(true);
+    setTicked([song.id]);
+  };
+
+  // the full player's "Another version of…": select mode with the playing song (its family's row) ticked, scrolled to
+  useEffect(() => {
+    if (!seed || !songs) return;
+    const id = families.get(seed) ?? seed;
+    takeSeed();
+    setFilter('');
+    setSelecting(true);
+    setTicked([id]);
+    const at = base.findIndex((song) => song.id === id);
+    if (at >= 0) setTimeout(() => rows.current?.scrollToIndex({ index: at, viewPosition: 0.3, animated: false }), 0);
+  }, [seed, songs]);
+
+  const byId = useMemo(() => new Map((songs ?? []).map((song) => [song.id, song])), [songs]);
+  const tickedSongs = ticked.map((id) => byId.get(id)).filter((song): song is Song => !!song);
+  const isMineNow = (song: Song) => player.markOf(song).mine === 'mine';
+
+  const groupTicked = () => {
+    const mined = tickedSongs.filter((song) => !isMineNow(song) && !families.has(song.id)).map((song) => song.id);
+    const sent = versions.group(ticked, mined);
+    cancelSelect();
+    if (!sent) return versions.showToast({ text: 'Already one family' });
+    mined.forEach((id) => player.setMark(id, { mine: 'mine', sorted: true }));
+    const main = Object.values(sent.edit.songs)[0] ?? ticked[0];
+    versions.showToast({
+      text: `Versions · ${versions.members(main).length}, Main: ${versions.songTitle(main)}${mined.length ? ` · ${mined.length} now Mine` : ''}`,
+      undo: () => {
+        versions.undo(sent);
+        mined.forEach((id) => player.setMark(id, null));
+      },
+    });
+  };
+
+  // a family row stays as it is: its songs are Mine already, and Not mine on one needs Versions first
+  const judgeTicked = (value: 'mine' | 'not mine') => {
+    const grouped = tickedSongs.filter((song) => families.has(song.id));
+    const chosen = tickedSongs.filter((song) => !families.has(song.id) && (value === 'not mine' || !isMineNow(song)));
+    cancelSelect();
+    const skipped = value === 'not mine' && grouped.length
+      ? `${grouped.length} version ${grouped.length === 1 ? 'group' : 'groups'} skipped: use Versions`
+      : '';
+    if (!chosen.length) return versions.showToast({ text: skipped || 'Already Mine' });
+    player.judge(chosen, value);
+    const what = chosen.length === 1 ? chosen[0].title : `${chosen.length} songs`;
+    versions.showToast({
+      text: `${value === 'mine' ? 'Mine' : 'Hidden'}: ${what}${skipped ? ` · ${skipped}` : ''}`,
+      undo: () => player.unjudge(chosen),
+    });
+  };
 
   const closeHidden = () => {
     setShowHidden(false);
@@ -121,10 +184,10 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     {showHidden ? <Hidden url={url} onBack={closeHidden} /> : null}
     <View style={[s.page, showHidden && s.hidden]}>
       <View style={s.header}>
-        <Pressable onPress={onBack}>
-          <Text style={s.link}>Back</Text>
+        <Pressable onPress={selecting ? cancelSelect : onBack}>
+          <Text style={s.link}>{selecting ? 'Cancel' : 'Back'}</Text>
         </Pressable>
-        <Text style={s.title}>Library</Text>
+        <Text style={s.title}>{selecting ? `${number(ticked.length)} ticked` : 'Library'}</Text>
         <HomeButton />
       </View>
       {refused ? <Text style={s.refused}>The laptop refused {refused === 1 ? '1 change' : `${refused} changes`}, so {refused === 1 ? "it wasn't" : "they weren't"} saved</Text> : null}
@@ -177,7 +240,9 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
             </ScrollView>
           </View>
           <FlatList
+            ref={rows}
             key={sort}
+            onScrollToIndexFailed={() => {}}
             data={shown}
             keyExtractor={(song) => song.id}
             getItemLayout={(_, index) => ({ length: ROW_HEIGHT, offset: ROW_HEIGHT * index, index })}
@@ -186,19 +251,47 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
             ListEmptyComponent={<Text style={s.empty}>{mineOnly && !filter.trim() ? 'No Mine songs yet' : 'No titles match'}</Text>}
             renderItem={({ item }) => (
               <Pressable
-                style={s.row}
-                disabled={item.where !== 'laptop'}
-                onPress={() => open(item, false)}
-                onLongPress={() => rowMenu(item)}
+                style={[s.row, selecting && s.rowSelecting]}
+                disabled={!selecting && item.where !== 'laptop'}
+                onPress={() => (selecting ? tick(item) : open(item, false))}
+                onLongPress={() => hold(item)}
+                delayLongPress={400}
               >
+                {selecting ? (
+                  <View style={[s.tick, ticked.includes(item.id) && s.tickOn]}>
+                    <Text style={s.tickMark}>{ticked.includes(item.id) ? '✓' : ' '}</Text>
+                  </View>
+                ) : null}
+                <View style={s.rowText}>
                 <View style={s.rowTop}>
                   <Text style={[s.rowTitle, item.where !== 'laptop' && s.rowOff]} numberOfLines={1}>{item.title}</Text>
                   <VersionsChip id={item.id} />
                 </View>
-                <Text style={s.rowDetail} numberOfLines={1}>{detail(item)}</Text>
+                <Text style={s.rowDetail} numberOfLines={1}>
+                  {selecting && ticked.length > 1 && ticked[0] === item.id ? 'Main · ' : ''}
+                  {detail(item)}
+                </Text>
+                </View>
               </Pressable>
             )}
           />
+          {selecting ? (
+            <View style={s.selectBar}>
+              <Pressable
+                style={[s.groupButton, ticked.length < 2 && s.off]}
+                disabled={ticked.length < 2}
+                onPress={groupTicked}
+              >
+                <Text style={s.groupText}>Group as versions</Text>
+              </Pressable>
+              <Pressable style={[s.small, !ticked.length && s.off]} disabled={!ticked.length} onPress={() => judgeTicked('mine')}>
+                <Text style={s.smallText}>Mine</Text>
+              </Pressable>
+              <Pressable style={[s.small, !ticked.length && s.off]} disabled={!ticked.length} onPress={() => judgeTicked('not mine')}>
+                <Text style={s.smallText}>Not mine</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </>
       )}
     </View>
@@ -225,6 +318,17 @@ const s = StyleSheet.create({
   sortOn: { color: '#fff', fontWeight: '700' },
   empty: { color: '#888', fontSize: 15, textAlign: 'center', paddingTop: 32 },
   row: { height: ROW_HEIGHT, justifyContent: 'center', borderBottomColor: '#2a2a2a', borderBottomWidth: 1 },
+  rowSelecting: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 12 },
+  rowText: { flex: 1, justifyContent: 'center' },
+  tick: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#666', alignItems: 'center', justifyContent: 'center' },
+  tickOn: { backgroundColor: '#8ab4f8', borderColor: '#8ab4f8' },
+  tickMark: { color: '#111', fontSize: 14, fontWeight: '800' },
+  selectBar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 },
+  groupButton: { flex: 1, backgroundColor: '#1e5b34', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
+  groupText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  small: { borderWidth: 1, borderColor: '#555', borderRadius: 10, paddingVertical: 14, paddingHorizontal: 14 },
+  smallText: { color: '#ddd', fontSize: 15 },
+  off: { opacity: 0.4 },
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   rowTitle: { color: '#fff', fontSize: 16, flexShrink: 1 },
   rowOff: { color: '#777' },

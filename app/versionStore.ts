@@ -1,7 +1,7 @@
 // Versions on the phone: the laptop's families plus my changes it may not have yet, the picker, the Versions view and
 // their toast. Changes go through the outbox like Mine and Not mine, so a link made with the laptop off waits and sends.
 import { useSyncExternalStore } from 'react';
-import { applyEdit, linkEdit, makeMainEdit, membersOf, removeEdit, reverse, type Families, type FamilyEdit } from './family';
+import { applyEdit, groupEdit, linkEdit, makeMainEdit, membersOf, removeEdit, reverse, type Families, type FamilyEdit } from './family';
 import { addChanges, onOutbox, pendingNow, takeBack, type NewChange } from './outbox';
 import type { Change } from './playOrder';
 
@@ -16,7 +16,7 @@ export type LibSong = {
   main: string | null;
 };
 /** What one action sent, so its Undo can take it back or turn it round. */
-export type Sent = { changes: Change[]; edit: FamilyEdit; minedId: string | null };
+export type Sent = { changes: Change[]; edit: FamilyEdit; minedIds: string[] };
 type Toast = { text: string; undo?: () => void; action?: { label: string; run: () => void } };
 type State = {
   songs: LibSong[] | null;
@@ -83,11 +83,13 @@ export function showToast(toast: Toast | null) {
   if (toast) toastTimer = setTimeout(() => update({ toast: null }), TOAST_MS);
 }
 
-function send(edit: FamilyEdit, songId: string, before: NewChange[] = []): Sent {
+function send(edit: FamilyEdit, songId: string, mined: string[] = []): Sent {
+  // the Mine verdicts go first: the laptop only lets Mine songs into a family
+  const before: NewChange[] = mined.map((id) => ({ kind: 'mine_set', songId: id, value: 'mine' }));
   const changes = addChanges([...before, { kind: 'family_set', songId, edit }]);
   local = [...local, { edit, at: Date.now(), ids: changes.map((change) => change.id) }];
   recompute();
-  return { changes, edit, minedId: before.length ? songId : null };
+  return { changes, edit, minedIds: mined };
 }
 
 /** Takes an action back: unsent, it's simply dropped; sent, the opposite goes out, family first, then the Mine. */
@@ -97,7 +99,7 @@ export function undo(sent: Sent) {
   if (!takeBack(sent.changes)) {
     const changes = addChanges([
       { kind: 'family_set', songId: sent.changes[sent.changes.length - 1].data.song_id, edit: back },
-      ...(sent.minedId ? [{ kind: 'mine_restore' as const, songId: sent.minedId }] : []),
+      ...sent.minedIds.map((songId) => ({ kind: 'mine_restore' as const, songId })),
     ]);
     local[local.length - 1].ids = changes.map((change) => change.id);
   }
@@ -112,7 +114,14 @@ export function link(songId: string, target: string, needsMine: boolean): Sent |
   const edit = linkEdit(state.families, songId, target);
   if (typeof edit === 'string') return edit;
   if (!edit) return 'Already versions of each other.';
-  return send(edit, songId, needsMine ? [{ kind: 'mine_set', songId, value: 'mine' }] : []);
+  return send(edit, songId, needsMine ? [songId] : []);
+}
+
+/** Select mode's Group as versions: the ticked rows (first held first) become one family. `mined`: songs not Mine yet,
+ * marked Mine in the same go. Null: they already are one family. */
+export function group(ticked: string[], mined: string[]): Sent | null {
+  const edit = groupEdit(state.families, ticked);
+  return edit && send(edit, ticked[0], mined);
 }
 
 /** The refusal a link would get, checked before anything is sent. */

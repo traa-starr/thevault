@@ -46,7 +46,11 @@ export default function Cards({ url, view, scope, pile, notSure, onNotSure, onDo
   const audio = useRef<Set<string> | null>(null);
   const resume = useRef<{ id: string; at: number } | null>(null);
   const startedAt = useRef('');
-  useEffect(() => () => player.leaveSort(), []);
+  // leaving Cards stops everything Cards started: its toast timer, and the player goes back to the library song, paused
+  useEffect(() => () => {
+    clearTimeout(timer.current);
+    player.leaveSort();
+  }, []);
   useEffect(() => {
     if (!audio.current) {
       const list = queue.filter((one) => one.where === 'laptop');

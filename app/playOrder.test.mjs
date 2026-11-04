@@ -1,7 +1,7 @@
 // Self-test for the play order: node --experimental-strip-types app/playOrder.test.mjs
 import assert from 'node:assert/strict';
 import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere } from './playOrder.ts';
-import { applyEdit, linkEdit, makeMainEdit, membersOf, removeEdit, reverse } from './family.ts';
+import { applyEdit, groupEdit, groupLead, linkEdit, makeMainEdit, membersOf, removeEdit, reverse } from './family.ts';
 
 const fams = (pairs) => new Map(Object.entries(pairs));
 
@@ -224,6 +224,33 @@ const tests = {
   'Undo puts the families back exactly': () => {
     const start = fams({ a: 'a', b: 'a', x: 'x', y: 'x' });
     const e = linkEdit(start, 'x', 'a');
+    assert.deepEqual([...applyEdit(applyEdit(start, e), reverse(e))].sort(), [...start].sort());
+  },
+  'group: three plain songs, the first held is Main': () => {
+    const e = groupEdit(new Map(), ['c', 'a', 'b']);
+    assert.deepEqual(e.songs, { c: 'c', a: 'c', b: 'c' });
+    assert.deepEqual(e.before, { c: null, a: null, b: null });
+  },
+  'group: a plain song held first joins a ticked family, which keeps its Main': () => {
+    const start = fams({ a: 'a', b: 'a' });
+    assert.equal(groupLead(start, ['z', 'a']), 'a');
+    const e = groupEdit(start, ['z', 'a']);
+    assert.deepEqual(membersOf(applyEdit(start, e), 'z'), ['a', 'b', 'z']);
+  },
+  'group: two families merge under the first held one': () => {
+    const start = fams({ a: 'a', b: 'a', x: 'x', y: 'x' });
+    const e = groupEdit(start, ['x', 'p', 'a']);
+    const after = applyEdit(start, e);
+    assert.deepEqual(membersOf(after, 'a').sort(), ['a', 'b', 'p', 'x', 'y']);
+    assert.equal(membersOf(after, 'a')[0], 'x');
+  },
+  'group: one song, or already one family, does nothing': () => {
+    assert.equal(groupEdit(new Map(), ['a']), null);
+    assert.equal(groupEdit(fams({ a: 'a', b: 'a' }), ['a', 'b']), null);
+  },
+  'group: Undo puts both families back': () => {
+    const start = fams({ a: 'a', b: 'a', x: 'x', y: 'x' });
+    const e = groupEdit(start, ['a', 'x', 'q']);
     assert.deepEqual([...applyEdit(applyEdit(start, e), reverse(e))].sort(), [...start].sort());
   },
 };

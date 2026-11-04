@@ -214,3 +214,4 @@ The short version. Full rows with options and reasons are below; nothing was del
 | Select mode details (2026-11-04) | Main = first song held; ticked songs already in a family pull the rest in; two families merge under the first held; one Undo for the whole action; full-player button opens select mode (chat-default) | Reversible |
 | Newest default (2026-11-04) | Library opens sorted Newest, not A-Z (mine) | Owner's habit |
 | Length pitch (2026-11-04) | Song length at scan time parked (chat-default) | Not needed for select mode. Reversible |
+| Batch 4c build (2026-11-04) | Player sheet closes before any other sheet opens (iOS one-sheet limit, cause of the freeze); paused song ignores a stray "playing" for 3 s (cause of Cards auto-play); a ticked family keeps its Main when a plain song is held first; bulk Not mine skips family rows, bulk Mine skips Mine rows; Back becomes Cancel in select mode (Code, reversible) | See REPORT and board/batch-4c-select.md |

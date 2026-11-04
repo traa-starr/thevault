@@ -82,10 +82,16 @@ export default function App() {
     }
   }, [address]);
 
-  setHome(() => {
-    setInLibrary(false);
-    setInSort(false);
-  });
+  setHome(
+    () => {
+      setInLibrary(false);
+      setInSort(false);
+    },
+    () => {
+      setInSort(false);
+      setInLibrary(true);
+    },
+  );
 
   // the last song back in the bar, paused where it was, as soon as the app opens
   useEffect(() => {

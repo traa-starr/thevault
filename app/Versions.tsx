@@ -60,12 +60,12 @@ function makeMainWithToast(id: string) {
 }
 
 /** "Versions · 3", only when a song has versions. */
-export function VersionsChip({ id, style }: { id: string; style?: object }) {
+export function VersionsChip({ id, style, onPress }: { id: string; style?: object; onPress?: () => void }) {
   const { families } = useVersions();
   const count = families.has(id) ? versions.members(id).length : 1;
   if (count < 2) return null;
   return (
-    <Pressable onPress={() => versions.openVersions(id)} hitSlop={8} style={style}>
+    <Pressable onPress={onPress ?? (() => versions.openVersions(id))} hitSlop={8} style={style}>
       <Text style={s.chip}>Versions · {count}</Text>
     </Pressable>
   );
@@ -266,10 +266,12 @@ export function VersionsToast() {
 
 /** Mounted once, above every screen and the player sheet. */
 export function VersionsLayer({ url }: { url: string }) {
+  // iOS shows one sheet at a time: these never open while the player sheet is up, or the screen stops taking touches
+  const { sheet } = usePlayer();
   return (
     <>
-      <Picker url={url} />
-      <VersionsView url={url} />
+      {sheet === 'none' ? <Picker url={url} /> : null}
+      {sheet === 'none' ? <VersionsView url={url} /> : null}
       <VersionsToast />
     </>
   );

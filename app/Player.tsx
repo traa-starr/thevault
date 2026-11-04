@@ -5,9 +5,10 @@ import { Alert, Animated, Dimensions, Modal, PanResponder, Pressable, StyleSheet
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import ReorderableList, { useIsActive, useReorderableDrag, type ReorderableListDragEndEvent, type ReorderableListReorderEvent } from 'react-native-reorderable-list';
-import { HomeButton } from './nav';
+import { openLibrarySelect, HomeButton } from './nav';
 import { player, usePlayer, type Pool } from './playerStore';
-import { startLink, VersionsChip, VersionsToast } from './Versions';
+import { VersionsChip, VersionsToast } from './Versions';
+import * as versions from './versionStore';
 
 const ROW_HEIGHT = 48;
 const HOLD_MS = 300; // not lower: a hold let go just short of this jumps to the song
@@ -217,10 +218,11 @@ function FullPlayer() {
         )}
         {sorting || !song || player.isOut() ? null : (
           <View style={s.versionRow}>
-            <Pressable onPress={() => startLink(player.url(), song)}>
+            {/* never a sheet over this sheet (iOS froze on that): the player closes first, then the next screen opens */}
+            <Pressable onPress={() => player.closeThen(() => openLibrarySelect(song.id))}>
               <Text style={s.link}>Another version of…</Text>
             </Pressable>
-            <VersionsChip id={song.id} />
+            <VersionsChip id={song.id} onPress={() => player.closeThen(() => versions.openVersions(song.id))} />
           </View>
         )}
         <Pressable onPress={() => player.open('none')}>
@@ -388,6 +390,7 @@ export function PlayerSheet() {
       transparent
       animationType="slide"
       onRequestClose={() => (sheet === 'queue' ? player.closeQueue() : player.open('none'))}
+      onDismiss={player.runAfterClose}
     >
       <GestureHandlerRootView style={s.sheetRoot}>
         <Animated.View style={[s.sheet, { transform: [{ translateY: pulled }] }]}>
