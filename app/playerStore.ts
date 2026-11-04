@@ -1,15 +1,17 @@
 // The one player, above every screen. Screens send it commands and read its state, so Back never touches the music.
-// Everything here is phone memory: when the app is closed, the queue is gone and it reopens stopped.
+// The song, its spot and its list are saved to the phone as they change, so the app reopens on the last song, paused.
 import { setAudioModeAsync } from 'expo-audio';
 import { File, Paths } from 'expo-file-system';
 import { useSyncExternalStore } from 'react';
 import { createEngine, type Engine, type Sound } from './engine';
+import type { FamilyEdit } from './family';
 import { addChange, addChanges } from './outbox';
-import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
+import { currentId, jumpTo, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
+import { isVersion, members, removeEditFor, sendEdit, showToast, songTitle, undo as undoVersions, type Sent } from './versionStore';
 
 export type PlayerSong = { id: string; title: string; mine: string; sorted: boolean };
 type Mark = { mine: string; sorted: boolean };
-type Undo = { order: Order; id: string; title: string; at: number };
+type Undo = { order: Order; id: string; title: string; at: number; family: Sent | null };
 type Spot = { order: Order; at: number };
 export type Sheet = 'none' | 'player' | 'queue';
 /** What a shuffle plays: songs not yet called mine, or only Mine. */
@@ -51,6 +53,9 @@ type State = {
 };
 
 const timeLeftFile = () => new File(Paths.document, 'time-left.txt');
+const lastPlayFile = () => new File(Paths.document, 'last-play.json');
+const SAVE_EVERY_MS = 15000;
+const RECENT_KEPT = 30;
 const buttonsHiddenFile = () => new File(Paths.document, 'buttons-hidden.txt');
 
 let state: State = {
@@ -85,6 +90,8 @@ let stuckProbes = 0;
 let everLoaded = false;
 let trackStarted = 0;
 let lastNotMine = 0;
+let lastSaved = 0;
+let recent: string[] = []; // songs heard lately, newest first: the picker's best clue
 let undoTimer: ReturnType<typeof setTimeout> | undefined;
 let stallTimer: ReturnType<typeof setInterval> | undefined;
 const listeners = new Set<() => void>();
@@ -99,14 +106,37 @@ const titleOf = (id: string) => songs.get(id)?.title ?? '';
 const songNow = (order: Order) => songs.get(currentId(order)) ?? null;
 const markOf = (song: PlayerSong): Mark => state.marks[song.id] ?? song;
 
-// "What shuffle avoids" stays one input: the songs outside the pool. Batch 4b changes it.
+// What shuffle avoids: the songs outside the pool, and every version that isn't its family's Main.
 const avoid = () => {
   const out = new Set<string>();
   songs.forEach((song) => {
-    if ((markOf(song).mine === 'mine') !== (state.pool === 'mine')) out.add(song.id);
+    if ((markOf(song).mine === 'mine') !== (state.pool === 'mine') || isVersion(song.id)) out.add(song.id);
   });
   return out;
 };
+
+const heard = (id: string) => {
+  recent = [id, ...recent.filter((one) => one !== id)].slice(0, RECENT_KEPT);
+};
+
+/** The library's song and spot (Sort's own songs are never the ones kept), so a reopen starts there, paused. */
+function saveSpot(force = false) {
+  if (!force && Date.now() - lastSaved < SAVE_EVERY_MS) return;
+  lastSaved = Date.now();
+  const spot = state.sorting ? saved : state.order && { order: state.order, at: state.time };
+  try {
+    const file = lastPlayFile();
+    if (!spot) {
+      if (file.exists) file.delete();
+      return;
+    }
+    const kept = spot.order.list.map((id) => songs.get(id)).filter((song): song is PlayerSong => !!song);
+    if (!file.exists) file.create();
+    file.writeSync(JSON.stringify({ url, order: spot.order, at: spot.at, pool: state.pool, songs: kept }));
+  } catch {
+    // a full phone or a bad file: the next save tries again
+  }
+}
 
 const newTrackStarted = () => {
   everLoaded = false;
@@ -132,6 +162,7 @@ function onSound(sound: Sound) {
   if (sound.playing && !state.wanted) changes.wanted = true;
   else if (!sound.playing && !sound.buffering && sound.loaded && state.wanted && Date.now() > settleUntil) changes.wanted = false;
   update(changes);
+  if (sound.playing) saveSpot();
   if (sound.finished) finished();
 }
 
@@ -157,6 +188,8 @@ function onTrack(index: number) {
   newTrackStarted();
   settleUntil = Date.now() + SETTLE_MS;
   update({ order, song: songNow(order), time: 0, duration: 0, note: '', trouble: '' });
+  if (!state.sorting) heard(entry.id);
+  saveSpot(true);
   engine?.setTitle(titleOf(entry.id));
   if (stale) replaceAhead(order, index);
   else topUp(order, index);
@@ -211,6 +244,8 @@ function loadOrder(order: Order, at: number, play: boolean) {
   settleUntil = play ? Date.now() + SETTLE_MS : 0;
   const id = currentId(order);
   update({ order, song: songNow(order), time: at, duration: 0, wanted: play, note: '', trouble: '' });
+  if (!state.sorting) heard(id);
+  saveSpot(true);
   startStallWatch();
   ensureMode().finally(() => {
     if (state.order !== order) return; // a newer tap got there first
@@ -300,6 +335,7 @@ export const player = {
     if (state.wanted) {
       engine?.pause();
       update({ wanted: false });
+      saveSpot(true);
     } else {
       settleUntil = Date.now() + SETTLE_MS;
       engine?.play();
@@ -396,6 +432,10 @@ export const player = {
     const mark = markOf(song);
     const marks = { ...state.marks };
     if (mark.mine === 'mine' && mark.sorted) {
+      if (members(song.id).length > 1) {
+        player.showMessage('This song has versions: remove it from Versions first.');
+        return;
+      }
       addChange('mine_restore', song.id);
       if (marks[song.id]) delete marks[song.id];
       else marks[song.id] = { mine: 'unknown', sorted: false };
@@ -425,11 +465,20 @@ export const player = {
   tapNotMine() {
     const { song, order, time } = state;
     if (!song || !order || Date.now() - lastNotMine < NOT_MINE_GUARD_MS) return;
+    // a Main with several versions needs a new Main first; with one other, that one simply becomes a plain song
+    const family = members(song.id);
+    if (family[0] === song.id && family.length > 2) {
+      player.showMessage(`This is the Main of ${family.length} versions: make another one Main first (Versions).`);
+      return;
+    }
     lastNotMine = Date.now();
+    const edit: FamilyEdit | null = family.length > 1 ? removeEditFor(song.id) : null;
+    const sent = edit ? sendEdit(edit, song.id) : null; // out of the family first: the laptop refuses a hidden version
     addChange('mine_set', song.id, 'not mine');
     clearTimeout(undoTimer);
     undoTimer = setTimeout(() => update({ undo: null }), UNDO_MS);
-    const undo: Undo = { order, id: song.id, title: song.title, at: time }; // the spot at the tap, not at the Undo
+    const undo: Undo = { order, id: song.id, title: song.title, at: time, family: sent }; // the spot at the tap, not at the Undo
+    if (family[0] === song.id && family.length === 2) showToast({ text: `${songTitle(family[1])} now plays in shuffle` });
     const out = removeFromOrder(order);
     const marks = { ...state.marks, [song.id]: { mine: 'not mine', sorted: true } };
     update({ undo, marks, message: '' });
@@ -464,6 +513,7 @@ export const player = {
       return;
     }
     addChange('mine_restore', undo.id);
+    if (undo.family) undoVersions(undo.family); // back into its family, once it's Mine again
     const { [undo.id]: _, ...marks } = state.marks;
     update({ marks });
     // same list: keep what changed since the tap, such as a Queue drag. Another list: back to the saved one.
@@ -531,6 +581,59 @@ export const player = {
     if (state.buttonsHidden) file.delete();
     else file.create();
     update({ buttonsHidden: !state.buttonsHidden });
+  },
+
+  /** A version from the Versions view: plays now, and what came after it stays as it was. */
+  playNow(serverUrl: string, song: PlayerSong) {
+    url = serverUrl;
+    songs.set(song.id, song);
+    if (state.sorting) return;
+    if (!state.order) {
+      player.playList(serverUrl, [song], song.id, false);
+      return;
+    }
+    badInARow = 0;
+    loadOrder(playHere(state.order, song.id), 0, true);
+  },
+
+  /** Sets or clears my mark on a song from outside the player (a link made it Mine). */
+  setMark(id: string, mark: Mark | null) {
+    const marks = { ...state.marks };
+    if (mark) marks[id] = mark;
+    else delete marks[id];
+    update({ marks });
+  },
+
+  markOf: (song: PlayerSong) => markOf(song),
+  current: () => state.song,
+  url: () => url,
+  recent: () => recent,
+
+  showMessage(text: string) {
+    clearTimeout(undoTimer);
+    update({ message: text, undo: null });
+    undoTimer = setTimeout(() => update({ message: '' }), UNDO_MS);
+  },
+
+  /** Saves the spot now: the app is going to the background and may be closed there. */
+  saveNow: () => saveSpot(true),
+
+  /** On launch: the last library song back in the bar, at its spot, paused. Its list and shuffle come back too. */
+  restore(serverUrl: string) {
+    if (state.order) return;
+    try {
+      const file = lastPlayFile();
+      if (!file.exists) return;
+      const last: { url: string; order: Order; at: number; pool: Pool; songs: PlayerSong[] } = JSON.parse(file.textSync());
+      if (!last.order?.sequence?.length || !last.songs?.length) return;
+      url = serverUrl || last.url;
+      last.songs.forEach((song) => songs.set(song.id, song));
+      if (!songs.has(currentId(last.order))) return;
+      update({ pool: last.pool ?? 'unsorted' });
+      loadOrder(last.order, last.at ?? 0, false);
+    } catch {
+      // nothing usable saved: start empty, as before
+    }
   },
 
   isMine: () => (state.song ? markOf(state.song).mine === 'mine' : false),

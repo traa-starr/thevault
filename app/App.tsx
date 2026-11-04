@@ -3,12 +3,20 @@ import { File, Paths } from 'expo-file-system';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import buildInfo from './build-info.json';
 import Library from './Library';
+import { setHome } from './nav';
 import { flush, startOutbox } from './outbox';
 import { NowPlayingBar, PlayerSheet, UndoToast } from './Player';
+import { player } from './playerStore';
 import Sort from './Sort';
+import { VersionsLayer } from './Versions';
 
 const PORT = 8787;
+// Stamped by the GitHub build; "dev" when run from the laptop.
+const buildLine = buildInfo.build === 'dev'
+  ? 'Build: dev'
+  : `Build ${buildInfo.build}${buildInfo.commit ? ` · ${buildInfo.commit}` : ''}${buildInfo.date ? ` · ${buildInfo.date}` : ''}`;
 const TIMEOUT_MS = 5000;
 const addressFile = () => new File(Paths.document, 'laptop-address.txt');
 
@@ -74,11 +82,24 @@ export default function App() {
     }
   }, [address]);
 
+  setHome(() => {
+    setInLibrary(false);
+    setInSort(false);
+  });
+
+  // the last song back in the bar, paused where it was, as soon as the app opens
+  useEffect(() => {
+    if (address) player.restore(serverUrl(address));
+  }, [address]);
+
   useEffect(() => {
     if (address) startOutbox(serverUrl(address));
     check();
     const sub = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') return;
+      if (state !== 'active') {
+        player.saveNow();
+        return;
+      }
       flush();
       check();
     });
@@ -103,6 +124,7 @@ export default function App() {
       </View>
       <NowPlayingBar />
       <PlayerSheet />
+      {address ? <VersionsLayer url={serverUrl(address)} /> : null}
     </View>
   );
 
@@ -162,6 +184,7 @@ export default function App() {
         </>
       ) : null}
       <Text style={s.stamp}>Data since {stamp}</Text>
+      <Text style={s.build}>{buildLine}</Text>
     </View>,
   );
 }
@@ -175,4 +198,5 @@ const s = StyleSheet.create({
   input: { alignSelf: 'stretch', color: '#fff', fontSize: 16, borderColor: '#555', borderWidth: 1, borderRadius: 8, padding: 12 },
   link: { color: '#8ab4f8', fontSize: 15, padding: 8 },
   stamp: { color: '#666', fontSize: 12, position: 'absolute', bottom: 40 },
+  build: { color: '#666', fontSize: 12, position: 'absolute', bottom: 20 },
 });

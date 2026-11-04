@@ -1,14 +1,18 @@
 // The song list from the laptop: scroll, sort, filter by title, tap to play. Only songs on the laptop can play.
 // Choices the laptop hasn't confirmed yet already show here.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Hidden from './Hidden';
+import { HomeButton } from './nav';
 import { flush, useOutbox } from './outbox';
 import { askShuffle } from './Player';
 import { player, type Pool } from './playerStore';
 import { withPending } from './playOrder';
+import { setLibrary, useVersions, type LibSong } from './versionStore';
+import { startLink, VersionsChip } from './Versions';
+import * as versions from './versionStore';
 
-type Song = { id: string; title: string; where: string; date: string | null; mine: string; sorted: boolean };
+type Song = LibSong;
 type Sort = 'title' | 'date';
 
 const TIMEOUT_MS = 10000;
@@ -36,10 +40,13 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     (async () => {
       try {
         await flush(); // so the list comes back with my latest choices in it
+        const asked = Date.now();
         const r = await fetch(`${url}/songs`, { signal: abort.signal });
         if (!r.ok) throw new Error(`Server said ${r.status}`);
         const data: { songs: Song[] } = await r.json();
-        if (current) setFetched(data.songs);
+        if (!current) return;
+        setLibrary(data.songs, asked);
+        setFetched(data.songs);
       } catch {
         if (current) setFailed(true);
       } finally {
@@ -61,7 +68,12 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     wasWaiting.current = waiting;
   }, [waiting]);
 
-  const songs = useMemo(() => fetched && withPending(fetched, pending), [fetched, pending]);
+  const { families } = useVersions();
+  // one row per family: the Main stands for its versions
+  const songs = useMemo(
+    () => fetched && withPending(fetched, pending).filter((song) => (families.get(song.id) ?? song.id) === song.id),
+    [fetched, pending, families],
+  );
 
   const sorted = useMemo(() => {
     const byTitle = [...(songs ?? [])].sort((a, b) => a.title.localeCompare(b.title));
@@ -91,6 +103,14 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     if (from.length) open(from[Math.floor(Math.random() * from.length)], true, pool);
   };
 
+  // hold a row: link it as another version, or see its versions
+  const rowMenu = (song: Song) =>
+    Alert.alert(song.title, undefined, [
+      { text: 'Another version of…', onPress: () => startLink(url, song) },
+      ...(versions.versionCount(song.id) > 1 ? [{ text: 'Versions', onPress: () => versions.openVersions(song.id) }] : []),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+
   const closeHidden = () => {
     setShowHidden(false);
     setAttempt(attempt + 1); // a restored song is back in the list, and the count with it
@@ -105,6 +125,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
           <Text style={s.link}>Back</Text>
         </Pressable>
         <Text style={s.title}>Library</Text>
+        <HomeButton />
       </View>
       {refused ? <Text style={s.refused}>The laptop refused {refused === 1 ? '1 change' : `${refused} changes`}, so {refused === 1 ? "it wasn't" : "they weren't"} saved</Text> : null}
       {failed && !songs ? (
@@ -135,7 +156,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
             <Text style={s.count}>
               {filter.trim() ? `${number(shown.length)} of ${number(base.length)}` : `${number(base.length)} ${mineOnly ? 'Mine' : 'songs'}`}
             </Text>
-            <View style={s.sorts}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.sortScroll} contentContainerStyle={s.sorts}>
               {playable.length ? (
                 <Pressable onPress={() => (mineOnly ? shuffle('mine') : askShuffle(shuffle))}>
                   <Text style={s.sort}>Shuffle</Text>
@@ -153,7 +174,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
               <Pressable onPress={() => setShowHidden(true)}>
                 <Text style={s.sort}>Hidden</Text>
               </Pressable>
-            </View>
+            </ScrollView>
           </View>
           <FlatList
             key={sort}
@@ -168,8 +189,12 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
                 style={s.row}
                 disabled={item.where !== 'laptop'}
                 onPress={() => open(item, false)}
+                onLongPress={() => rowMenu(item)}
               >
-                <Text style={[s.rowTitle, item.where !== 'laptop' && s.rowOff]} numberOfLines={1}>{item.title}</Text>
+                <View style={s.rowTop}>
+                  <Text style={[s.rowTitle, item.where !== 'laptop' && s.rowOff]} numberOfLines={1}>{item.title}</Text>
+                  <VersionsChip id={item.id} />
+                </View>
                 <Text style={s.rowDetail} numberOfLines={1}>{detail(item)}</Text>
               </Pressable>
             )}
@@ -194,12 +219,14 @@ const s = StyleSheet.create({
   bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
   count: { color: '#ddd', fontSize: 14, fontVariant: ['tabular-nums'] },
   refused: { color: '#f28b82', fontSize: 14, paddingBottom: 8 },
+  sortScroll: { flexGrow: 0, flexShrink: 1, marginLeft: 8 },
   sorts: { flexDirection: 'row', gap: 4 },
   sort: { color: '#8ab4f8', fontSize: 15, paddingVertical: 8, paddingHorizontal: 10 },
   sortOn: { color: '#fff', fontWeight: '700' },
   empty: { color: '#888', fontSize: 15, textAlign: 'center', paddingTop: 32 },
   row: { height: ROW_HEIGHT, justifyContent: 'center', borderBottomColor: '#2a2a2a', borderBottomWidth: 1 },
-  rowTitle: { color: '#fff', fontSize: 16 },
+  rowTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  rowTitle: { color: '#fff', fontSize: 16, flexShrink: 1 },
   rowOff: { color: '#777' },
   rowDetail: { color: '#888', fontSize: 13, marginTop: 2 },
 });

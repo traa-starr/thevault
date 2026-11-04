@@ -312,6 +312,59 @@ def sorting_path(tmp):
     check("a 300-song Undo stays quick with a real-sized journal", undo_took < 10, f"{undo_took:.1f}s")
 
 
+def family_path(tmp):
+    """Versions: link, Make main, Remove, Undo, and every refusal. The laptop is the guard against a phone that's wrong."""
+    music, root = tmp / "fmusic", tmp / "flib"
+    lib = init_library(root)
+    a, b, c, d, hidden = (add_song(lib, music / f"{n}.mp3", n.encode()) for n in ("a", "b", "c", "d", "hidden"))
+    loose = add_song(lib, music / "unsorted.mp3", b"unsorted")
+    for sid in (a, b, c, d):
+        songs_module.set_mine(lib.store, sid, "mine")
+    songs_module.set_mine(lib.store, hidden, "not mine")
+    lib.close()
+    fam = lambda songs, before: {"id": str(uuid.uuid4()), "kind": "family_set", "data": {"song_id": next(iter(songs)), "songs": songs, "before": before}}
+    send = lambda *cs: [r["status"] for r in server.apply_changes(root, list(cs))]
+    def mains():
+        conn = server.connect_readonly(root)
+        try:
+            return {s["id"]: s["main"] for s in server.list_songs(conn)}
+        finally:
+            conn.close()
+
+    link = fam({b: a, a: a}, {b: None, a: None})
+    check("link B to A saves", send(link) == ["saved"])
+    check("the list shows both pointing at A", mains()[a] == a and mains()[b] == a and mains()[c] is None)
+    check("the same link again does nothing", send(fam({b: a, a: a}, {b: a, a: a})) == ["nothing to do"])
+    check("a stale before is refused", send(fam({c: a}, {c: b})) == ["refused"])
+    check("a chain is refused", send(fam({c: b}, {c: None})) == ["refused"])
+    check("a lone Main is refused", send(fam({c: c}, {c: None})) == ["refused"])
+    check("a hidden song can't be a version", send(fam({hidden: a}, {hidden: None})) == ["refused"])
+    check("an unsorted song can't be a version", send(fam({loose: a}, {loose: None})) == ["refused"])
+    mine_then_link = [{"id": str(uuid.uuid4()), "kind": "mine_set", "data": {"song_id": loose, "value": "mine"}}, fam({loose: a}, {loose: None})]
+    check("Mine and linked, in that order, saves", send(*mine_then_link) == ["saved", "saved"])
+    check("Not mine on a version is refused", send({"id": str(uuid.uuid4()), "kind": "mine_set", "data": {"song_id": b, "value": "not mine"}}) == ["refused"])
+    check("Undo of Mine on a version is refused", send({"id": str(uuid.uuid4()), "kind": "mine_restore", "data": {"song_id": loose}}) == ["refused"])
+    check("Make main moves every version at once", send(fam({a: b, b: b, loose: b}, {a: a, b: a, loose: a})) == ["saved"]
+          and mains()[a] == b and mains()[loose] == b)
+    check("a half Make main (chain left behind) is refused", send(fam({a: a}, {a: b})) == ["refused"])
+    check("Remove a version", send(fam({loose: None}, {loose: b})) == ["saved"] and mains()[loose] is None)
+    check("then Not mine on it works", send({"id": str(uuid.uuid4()), "kind": "mine_set", "data": {"song_id": loose, "value": "not mine"}}) == ["saved"])
+    link_c = fam({c: b}, {c: None})
+    check("a third version joins", send(link_c) == ["saved"])
+    undo = fam(link_c["data"]["before"], link_c["data"]["songs"])
+    check("its Undo takes it back out", send(undo) == ["saved"] and mains()[c] is None and mains()[b] == b)
+    check("removing down to one song needs the Main cleared too", send(fam({a: None}, {a: b})) == ["refused"]
+          and send(fam({a: None, b: None}, {a: b, b: b})) == ["saved"] and mains()[b] is None)
+    check("bad ids refused", send(fam({"../x": a}, {"../x": None})) == ["refused"])
+    lib = open_library(root)
+    before = lib.store.snapshot()
+    lib.close()
+    (root / DB_NAME).unlink()
+    lib = open_library(root)
+    check("versions rebuild from the journal", lib.store.snapshot() == before and before["song_family"] == [])
+    lib.close()
+
+
 def main():
     tmp = Path(tempfile.mkdtemp(prefix="vault-servertest-")).resolve()
     music, root = tmp / "music", tmp / "lib"
@@ -434,6 +487,7 @@ def main():
         check("missing library stops the server, creates nothing", not ghost.exists())
     write_path(tmp)
     sorting_path(tmp)
+    family_path(tmp)
     print()
     print("ALL PASSED" if not failures else f"{len(failures)} FAILED: {failures}")
     return 1 if failures else 0

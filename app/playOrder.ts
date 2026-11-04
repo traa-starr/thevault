@@ -119,11 +119,33 @@ export function walkBack(order: Order, count: number): Order[] {
   return out;
 }
 
-export type Change = { id: string; kind: 'mine_set' | 'mine_restore'; data: { song_id: string; value?: 'mine' | 'not mine' } };
+export type MineChange = { id: string; kind: 'mine_set' | 'mine_restore'; data: { song_id: string; value?: 'mine' | 'not mine' } };
+export type FamilyChange = {
+  id: string;
+  kind: 'family_set';
+  data: { song_id: string; songs: Record<string, string | null>; before: Record<string, string | null> };
+};
+export type Change = MineChange | FamilyChange;
+
+const mineOnly = (pending: Change[]) => pending.filter((change): change is MineChange => change.kind !== 'family_set');
+
+/** Plays `id` now without touching what comes after: a song not in the order goes in right after the current one. */
+export function playHere(order: Order, id: string): Order {
+  if (order.sequence.includes(id)) return jumpTo({ ...order, removed: order.removed.filter((one) => one !== id) }, id);
+  const insert = (ids: string[], after: string) => {
+    const out = [...ids];
+    out.splice(out.indexOf(after) + 1, 0, id);
+    return out;
+  };
+  const current = currentId(order);
+  const sequence = insert(order.sequence, current);
+  const list = order.list === order.sequence ? sequence : insert(order.list, current);
+  return jumpTo({ ...order, list, sequence, furthest: order.furthest + (order.at < order.furthest ? 1 : 0) }, id);
+}
 
 /** The Hidden list as it will be once the laptop has these changes: a song with a restore (or Mine) waiting is already back. */
 export function withoutRestored<S extends { id: string }>(hidden: S[], pending: Change[]): S[] {
-  const latest = new Map(pending.map((change) => [change.data.song_id, change]));
+  const latest = new Map(mineOnly(pending).map((change) => [change.data.song_id, change]));
   return hidden.filter((song) => {
     const change = latest.get(song.id);
     return !change || (change.kind === 'mine_set' && change.data.value === 'not mine');
@@ -132,7 +154,7 @@ export function withoutRestored<S extends { id: string }>(hidden: S[], pending: 
 
 /** The list as it will be once the laptop has these changes. A restore waits for the laptop's own answer. */
 export function withPending<S extends { id: string; mine: string; sorted: boolean }>(songs: S[], pending: Change[]): S[] {
-  const latest = new Map(pending.map((change) => [change.data.song_id, change]));
+  const latest = new Map(mineOnly(pending).map((change) => [change.data.song_id, change]));
   return songs.flatMap((song) => {
     const value = latest.get(song.id)?.data.value;
     if (!value) return [song];

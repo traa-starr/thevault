@@ -1,6 +1,9 @@
 // Self-test for the play order: node --experimental-strip-types app/playOrder.test.mjs
 import assert from 'node:assert/strict';
-import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored } from './playOrder.ts';
+import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere } from './playOrder.ts';
+import { applyEdit, linkEdit, makeMainEdit, membersOf, removeEdit, reverse } from './family.ts';
+
+const fams = (pairs) => new Map(Object.entries(pairs));
 
 const keep = () => 0.999; // shuffling with this leaves the list as it was
 const abcd = ['a', 'b', 'c', 'd'];
@@ -170,6 +173,58 @@ const tests = {
       { id: '2', kind: 'mine_set', data: { song_id: 'a', value: 'not mine' } },
     ]);
     assert.deepEqual(out, [{ id: 'a' }]);
+  },
+  'a version plays now, and what came after stays': () => {
+    const o = playHere(list('b'), 'x');
+    assert.equal(currentId(o), 'x');
+    assert.deepEqual(upNext(o, 9), ['c', 'd', 'a', 'b']);
+    assert.equal(currentId(playHere(list('b'), 'd')), 'd');
+  },
+  'a family pending change leaves the mine view alone': () => {
+    const songs = [{ id: 'a', mine: 'unknown', sorted: false }];
+    const pending = [
+      { id: '1', kind: 'mine_set', data: { song_id: 'a', value: 'mine' } },
+      { id: '2', kind: 'family_set', data: { song_id: 'a', songs: { a: 'b' }, before: { a: null } } },
+    ];
+    assert.equal(withPending(songs, pending)[0].mine, 'mine');
+  },
+  'link two plain songs: the target is Main': () => {
+    const e = linkEdit(new Map(), 'b', 'a');
+    assert.deepEqual(e, { songs: { a: 'a', b: 'a' }, before: { a: null, b: null } });
+    assert.deepEqual(membersOf(applyEdit(new Map(), e), 'b'), ['a', 'b']);
+  },
+  'linking to a version links to its Main, never a chain': () => {
+    const e = linkEdit(fams({ a: 'a', b: 'a' }), 'c', 'b');
+    assert.deepEqual(e.songs, { a: 'a', c: 'a' });
+  },
+  'a Main brings its versions along': () => {
+    const e = linkEdit(fams({ a: 'a', b: 'a', x: 'x', y: 'x' }), 'x', 'a');
+    assert.deepEqual(e.songs, { a: 'a', x: 'a', y: 'a' });
+  },
+  'a version moving away leaves a lone Main plain': () => {
+    const e = linkEdit(fams({ a: 'a', b: 'a', x: 'x', y: 'x' }), 'y', 'a');
+    assert.deepEqual(e.songs, { a: 'a', y: 'a', x: null });
+  },
+  'refusals and nothing-to-do': () => {
+    assert.equal(typeof linkEdit(new Map(), 'a', 'a'), 'string');
+    assert.equal(linkEdit(fams({ a: 'a', b: 'a' }), 'b', 'a'), null);
+    assert.equal(makeMainEdit(fams({ a: 'a', b: 'a' }), 'a'), null);
+    assert.equal(removeEdit(new Map(), 'a'), null);
+  },
+  'Make main moves every version': () => {
+    assert.deepEqual(makeMainEdit(fams({ a: 'a', b: 'a', c: 'a' }), 'c').songs, { a: 'c', b: 'c', c: 'c' });
+  },
+  'Remove: a version, the last but one, and the Main': () => {
+    assert.deepEqual(removeEdit(fams({ a: 'a', b: 'a', c: 'a' }), 'b').songs, { b: null });
+    assert.deepEqual(removeEdit(fams({ a: 'a', b: 'a' }), 'b').songs, { b: null, a: null });
+    assert.deepEqual(removeEdit(fams({ a: 'a', b: 'a', c: 'a' }), 'a').songs, { a: null, b: 'b', c: 'b' });
+    assert.deepEqual(removeEdit(fams({ a: 'a', b: 'a', c: 'a' }), 'a', 'c').songs, { a: null, b: 'c', c: 'c' });
+    assert.deepEqual(removeEdit(fams({ a: 'a', b: 'a' }), 'a').songs, { a: null, b: null });
+  },
+  'Undo puts the families back exactly': () => {
+    const start = fams({ a: 'a', b: 'a', x: 'x', y: 'x' });
+    const e = linkEdit(start, 'x', 'a');
+    assert.deepEqual([...applyEdit(applyEdit(start, e), reverse(e))].sort(), [...start].sort());
   },
 };
 

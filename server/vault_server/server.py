@@ -21,6 +21,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from .backup import BACKUP_DIR, last_backup_age
+from .family import in_family, set_family
 from .library import DB_NAME, MARKER_NAME, LibraryMissing, LibraryRefused, open_library
 from .scanner import is_cloud_only
 from .songs import restore_mine, set_mine
@@ -111,18 +112,27 @@ PLACE_SQL = """CASE WHEN EXISTS (SELECT 1 FROM song_places p JOIN sources s USIN
                 ELSE 'gone' END"""
 
 
+FOLDER_SQL = """(SELECT s.folder FROM song_places p JOIN sources s USING (path)
+                WHERE p.song_id=g.id AND p.state='sure' AND s.status='present' ORDER BY s.cloud_only, s.path LIMIT 1)"""
+
+
+def show_folder(folder):
+    return " / ".join((folder or "").split(os.sep)) or "Loose files"
+
+
 def list_songs(conn, hidden=False):
     """Known songs, from the database only: the list never touches the music folders. Not-mine songs are listed only
-    when `hidden` is asked for, and then on their own."""
+    when `hidden` is asked for, and then on their own. `main` is the song's Main if it is one of several versions."""
     rows = conn.execute(f"""
         SELECT g.id, g.title, COALESCE(f.value, 'unknown') AS mine, d.value AS date, COALESCE(f.origin = 'manual', 0) AS sorted,
-               {PLACE_SQL} AS place
+               {PLACE_SQL} AS place, {FOLDER_SQL} AS folder, m.main_id AS main
         FROM songs g LEFT JOIN song_fields f ON f.song_id=g.id AND f.field='mine'
         LEFT JOIN song_fields d ON d.song_id=g.id AND d.field='date'
+        LEFT JOIN song_family m ON m.song_id=g.id
         WHERE COALESCE(f.value, 'unknown') {'=' if hidden else '!='} 'not mine'
         ORDER BY place='laptop' DESC, g.title COLLATE NOCASE""")
     return [{"id": r["id"], "title": r["title"], "mine": r["mine"], "where": r["place"], "date": r["date"],
-             "sorted": bool(r["sorted"])} for r in rows]
+             "sorted": bool(r["sorted"]), "folder": show_folder(r["folder"]), "main": r["main"]} for r in rows]
 
 
 def name_stem(title):
@@ -136,13 +146,12 @@ def sorting_view(conn):
     repeated name patterns. Judged means my call, from the phone or from the Phase 0 triage."""
     rows = conn.execute(f"""
         SELECT g.id, g.title, COALESCE(f.value, 'unknown') AS mine, d.value AS date, {PLACE_SQL} AS place,
-               (SELECT s.folder FROM song_places p JOIN sources s USING (path)
-                WHERE p.song_id=g.id AND p.state='sure' AND s.status='present' ORDER BY s.cloud_only, s.path LIMIT 1) AS folder
+               {FOLDER_SQL} AS folder
         FROM songs g LEFT JOIN song_fields f ON f.song_id=g.id AND f.field='mine'
         LEFT JOIN song_fields d ON d.song_id=g.id AND d.field='date'
         WHERE f.song_id IS NULL OR (f.origin != 'manual' AND COALESCE(f.basis, '') != 'verdict' AND f.value != 'not mine')""")
     songs = sorted(({"id": r["id"], "title": r["title"], "mine": r["mine"], "where": r["place"], "date": r["date"],
-                     "folder": " / ".join((r["folder"] or "").split(os.sep)) or "Loose files", "sorted": False} for r in rows),
+                     "folder": show_folder(r["folder"]), "sorted": False} for r in rows),
                    key=lambda s: (LIKELY_FIRST.get(s["mine"], len(LIKELY_FIRST)), s["folder"].casefold(), s["title"].casefold()))
     by_folder, by_name, names = {}, {}, {}
     for s in songs:
@@ -190,11 +199,17 @@ def apply_one(store, change):
     if change.get("kind") == "mine_set":
         if data.get("value") not in MINE_VALUES:
             raise ValueError(f"mine_set value must be one of {MINE_VALUES}.")
+        if data["value"] != "mine" and in_family(store.conn, data["song_id"]):
+            raise ValueError("That song is one of several versions: take it out of Versions first.")
         done = set_mine(store, data["song_id"], data["value"], change["id"])
     elif change.get("kind") == "mine_restore":
         if not store.conn.execute("SELECT 1 FROM songs WHERE id=?", (data["song_id"],)).fetchone():
             raise ValueError("mine_restore is for a song that doesn't exist.")
+        if in_family(store.conn, data["song_id"]):
+            raise ValueError("That song is one of several versions: take it out of Versions first.")
         done = restore_mine(store, data["song_id"], change["id"])
+    elif change.get("kind") == "family_set":
+        done = set_family(store, data, change["id"])
     else:
         raise ValueError("That kind of change isn't allowed.")
     return "saved" if done else "nothing to do"
@@ -470,6 +485,7 @@ def stop_servers(servers):
 def run(root, port=PORT):
     """The serve command: runs until Ctrl+C."""
     connect_readonly(root).close()  # stop now, not on the first request, if the library isn't there
+    open_library(root).close()  # adds any new table (versions) before the read-only routes look for it
     address, names = tailscale_info()
     try:
         servers = start_servers(root, [LOOPBACK] + ([address] if address else []), port, names)

@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import Cards from './Cards';
+import { HomeButton } from './nav';
 import { player } from './playerStore';
 import { loadNotSure, saveNotSure, useSortData, type SortSet, type SortSong } from './sortData';
 
@@ -171,6 +172,7 @@ function Header({ onBack }: { onBack: () => void }) {
         <Text style={s.link}>Back</Text>
       </Pressable>
       <Text style={s.title}>Sort</Text>
+      <HomeButton />
     </View>
   );
 }

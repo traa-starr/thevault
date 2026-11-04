@@ -23,13 +23,18 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
+      - name: Stamp the build number
+        run: |
+          echo "{\"build\": \"${{ github.run_number }}\", \"commit\": \"${GITHUB_SHA::7}\", \"date\": \"$(date -u +%Y-%m-%d)\"}" > build-info.json
+          cat build-info.json
       - run: npx expo prebuild --platform ios --non-interactive
       - name: Compile without signing
         run: |
           SCHEME=$(basename ios/*.xcworkspace .xcworkspace)
           xcodebuild -workspace "ios/$SCHEME.xcworkspace" -scheme "$SCHEME" -configuration Release \
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-out \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | tail -40
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | tail -40
           test -d build-out/Build/Products/Release-iphoneos/"$SCHEME".app
       - name: Package .ipa
         run: |

@@ -1,6 +1,7 @@
 // Songs marked Not mine, with Restore. Restore goes through the outbox like Undo, so it works when the laptop is away.
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { HomeButton } from './nav';
 import { addChange, flush, useOutbox } from './outbox';
 import { withoutRestored } from './playOrder';
 
@@ -57,6 +58,7 @@ export default function Hidden({ url, onBack }: { url: string; onBack: () => voi
           <Text style={s.link}>Back</Text>
         </Pressable>
         <Text style={s.title}>Hidden</Text>
+        <HomeButton />
       </View>
       {failed && !songs ? (
         <View style={s.middle}>

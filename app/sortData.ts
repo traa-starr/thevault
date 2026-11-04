@@ -46,6 +46,7 @@ export function useSortData(url: string) {
     for (const change of pending) {
       if (seen.current.has(change.id)) continue;
       seen.current.add(change.id);
+      if (change.kind === 'family_set') continue; // versions don't open or close a song in Sort
       choices.current.set(change.data.song_id, { open: change.kind === 'mine_restore', at: Date.now() });
       changed = true;
     }

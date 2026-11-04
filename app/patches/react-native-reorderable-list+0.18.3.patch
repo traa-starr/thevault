@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-reorderable-list/src/components/ReorderableListCore.tsx b/node_modules/react-native-reorderable-list/src/components/ReorderableListCore.tsx
-index 1ed661b..c860b9d 100644
+index 1ed661b..15d6b27 100644
 --- a/node_modules/react-native-reorderable-list/src/components/ReorderableListCore.tsx
 +++ b/node_modules/react-native-reorderable-list/src/components/ReorderableListCore.tsx
 @@ -38,6 +38,7 @@ import Animated, {
@@ -21,7 +21,16 @@ index 1ed661b..c860b9d 100644
  const AnimatedFlatList = Animated.createAnimatedComponent(
    FlatList,
  ) as unknown as <T>(
-@@ -874,7 +879,12 @@ const ReorderableListCore = <T,>(
+@@ -128,6 +133,8 @@ const ReorderableListCore = <T,>(
+   const startItemDragCenterXY = useSharedValue<number>(0);
+   const flatListScrollOffsetXY = useSharedValue(0);
+   const flatListSize = useSharedValue(0);
++  // The Vault patch: the list's real scrollable length, known from the first draw (not from the last row).
++  const flatListContentSize = useSharedValue(0);
+   const flatListPageXY = useSharedValue(0);
+   // The scroll x or y translation of the list since drag start
+   const dragScrollTranslationXY = useSharedValue(0);
+@@ -874,7 +881,12 @@ const ReorderableListCore = <T,>(
          // 1. Within the threshold area (start or end of list)
          // 2. Have dragged in the same direction as the scroll
          // 3. Not already in autoscroll mode
@@ -35,7 +44,7 @@ index 1ed661b..c860b9d 100644
            // When the first two conditions are met and it's already in autoscroll mode,
            // we let it continue (no-op).
            if (state.value !== ReorderableListState.AUTOSCROLL) {
-@@ -893,6 +903,7 @@ const ReorderableListCore = <T,>(
+@@ -893,6 +905,7 @@ const ReorderableListCore = <T,>(
      () => autoscrollTrigger.value,
      () => {
        if (
@@ -43,7 +52,7 @@ index 1ed661b..c860b9d 100644
          autoscrollTrigger.value !== lastAutoscrollTrigger.value &&
          state.value === ReorderableListState.AUTOSCROLL
        ) {
-@@ -930,6 +941,56 @@ const ReorderableListCore = <T,>(
+@@ -930,6 +943,56 @@ const ReorderableListCore = <T,>(
      },
    );
  
@@ -76,10 +85,10 @@ index 1ed661b..c860b9d 100644
 +      autoscrollSpeedScale;
 +    const ms = Math.min(frame.timeSincePreviousFrame ?? 16, 50);
 +
-+    const last = itemCount.value - 1;
-+    const contentEnd =
-+      last >= 0 ? itemOffset.value[last] + itemSize.value[last] : 0;
-+    const maxOffset = Math.max(0, contentEnd - flatListSize.value);
++    const maxOffset = Math.max(
++      0,
++      flatListContentSize.value - flatListSize.value,
++    );
 +    const from = flatListScrollOffsetXY.value;
 +    const to = Math.min(
 +      Math.max(from + (zone * perSecond * ms) / 1000, 0),
@@ -100,3 +109,27 @@ index 1ed661b..c860b9d 100644
    // flatlist scroll handler
    const handleScroll = useAnimatedScrollHandler(e => {
      flatListScrollOffsetXY.value = horizontalProp.value
+@@ -1095,6 +1158,15 @@ const ReorderableListCore = <T,>(
+     ],
+   );
+ 
++  const restOnContentSizeChange = rest.onContentSizeChange;
++  const handleContentSizeChange = useCallback(
++    (w: number, h: number) => {
++      flatListContentSize.value = horizontalProp.value ? w : h;
++      restOnContentSizeChange?.(w, h);
++    },
++    [flatListContentSize, horizontalProp, restOnContentSizeChange],
++  );
++
+   const handleRef = useCallback(
+     (value: FlatList<T>) => {
+       flatListRef(value);
+@@ -1149,6 +1221,7 @@ const ReorderableListCore = <T,>(
+           keyExtractor={keyExtractor}
+           CellRendererComponent={renderAnimatedCell}
+           onLayout={handleFlatListLayout}
++          onContentSizeChange={handleContentSizeChange}
+           onScroll={composedScrollHandler}
+           scrollEventThrottle={1}
+           removeClippedSubviews={false}

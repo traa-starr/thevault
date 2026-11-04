@@ -3,11 +3,14 @@
 // judged anywhere else drops out at once, and Undo brings a song back to its own place.
 import { useEffect, useRef, useState } from 'react';
 import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { HomeButton } from './nav';
 import { player, usePlayer } from './playerStore';
+import { startLink } from './Versions';
+import { undo as undoLink, type Sent } from './versionStore';
 import type { SortSong, SortView } from './sortData';
 
 type Choice = 'mine' | 'not mine' | 'not sure';
-type Undo = { song: SortSong; choice: Choice; at: number };
+type Undo = { song: SortSong; choice: Choice; at: number; link?: Sent };
 
 const SWIPE_PX = 110;
 const UNDO_MS = 5000;
@@ -104,7 +107,8 @@ export default function Cards({ url, view, scope, pile, notSure, onNotSure, onDo
 
   const tapUndo = () => {
     if (!undo) return;
-    const { song: back, choice, at } = undo;
+    const { song: back, choice, at, link } = undo;
+    if (link) undoLink(link); // out of the family first, then no longer Mine
     if (choice !== 'not sure') player.unjudge([back]);
     else if (pile) setPassed((old) => new Set([...old].filter((id) => id !== back.id)));
     else onNotSure(new Set([...notSure].filter((id) => id !== back.id)));
@@ -121,6 +125,7 @@ export default function Cards({ url, view, scope, pile, notSure, onNotSure, onDo
           <Text style={s.link}>Back</Text>
         </Pressable>
         <Text style={s.title}>{pile ? 'Not sure' : 'Cards'}</Text>
+        <HomeButton />
       </View>
       <Text style={s.progress}>
         {number(sorted)} of {number(view.total)} sorted · {song ? `${number(queue.length)} left here` : 'none left here'}
@@ -158,6 +163,14 @@ export default function Cards({ url, view, scope, pile, notSure, onNotSure, onDo
           <Pressable style={s.unsure} onPress={() => latest.current.decide('not sure')}>
             <Text style={s.unsureText}>Not sure</Text>
           </Pressable>
+          {/* Mine and linked: the card moves on as Mine, and its Undo takes back both */}
+          <Pressable
+            onPress={() =>
+              startLink(url, song, (sent) => setUndo((old) => old && { ...old, link: sent }), () => latest.current.decide('mine'))
+            }
+          >
+            <Text style={s.versionLink}>Another version of…</Text>
+          </Pressable>
         </>
       ) : (
         <View style={s.middle}>
@@ -178,6 +191,7 @@ export default function Cards({ url, view, scope, pile, notSure, onNotSure, onDo
 }
 
 const s = StyleSheet.create({
+  versionLink: { color: '#8ab4f8', fontSize: 15, textAlign: 'center', paddingVertical: 10 },
   page: { flex: 1, backgroundColor: '#111', paddingTop: 60, paddingHorizontal: 16 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: { color: '#fff', fontSize: 26, fontWeight: '700' },

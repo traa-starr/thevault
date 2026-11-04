@@ -5,7 +5,9 @@ import { Alert, Animated, Dimensions, Modal, PanResponder, Pressable, StyleSheet
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import ReorderableList, { useIsActive, useReorderableDrag, type ReorderableListDragEndEvent, type ReorderableListReorderEvent } from 'react-native-reorderable-list';
+import { HomeButton } from './nav';
 import { player, usePlayer, type Pool } from './playerStore';
+import { startLink, VersionsChip, VersionsToast } from './Versions';
 
 const ROW_HEIGHT = 48;
 const HOLD_MS = 300; // not lower: a hold let go just short of this jumps to the song
@@ -181,6 +183,9 @@ function FullPlayer() {
   const isMine = player.isMine();
   return (
     <View style={s.page}>
+      <View style={s.topRow}>
+        <HomeButton />
+      </View>
       <View style={s.spacer} />
       <View style={s.pageTop}>
         <Text style={s.title} numberOfLines={2}>{song?.title}</Text>
@@ -209,6 +214,14 @@ function FullPlayer() {
               {order?.shuffle ? `Shuffle: ${pool === 'mine' ? 'Mine' : 'unsorted'}` : 'Shuffle: off'}
             </Text>
           </Pressable>
+        )}
+        {sorting || !song || player.isOut() ? null : (
+          <View style={s.versionRow}>
+            <Pressable onPress={() => startLink(player.url(), song)}>
+              <Text style={s.link}>Another version of…</Text>
+            </Pressable>
+            <VersionsChip id={song.id} />
+          </View>
         )}
         <Pressable onPress={() => player.open('none')}>
           <Text style={s.link}>Back</Text>
@@ -246,6 +259,7 @@ function FullPlayer() {
         </Animated.View>
       </View>
       <UndoToast aboveButtons />
+      <VersionsToast />
     </View>
   );
 }
@@ -308,6 +322,7 @@ function Queue() {
           <Text style={s.link}>Back</Text>
         </Pressable>
         <Text style={s.queueTitle}>Queue</Text>
+        <HomeButton />
       </View>
       <Text style={s.queueLabel}>Now playing</Text>
       <Text style={s.queueNow} numberOfLines={1}>{song?.title}</Text>
@@ -399,6 +414,9 @@ const s = StyleSheet.create({
   grabMark: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#555' },
   page: { flex: 1, backgroundColor: '#111' },
   spacer: { flex: 1 },
+  // beside the grab mark, only as wide as Home, so the rest of the grab area still pulls the sheet down
+  topRow: { alignSelf: 'flex-end', marginTop: -44, height: 44, justifyContent: 'center', paddingRight: 8 },
+  versionRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: -8 },
   pageTop: { paddingHorizontal: 24, gap: 12 },
   swipeZone: { flex: 1, minHeight: 64 },
   dock: { height: 160, justifyContent: 'flex-end', paddingHorizontal: 24, paddingBottom: 40 },

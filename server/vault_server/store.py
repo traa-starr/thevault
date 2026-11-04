@@ -115,9 +115,16 @@ CREATE TABLE IF NOT EXISTS links (
     state TEXT NOT NULL CHECK (state IN ('proposed', 'confirmed', 'rejected')),
     ts TEXT NOT NULL
 );
+-- Versions: each song in a family points straight at its Main, the Main at itself. A plain song has no row.
+-- Added without a schema bump: an older database just gets the empty table, which is right, as no journal line fills it yet.
+CREATE TABLE IF NOT EXISTS song_family (
+    song_id TEXT PRIMARY KEY REFERENCES songs(id),
+    main_id TEXT NOT NULL REFERENCES songs(id),
+    ts TEXT NOT NULL
+);
 """
 
-MINE_TABLES = ("songs", "versions", "song_places", "song_fields", "tags", "groups", "group_members", "verdicts", "links")
+MINE_TABLES = ("songs", "versions", "song_places", "song_fields", "tags", "groups", "group_members", "verdicts", "links", "song_family")
 
 # kind -> keys its data must have
 REQUIRED = {
@@ -133,6 +140,7 @@ REQUIRED = {
     "version_key": ("version_id", "file_key"),
     "song_field": ("song_id", "field", "value", "origin"),
     "song_field_restore": ("song_id", "field", "value"),
+    "family": ("songs", "before"),
 }
 CHOICES = {
     "song_place": ("state", ("sure", "likely")),
@@ -346,6 +354,9 @@ class Store:
                      AND NOT EXISTS (SELECT 1 FROM song_fields m WHERE m.song_id=? AND m.field=f.field AND m.origin='manual')""",
                   (into, old, into))
         c.execute("DELETE FROM song_fields WHERE song_id=?", (old,))
+        c.execute("UPDATE song_family SET main_id=? WHERE main_id=?", (into, old))
+        c.execute("UPDATE OR IGNORE song_family SET song_id=? WHERE song_id=?", (into, old))
+        c.execute("DELETE FROM song_family WHERE song_id=?", (old,))
         c.execute("DELETE FROM songs WHERE id=?", (old,))
         c.execute("UPDATE songs SET title=COALESCE((SELECT value FROM song_fields WHERE song_id=? AND field='title'), title) WHERE id=?",
                   (into, into))
@@ -393,6 +404,12 @@ class Store:
         elif kind == "link":
             c.execute("INSERT OR REPLACE INTO links VALUES (?,?,?,?,?,?)",
                       (d["link_id"], d["version_id"], d["kind"], d["target"], d["state"], ts))
+        elif kind == "family":  # each song's new Main, or None to be a plain song again
+            for sid, main in d["songs"].items():
+                if main is None:
+                    c.execute("DELETE FROM song_family WHERE song_id=?", (sid,))
+                else:
+                    c.execute("INSERT OR REPLACE INTO song_family VALUES (?,?,?)", (sid, main, ts))
         elif kind == "sorting_applied":
             pass  # only the journal line matters: the sorting file is turned into verdicts once
         else:
