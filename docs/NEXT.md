@@ -1,19 +1,18 @@
-# NEXT: Batch 4b, Versions (manual)
+# NEXT: Batch 4c, Select mode and fixes
 Written by chat, 2026-11-04.
-Log: Batch 4 phone checks 0-5 all passed; "Skipped..." never seen, watch closed (mine). Closes ROADMAP 1.21. Queue auto-scroll fix rides along as part 0 (chat-default) (logged by chat)
+Log: Batch 4b phone: checks 0, 2, 3, 4, 5, 6, 7 passed; 1 failed (full player "Another version of…" does nothing, app later froze, music kept playing until stopped in Control Center). New: "Skipped" seen after Home from Cards. Owner asks: select mode in Library, grouping marks Mine, Newest default (mine). Select-mode details below are chat-default (logged by chat)
 Queue after this: Batch 5 "Import and copies" (ROADMAP 1.22, 1.7). Then Batch 6 "Offline and finish".
-Read: `docs/BATCH-PLAN.md` (Batch 4b), `docs/board/batch-4-versions.md` (Agreed 6-15 and Proposed phone checks), DECISIONS rows "Versions storage", "Not mine on a Main with versions", "Batch 4/4b board splits".
-Session: Opus. ROADMAP 1.23. No board meeting: met 2026-11-01 for this batch.
+Read: this file, `docs/board/batch-4-versions.md` (rules 8-14), DECISIONS rows from "Batch 4b build" down. Code of `Library.tsx`, `Player.tsx`, `Cards.tsx`, `versionStore.ts`, `playerStore.ts` as needed.
+Session: Opus. ROADMAP 1.23 follow-up. Short board pass on select mode only (flow + logic seats, advisory, one round), notes in `docs/board/batch-4c-select.md`.
 ## Parts
-0. **Queue auto-scroll fix.** Auto-scroll is dead until the list's end has been drawn once: the patch measures list length from the last row, which isn't drawn on open. Use the list's real content size instead. Scrolling must work straight after opening Queue on a long list.
-a. **Storage and link.** New `song_family` table per DECISIONS, rebuildable from the journal. "Another version of…": visible button on the full player, plus Library row and sort card. Picker sheet over the screen, music never stops: short list (recently played first, then same folder/nearest), search above, only Main versions of Mine songs, rows show title, folder, date, length. Board rules 8, 9, 13, 14 (refusals, no chains, one Undo, journal lines through the outbox, order kept). Linking an unsorted song = "Mine and linked".
-b. **Versions view.** "Versions · N" chip on Library row and full player, only when a song has versions. Sheet: Main on top; each row Play, Make main, Remove in a menu. Board rules 11, 12. Library shows one row per family (the Main).
-c. **Rules.** Shuffle plays only the Main. Not mine on a non-Main: leaves the family, hidden, Undo restores both. Not mine on a Main with versions: pick the new Main from a short list; only one other = promoted with a toast.
-**Stop line:** parts 0 and a always go in. Then b. c's Not-mine-on-Main picker can wait (refuse it with a plain line meanwhile).
+0. **Bugs.** (1) Full player "Another version of…" does nothing: it now opens Library in select mode with the playing song ticked (see a). (2) App froze (no touch, music on) some time after that tap and swiping the player down: find the cause, likely a sheet or overlay left open over the screen; it must not happen again. (3) After Home from Cards with a card song playing: the last library song came back paused, then about 30 s later a different song started by itself and the mini player showed "Skipped". Leaving Cards must stop every Cards timer and auto-advance; nothing starts playing without a tap.
+a. **Select mode in Library (like a file manager).** Hold a row = select mode, that row ticked; tap rows to tick/untick; a bar at the bottom with the count and actions: **Group as versions**, **Mine**, **Not mine**, Cancel. All in the Library list itself: no picker sheet, no pop-up. Works on unsorted songs. Group as versions: every ticked song becomes Mine and joins one family; Main = the first song held; if a ticked song is already in a family, the others join that family (two families ticked = merged under the first held song's Main). One Undo toast takes the whole action back. Works offline through the outbox like 4b. The old row "Another version of…" menu item and picker go; sort-card link can stay as is.
+b. **Newest is the default sort** every time the app opens (Library and anywhere A-Z was the default).
+**Stop line:** part 0 always goes in. Then a. b is tiny, always include it.
 ## Phone check
-0. Open Queue on a long list, lift a song straight away and hold it near the bottom edge. Pass: the list scrolls without first scrolling to the end by hand.
-1. Full player > "Another version of…" > pick a song. Pass: music never stops; Library shows one row with "Versions · 2". Undo within 5 seconds splits them.
-2. Library row > "Another version of…" on a third song, pick a version (not the Main) of that family. Pass: it lands under the Main, "Versions · 3".
-3. Laptop off (or server stopped), link another song. Pass: shows as waiting, sends when the laptop is back.
-4. Versions view > Make main on another version > kill and reopen the app. Pass: the new Main holds the Library row, shuffle Mine plays it, the old one is in Versions.
-5. Versions view > Not mine on a non-Main version. Pass: it leaves the family and is hidden; Undo puts it back.
+0. Full player > "Another version of…". Pass: Library opens in select mode with that song ticked, music keeps playing. Use the app 2 minutes after: no freeze.
+1. Cards: play a card song, tap Home. Wait 1 minute. Pass: nothing plays by itself, no "Skipped".
+2. Library: hold an unsorted song, tick 2 more next to it, Group as versions. Pass: one row "Versions · 3", all three are Mine, the held one is Main. Undo splits them and puts them back unsorted.
+3. Tick a song plus a song from an existing group, Group. Pass: it joins that group.
+4. Tick 3 songs, Not mine. Pass: all hidden; Undo brings them back.
+5. Kill and reopen the app. Pass: Library opens sorted Newest.
