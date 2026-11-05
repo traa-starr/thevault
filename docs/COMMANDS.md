@@ -36,6 +36,7 @@ These run in the SSH terminal (Command Prompt). Saved as Termius snippets. The s
 | **Stop the server** | `powershell -c "Get-CimInstance Win32_Process \| ? CommandLine -match 'vault_cli.py serve' \| % { Stop-Process -Id $_.ProcessId -Force }"` | Nothing printed. Check with "Is it running?" |
 | **Open the Claude app** (backup, if it's closed) | `schtasks /run /tn StartClaude` | SUCCESS, Claude opens on the PC in a few seconds |
 | **Doctor** | `cd /d E:\dev\thevault && python server\vault_cli.py doctor E:\VaultLibrary` | PASS / WARN / FAIL lines, right in Termius |
+| **Commit and push** (after a step) | `cd /d E:\dev\thevault && python .claude\scripts\check_repo.py && git add -A && git commit -m "MESSAGE" && git push` | "Repo check: clean", then a commit line, then the push. Swap MESSAGE for chat's commit message. Stops before committing if the check fails |
 | **Quick count** | `cd /d E:\dev\thevault && python server\vault_cli.py check E:\VaultLibrary` | Files, songs, mine counts |
 | **Backup now** | `cd /d E:\dev\thevault && python server\vault_cli.py backup E:\VaultLibrary` | "Backed up to C:\VaultBackup\..." |
 | **Scan** | `cd /d E:\dev\thevault && python server\vault_cli.py scan E:\VaultLibrary C:\Users\illus\iCloudDrive` | A count, then "Music fingerprint". FAIL there: run again |

@@ -1,18 +1,17 @@
-# NEXT: Batch 4c, Select mode and fixes
+# NEXT: Batch 5, Import and copies (+ version fixes)
 Written by chat, 2026-11-04.
-Log: Batch 4b phone: checks 0, 2, 3, 4, 5, 6, 7 passed; 1 failed (full player "Another version of…" does nothing, app later froze, music kept playing until stopped in Control Center). New: "Skipped" seen after Home from Cards. Owner asks: select mode in Library, grouping marks Mine, Newest default (mine). Select-mode details below are chat-default (logged by chat)
-Queue after this: Batch 5 "Import and copies" (ROADMAP 1.22, 1.7). Then Batch 6 "Offline and finish".
-Read: this file, `docs/board/batch-4-versions.md` (rules 8-14), DECISIONS rows from "Batch 4b build" down. Code of `Library.tsx`, `Player.tsx`, `Cards.tsx`, `versionStore.ts`, `playerStore.ts` as needed.
-Session: Opus. ROADMAP 1.23 follow-up. Short board pass on select mode only (flow + logic seats, advisory, one round), notes in `docs/board/batch-4c-select.md`.
+Log: Batch 4c phone: checks 0-5 all passed (mine). Group Main = newest version by date (mine); Make main by hand wins and stays (chat-default). Library filter row gains Unsorted and Grouped (mine). Mine + group sent as one all-or-nothing laptop change: Code's pitch, folded in (chat-default). Version compare waits for my pick: Batch 4d after this (chat-default) (logged by chat)
+Queue after this: Batch 4d "Compare versions" (A-B switch, dial picker; see BATCH-PLAN). Then Batch 6 "Offline and finish".
+Read: this file, `BATCH-PLAN.md` Batch 5, ROADMAP 1.7 and 1.22, DECISIONS rows from "Batch 4b build" down, `MAP.md`. Code of `versionStore.ts`, `family.ts`, `Library.tsx`, server files as needed.
+Session: Opus, medium effort. No board pass (no new screens).
 ## Parts
-0. **Bugs.** (1) Full player "Another version of…" does nothing: it now opens Library in select mode with the playing song ticked (see a). (2) App froze (no touch, music on) some time after that tap and swiping the player down: find the cause, likely a sheet or overlay left open over the screen; it must not happen again. (3) After Home from Cards with a card song playing: the last library song came back paused, then about 30 s later a different song started by itself and the mini player showed "Skipped". Leaving Cards must stop every Cards timer and auto-advance; nothing starts playing without a tap.
-a. **Select mode in Library (like a file manager).** Hold a row = select mode, that row ticked; tap rows to tick/untick; a bar at the bottom with the count and actions: **Group as versions**, **Mine**, **Not mine**, Cancel. All in the Library list itself: no picker sheet, no pop-up. Works on unsorted songs. Group as versions: every ticked song becomes Mine and joins one family; Main = the first song held; if a ticked song is already in a family, the others join that family (two families ticked = merged under the first held song's Main). One Undo toast takes the whole action back. Works offline through the outbox like 4b. The old row "Another version of…" menu item and picker go; sort-card link can stay as is.
-b. **Newest is the default sort** every time the app opens (Library and anywhere A-Z was the default).
-**Stop line:** part 0 always goes in. Then a. b is tiny, always include it.
+0. **Version fixes (phone).** (1) A group's Main is its newest version, by the same date Library's Newest sort uses: when grouping, when a song joins a group, when groups merge. Once I tap Make main, that group keeps my pick until I change it. Existing groups: recompute only those never picked by hand; REPORT says how many changed. First check whether a song's date can be a copy date or the iCloud pull date (2026-11-01) instead of when I made it; if so, use the best real date and say in REPORT which date wins. (2) Library filter row gains **Unsorted** and **Grouped**. (3) Mine + group reach the laptop as one change, all or nothing.
+a. **Import (ROADMAP 1.22).** Rerunnable laptop command copies every Mine song into the library's own audio folder (`E:\VaultLibrary`, never the repo, never my music folders), checked by fingerprint. Not mine and unsorted songs stay out. Originals only read. The server prefers the library copy. Put the exact command in REPORT; chat adds it to COMMANDS.md.
+b. **Phone copies (ROADMAP 1.7).** AAC about 192 kbps for every imported song; files already compressed at or under that are copied as is. Wav-only songs (like `ANY WAY new limit.wav`) get rendered. Size report: song count, total MB, biggest files.
+c. **Laptop answers** `/kept` (the list) and `/songs/{id}/copy` (the phone copy).
+**Stop line:** 0 and a always go in. `/kept` waits if long; b's copies still get made.
 ## Phone check
-0. Full player > "Another version of…". Pass: Library opens in select mode with that song ticked, music keeps playing. Use the app 2 minutes after: no freeze.
-1. Cards: play a card song, tap Home. Wait 1 minute. Pass: nothing plays by itself, no "Skipped".
-2. Library: hold an unsorted song, tick 2 more next to it, Group as versions. Pass: one row "Versions · 3", all three are Mine, the held one is Main. Undo splits them and puts them back unsorted.
-3. Tick a song plus a song from an existing group, Group. Pass: it joins that group.
-4. Tick 3 songs, Not mine. Pass: all hidden; Undo brings them back.
-5. Kill and reopen the app. Pass: Library opens sorted Newest.
+1. Library: group 2 songs with different dates, no Make main. Pass: Main is the newer one. Then Make main on the older one and add a third song. Pass: my pick stays Main.
+2. Library filter row: tap Unsorted, then Grouped. Pass: only unsorted songs; then only version groups.
+3. Laptop: run the import command from REPORT twice. Pass: the second run copies nothing new; the copy count matches Mine, no Not mine songs.
+4. Safari on the phone: open the `/songs/{id}/copy` link from REPORT. Pass: it plays and seeks; sizes match the report.

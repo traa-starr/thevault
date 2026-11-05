@@ -57,6 +57,9 @@ c. `/kept` and `/songs/{id}/copy`; size report.
 **Stop line:** `/kept` waits if long.
 **Phone checks:** a kept copy plays from `/songs/{id}/copy` in Safari; a not-mine song stays out; sizes match the report.
 
+## Batch 4d: Compare versions (after Batch 5)
+**ROADMAP:** 1.23 follow-up. A-B switch in the full player and from a Library group: flip to another version at the same second. The picker is a dial (one version showing at a time, swipe up/down to the next, like the iOS time wheel). Board pass first: new screen.
+
 ## Batch 6: Offline and finish
 **ROADMAP:** 1.17, 1.18 final.
 a. Downloads with progress, storage limit (starts at 8 GB, adjustable), newest first.

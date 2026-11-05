@@ -17,7 +17,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [x] G3 Close Phase 0: fold its DECISIONS rows into a summary, start `app/` and `server/`
 
 ## Phase 1: Sort, then play (Checkpoint 1). "My catalogue is sorted, and it's my music player"
-**Order inside Phase 1:** batches in `BATCH-PLAN.md`: first write + 1.18 stamp · 1.9, 1.3, 1.19 · 1.15, 1.16 · 1.21 · 1.23 · 1.22, 1.7 · 1.17, 1.18 final. Reordered 2026-11-01 (DECISIONS).
+**Order inside Phase 1:** batches in `BATCH-PLAN.md`: first write + 1.18 stamp · 1.9, 1.3, 1.19 · 1.15, 1.16 · 1.21 · 1.23 · 1.22, 1.7 · version compare (4d) · 1.17, 1.18 final. Reordered 2026-11-01 (DECISIONS).
 *Laptop*
 - [x] 1.1 Library folder and database (songs, files, versions, tags, groups, links) *(built and self-tested; my check: open `E:\VaultLibrary`)*
 - [x] 1.2 Read-only scanner: `Music`, `Session Music` (loose files + `#FREEMONEY THE MIXTAPE` only), `tape`, iCloud root; re-scan finds new files
@@ -45,7 +45,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [x] 1.20 Stream any song from the laptop: tap and it plays, nothing saved to the phone, seeking works *(phone-verified 2026-11-01)*
 - [x] 1.21 Sorting session: card for a random unsorted song, one-tap Keep / Not mine, optional quick tag, progress counter. Verdicts save to the laptop. Mine filter; my manual choice always wins. First pass is getting songs out. Never shows a song I already sorted anywhere *(Hidden list + Restore phone-verified 2026-11-01; phone-verified Batch 4 2026-11-04)*
 - [ ] 1.22 Import list: only kept songs are imported; not-mine songs stay out of the library and the app
-- [x] 1.23 Versions, manual (phone-verified 2026-11-04; select mode in Batch 4c): "this is another version of song X" from library, player or sort, any time; versions as a second layer of sort. Pulled forward from 4.1/4.7 (DECISIONS 2026-11-01); name and fingerprint proposals stay in Phase 4
+- [x] 1.23 Versions, manual (phone-verified 2026-11-04; select mode phone-verified in Batch 4c): "this is another version of song X" from library, player or sort, any time; versions as a second layer of sort. Pulled forward from 4.1/4.7 (DECISIONS 2026-11-01); name and fingerprint proposals stay in Phase 4
 
 **Done when:** I've sorted my catalogue from the phone without downloading it, then play a kept song at home and away with the screen locked and the laptop asleep, and app data survives a re-sign.
 
