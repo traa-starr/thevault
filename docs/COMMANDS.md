@@ -13,6 +13,9 @@ None of these change, move or delete my music. Chat keeps this file up to date w
 | **Turn on nightly backup** (once) | `powershell -File server\schedule_backup.ps1` | "Scheduled 'Vault nightly backup' daily at 3:00 AM" |
 | **Turn off nightly backup** | `Unregister-ScheduledTask -TaskName 'Vault nightly backup' -Confirm:$false` | Nothing printed |
 | **Quick count** of songs and mine | `python server\vault_cli.py check E:\VaultLibrary` | Files, songs, mine counts |
+| **Import**: copy Mine songs into the library and make phone copies (stop the server first) | `python server\vault_cli.py import E:\VaultLibrary` | First run about 15 min. Rerun: "copied now: 0" and "Mine songs" = "already in". Run after marking new songs Mine |
+| **Refresh song dates** (after a scan, stop the server first) | `python server\vault_cli.py songs E:\VaultLibrary` | A count of dates refreshed |
+| **Reset group Mains to newest** (one-off; your hand picks stay) | `python server\vault_cli.py mains E:\VaultLibrary` | "Main changed to newest: N" |
 
 ## Checkpoints (backups that never get auto-deleted)
 Nightly backups keep only 14. To keep one forever, make a backup, then copy it to a named folder:
@@ -23,7 +26,7 @@ $n=(Get-ChildItem C:\VaultBackup -Directory | ? Name -match '^\d{8}-\d{6}$' | so
 Change `NAME` (e.g. `sort-2026-11-01`). First make sure the phone has nothing waiting to send (server running, Library open).
 
 ## Usual order after a pull
-Pull, then Scan, then Doctor, then Start the server, then phone checks.
+Pull, then Scan, then Refresh song dates, then Import, then Doctor, then Start the server, then phone checks.
 
 ## From the phone (Termius over Tailscale)
 These run in the SSH terminal (Command Prompt). Saved as Termius snippets. The server opens in a window on the PC and keeps running after I close Termius.

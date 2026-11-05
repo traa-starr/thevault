@@ -1,17 +1,18 @@
-# NEXT: Batch 5, Import and copies (+ version fixes)
+# NEXT: Batch 4d, Compare versions
 Written by chat, 2026-11-04.
-Log: Batch 4c phone: checks 0-5 all passed (mine). Group Main = newest version by date (mine); Make main by hand wins and stays (chat-default). Library filter row gains Unsorted and Grouped (mine). Mine + group sent as one all-or-nothing laptop change: Code's pitch, folded in (chat-default). Version compare waits for my pick: Batch 4d after this (chat-default) (logged by chat)
-Queue after this: Batch 4d "Compare versions" (A-B switch, dial picker; see BATCH-PLAN). Then Batch 6 "Offline and finish".
-Read: this file, `BATCH-PLAN.md` Batch 5, ROADMAP 1.7 and 1.22, DECISIONS rows from "Batch 4b build" down, `MAP.md`. Code of `versionStore.ts`, `family.ts`, `Library.tsx`, server files as needed.
-Session: Opus, medium effort. No board pass (no new screens).
+Log: Batch 5 phone: checks 1-4 all passed; second import copied 0, Mine 314 = already in 314, taken out 0; ANY WAY copy plays and seeks (mine). Closes 1.7, 1.22. Compare streams the library copy, phone copy only offline; level match on by default with a toggle; blind mode parked (chat-default) (logged by chat)
+Queue after this: Batch 6 "Offline and finish" (BATCH-PLAN). Then Phase 1 "Done when" with me.
+Read: this file, `BATCH-PLAN.md` Batch 4d, DECISIONS rows "Version compare shape" and "Batch 4d defaults", `docs/board/batch-4-versions.md`, `BOARD.md`. Code of `Player.tsx`, `Library.tsx`, `versionStore.ts`, `playerStore.ts`, server importer as needed.
+Session: Opus, medium effort. Board seats on Sonnet.
 ## Parts
-0. **Version fixes (phone).** (1) A group's Main is its newest version, by the same date Library's Newest sort uses: when grouping, when a song joins a group, when groups merge. Once I tap Make main, that group keeps my pick until I change it. Existing groups: recompute only those never picked by hand; REPORT says how many changed. First check whether a song's date can be a copy date or the iCloud pull date (2026-11-01) instead of when I made it; if so, use the best real date and say in REPORT which date wins. (2) Library filter row gains **Unsorted** and **Grouped**. (3) Mine + group reach the laptop as one change, all or nothing.
-a. **Import (ROADMAP 1.22).** Rerunnable laptop command copies every Mine song into the library's own audio folder (`E:\VaultLibrary`, never the repo, never my music folders), checked by fingerprint. Not mine and unsorted songs stay out. Originals only read. The server prefers the library copy. Put the exact command in REPORT; chat adds it to COMMANDS.md.
-b. **Phone copies (ROADMAP 1.7).** AAC about 192 kbps for every imported song; files already compressed at or under that are copied as is. Wav-only songs (like `ANY WAY new limit.wav`) get rendered. Size report: song count, total MB, biggest files.
-c. **Laptop answers** `/kept` (the list) and `/songs/{id}/copy` (the phone copy).
-**Stop line:** 0 and a always go in. `/kept` waits if long; b's copies still get made.
+0. **Board pass** (all four seats, one round, notes in `docs/board/batch-4d-compare.md`, under 60 lines). Brief: my design is fixed (A-B switch at the same second; dial picker, one version showing, swipe up/down like the iOS time wheel; opens from the full player and from a Library group). Seats answer: how a flip is triggered and shown (which version is playing, Main marked), groups of 2 vs 8, what happens at song end, that the queue is untouched, versions of different lengths. Take the board's defaults on owner questions; list them in REPORT.
+a. **Compare from the full player.** A playing song that has versions gets Compare. The dial picks a version; the flip lands on the same second with no restart and no gap I can hear (load the other version ahead). Closing Compare keeps the song I'm on playing; the queue doesn't change.
+b. **Compare from a Library group.** Starts on the group's Main at 0:00, same dial.
+c. **Level match.** Laptop measures each Mine song's loudness (part of `import`, rerunnable); Compare evens the volume between versions. A toggle shows it and turns it off (off = real difference). Put any new laptop command line in REPORT.
+**Stop line:** 0, a and b always go in. c waits if the session runs long.
 ## Phone check
-1. Library: group 2 songs with different dates, no Make main. Pass: Main is the newer one. Then Make main on the older one and add a third song. Pass: my pick stays Main.
-2. Library filter row: tap Unsorted, then Grouped. Pass: only unsorted songs; then only version groups.
-3. Laptop: run the import command from REPORT twice. Pass: the second run copies nothing new; the copy count matches Mine, no Not mine songs.
-4. Safari on the phone: open the `/songs/{id}/copy` link from REPORT. Pass: it plays and seeks; sizes match the report.
+1. Full player, a grouped song at about 1:00: Compare, dial to another version. Pass: it carries on at about the same second, no restart.
+2. Flip back and forth 5 times fast. Pass: no stall, no wrong song, no freeze.
+3. Library, a group of 3+: Compare. Pass: one version showing at a time, swipe up/down moves, Main marked.
+4. Loud vs quiet version, level match on then off. Pass: on = about the same loudness; off = the real difference.
+5. Close Compare. Pass: the song I was on keeps playing; queue unchanged.

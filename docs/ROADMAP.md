@@ -25,7 +25,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [x] 1.4 Duplicates: the same file in two folders is one song
 - [x] 1.5 Auto "mine" detection, unknown by default
 - [x] 1.6 Source tag (FL), title and date filled in from the file
-- [x] 1.7 Compressed phone copies (~192 kbps), kept songs only *(built and self-tested 2026-11-04, Batch 5; laptop and Safari checks pending)*
+- [x] 1.7 Compressed phone copies (~192 kbps), kept songs only *(phone-verified 2026-11-04, Batch 5: 315 dry run, ANY WAY render plays and seeks in Safari)*
 - [x] 1.8 Server: serves known songs by id only, over Tailscale; streams with seeking, so the phone keeps no copy *(phone-verified 2026-11-01 in Safari)*
 - [x] 1.9 Nightly database backup to C: (G2), with a warning when it is skipped *(laptop-verified 2026-11-01)*
 - [x] 1.10 `doctor` script: checks Tailscale, server and guard before phone tests, stops test servers after; warns when the scan is old *(phone-verified 2026-11-01)*
@@ -44,7 +44,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [x] 1.19 Prototype: sorting card, tappable with fake data *(phone-verified 2026-11-01)*
 - [x] 1.20 Stream any song from the laptop: tap and it plays, nothing saved to the phone, seeking works *(phone-verified 2026-11-01)*
 - [x] 1.21 Sorting session: card for a random unsorted song, one-tap Keep / Not mine, optional quick tag, progress counter. Verdicts save to the laptop. Mine filter; my manual choice always wins. First pass is getting songs out. Never shows a song I already sorted anywhere *(Hidden list + Restore phone-verified 2026-11-01; phone-verified Batch 4 2026-11-04)*
-- [x] 1.22 Import list: only kept songs are imported; not-mine songs stay out of the library and the app *(built and self-tested 2026-11-04, Batch 5: `import` command; laptop check pending)*
+- [x] 1.22 Import list: only kept songs are imported; not-mine songs stay out of the library and the app *(verified 2026-11-04, Batch 5: `import` rerun copies 0, Mine = already in)*
 - [x] 1.23 Versions, manual (phone-verified 2026-11-04; select mode phone-verified in Batch 4c): "this is another version of song X" from library, player or sort, any time; versions as a second layer of sort. Pulled forward from 4.1/4.7 (DECISIONS 2026-11-01); name and fingerprint proposals stay in Phase 4
 
 **Done when:** I've sorted my catalogue from the phone without downloading it, then play a kept song at home and away with the screen locked and the laptop asleep, and app data survives a re-sign.
