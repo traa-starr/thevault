@@ -1,7 +1,7 @@
 // Self-test for the play order: node --experimental-strip-types app/playOrder.test.mjs
 import assert from 'node:assert/strict';
 import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere } from './playOrder.ts';
-import { applyEdit, groupEdit, groupLead, linkEdit, makeMainEdit, membersOf, removeEdit, reverse } from './family.ts';
+import { applyEdit, applyPicks, groupEdit, groupLead, linkEdit, makeMainEdit, membersOf, removeEdit, reverse, settle } from './family.ts';
 
 const fams = (pairs) => new Map(Object.entries(pairs));
 
@@ -208,7 +208,8 @@ const tests = {
   'refusals and nothing-to-do': () => {
     assert.equal(typeof linkEdit(new Map(), 'a', 'a'), 'string');
     assert.equal(linkEdit(fams({ a: 'a', b: 'a' }), 'b', 'a'), null);
-    assert.equal(makeMainEdit(fams({ a: 'a', b: 'a' }), 'a'), null);
+    assert.equal(makeMainEdit(fams({ a: 'a', b: 'a' }), 'a', new Set(['a'])), null);
+    assert.equal(makeMainEdit(new Map(), 'a'), null);
     assert.equal(removeEdit(new Map(), 'a'), null);
   },
   'Make main moves every version': () => {
@@ -247,6 +248,58 @@ const tests = {
   'group: one song, or already one family, does nothing': () => {
     assert.equal(groupEdit(new Map(), ['a']), null);
     assert.equal(groupEdit(fams({ a: 'a', b: 'a' }), ['a', 'b']), null);
+  },
+  'a versions change carries its Mine marks into the mine view': () => {
+    const songs = [{ id: 'a', mine: 'unknown', sorted: false }, { id: 'b', mine: 'mine', sorted: true }];
+    const pending = [{ id: '1', kind: 'family_set', data: { song_id: 'a', songs: { a: 'b', b: 'b' }, before: { a: null, b: null }, mine: ['a'] } }];
+    assert.equal(withPending(songs, pending)[0].mine, 'mine');
+  },
+  'newest is Main: grouping, joining, merging': () => {
+    const dates = { old: '2023-01-05', mid: '2024', new: '2024-06-01', z: null };
+    const d = (id) => dates[id];
+    const none = new Set();
+    let e = settle(new Map(), none, groupEdit(new Map(), ['old', 'new']), d);
+    assert.deepEqual(e.songs, { old: 'new', new: 'new' });
+    const two = applyEdit(new Map(), e);
+    e = settle(two, none, linkEdit(two, 'z', 'new'), d);
+    assert.equal(e.songs.z, 'new');
+    // a full date beats a bare year of the same year, as Newest sorts them
+    e = settle(two, none, groupEdit(two, ['mid', 'old']), d);
+    assert.deepEqual(new Set(Object.values(e.songs)), new Set(['new']));
+  },
+  'my pick stays Main when a newer song joins, and Undo takes the pick back': () => {
+    const d = (id) => ({ a: '2023-01-01', b: '2024-01-01', c: '2025-01-01' })[id];
+    const start = fams({ a: 'b', b: 'b' });
+    const pick = settle(start, new Set(), makeMainEdit(start, 'a'), d, 'a');
+    assert.deepEqual(pick.songs, { a: 'a', b: 'a' });
+    assert.deepEqual(pick.picked, { a: true });
+    const fam = applyEdit(start, pick);
+    const picks = applyPicks(new Set(), pick);
+    const join = settle(fam, picks, linkEdit(fam, 'c', 'a'), d);
+    assert.equal(join.songs.c, 'a');
+    assert.equal(join.picked, undefined);
+    assert.equal(applyPicks(picks, reverse(pick)).has('a'), false);
+  },
+  'Keep as Main on the newest is a pick with no move': () => {
+    const d = (id) => ({ a: '2023', b: '2024' })[id];
+    const start = fams({ a: 'b', b: 'b' });
+    const e = settle(start, new Set(), makeMainEdit(start, 'b'), d, 'b');
+    assert.deepEqual(e.picked, { b: true });
+    assert.deepEqual(e.songs, e.before);
+  },
+  'a picked Main that leaves takes its pick with it; the rest gets the newest': () => {
+    const d = (id) => ({ a: '2023', b: '2024', c: '2025' })[id];
+    const start = fams({ a: 'a', b: 'a', c: 'a' });
+    const e = settle(start, new Set(['a']), removeEdit(start, 'a'), d);
+    assert.deepEqual(e.songs, { a: null, b: 'c', c: 'c' });
+    assert.deepEqual(e.picked, { a: false });
+  },
+  'two picked families merged keep one pick': () => {
+    const d = () => '2024';
+    const start = fams({ a: 'a', b: 'a', x: 'x', y: 'x' });
+    const e = settle(start, new Set(['a', 'x']), groupEdit(start, ['x', 'a']), d);
+    assert.deepEqual(new Set(Object.values(e.songs)), new Set(['x']));
+    assert.deepEqual(e.picked, { a: false });
   },
   'group: Undo puts both families back': () => {
     const start = fams({ a: 'a', b: 'a', x: 'x', y: 'x' });

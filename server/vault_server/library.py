@@ -80,12 +80,14 @@ class Library:
     def assign_code(self, full_hash):
         """The folder code for a file: shortest candidate not already used by a different file."""
         full_hash = full_hash.lower()
-        row = self.store.conn.execute("SELECT code FROM files WHERE hash=?", (full_hash,)).fetchone()
+        row = self.store.conn.execute("SELECT code FROM imported WHERE hash=? UNION ALL SELECT code FROM files WHERE hash=?",
+                                      (full_hash, full_hash)).fetchone()
         if row and row["code"]:
             return row["code"]
         for cand in code_candidates(full_hash):
-            other = self.store.conn.execute("SELECT hash FROM files WHERE code=?", (cand,)).fetchone()
-            if other is None or other["hash"] == full_hash:
+            other = self.store.conn.execute("SELECT hash FROM files WHERE code=? UNION SELECT hash FROM imported WHERE code=?",
+                                            (cand, cand)).fetchall()
+            if all(o["hash"] == full_hash for o in other):
                 return cand
         raise RuntimeError("Ran out of hash digits for a code.")
 

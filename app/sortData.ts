@@ -46,9 +46,15 @@ export function useSortData(url: string) {
     for (const change of pending) {
       if (seen.current.has(change.id)) continue;
       seen.current.add(change.id);
-      if (change.kind === 'family_set') continue; // versions don't open or close a song in Sort
-      choices.current.set(change.data.song_id, { open: change.kind === 'mine_restore', at: Date.now() });
-      changed = true;
+      // a versions change opens or closes a song in Sort only through the Mine marks it carries
+      const marks =
+        change.kind === 'family_set'
+          ? [...(change.data.mine ?? []).map((id) => [id, false] as const), ...(change.data.restore_mine ?? []).map((id) => [id, true] as const)]
+          : [[change.data.song_id, change.kind === 'mine_restore'] as const];
+      for (const [id, open] of marks) {
+        choices.current.set(id, { open, at: Date.now() });
+        changed = true;
+      }
     }
     if (changed) setAnswer((a) => a && { ...a }); // same answer, read again with the new choices
   }, [pending]);

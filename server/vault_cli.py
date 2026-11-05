@@ -6,6 +6,8 @@
     python server/vault_cli.py scan <library folder> <music root>            record what's there, read-only
     python server/vault_cli.py apply-sorting <library folder> <music root>   turn my sorting file into per-file verdicts (once)
     python server/vault_cli.py songs <library folder>                        link duplicates into songs, fill title, date, source, mine
+    python server/vault_cli.py import <library folder>                       copy every Mine song into the library, then make phone copies; rerun any time
+    python server/vault_cli.py mains <library folder>                        version groups I never picked a Main for get their newest as Main
     python server/vault_cli.py fingerprint <music root>                      one line that changes if the music folders change
     python server/vault_cli.py serve <library folder>                        play songs by id, on the laptop and Tailscale only (Ctrl+C stops)
     python server/vault_cli.py doctor <library folder>                       one plain report before phone tests; fixes nothing
@@ -20,6 +22,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from vault_server.backup import run_backup  # noqa: E402
 from vault_server.doctor import FAIL, fingerprint_line, fingerprinted_scan, run_doctor  # noqa: E402
+from vault_server.family import newest_mains  # noqa: E402
+from vault_server.importer import ToolMissing, import_mine, make_phone_copies, size_report  # noqa: E402
 from vault_server.library import (MARKER_NAME, SORTING_NAME, LibraryMissing, LibraryRefused,  # noqa: E402
                                   init_library, open_library)
 from vault_server.pull import run_pull  # noqa: E402
@@ -35,7 +39,9 @@ def print_result(result):
 
 
 def main(argv):
-    if len(argv) < 3 or argv[1] not in ("init", "check", "import-sorting", "scan", "apply-sorting", "songs", "fingerprint", "serve", "doctor",
+    for stream in (sys.stdout, sys.stderr):  # a song name with an emoji mustn't stop a command halfway
+        stream.reconfigure(errors="replace")
+    if len(argv) < 3 or argv[1] not in ("init", "check", "import-sorting", "scan", "apply-sorting", "songs", "mains", "import", "fingerprint", "serve", "doctor",
                                         "backup", "pull-cloud"):
         print(__doc__)
         return 1
@@ -77,6 +83,16 @@ def main(argv):
             print_result(fill_mine(lib))
             print(f"Songs: {song_counts(lib)}")
             print(f"Mine: {mine_counts(lib)}")
+        elif cmd == "import":
+            lib = open_library(folder)
+            print("Import (library copies of Mine songs):")
+            print_result(import_mine(lib))
+            print("Phone copies:")
+            print_result(make_phone_copies(lib))
+            print(size_report(lib))
+        elif cmd == "mains":
+            lib = open_library(folder)
+            print_result(newest_mains(lib))
         elif cmd == "scan":
             lib = open_library(folder)
             result, record = fingerprinted_scan(lib, argv[3])
@@ -102,7 +118,7 @@ def main(argv):
                 shutil.copyfile(src, dest)
             print(f"Sorting file is in the library: {dest} ({dest.stat().st_size} bytes).")
         lib.close()
-    except (FfprobeMissing, Busy) as e:
+    except (FfprobeMissing, ToolMissing, Busy) as e:
         print(f"Stopped: {e}")
         return 2
     except ScanStopped as e:

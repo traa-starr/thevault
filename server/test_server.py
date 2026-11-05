@@ -365,6 +365,92 @@ def family_path(tmp):
     lib.close()
 
 
+def family_pick_path(tmp):
+    """Batch 5 part 0: Mine and group as one change, all or nothing; Main picks stored; the mains command."""
+    from vault_server import family
+    music, root = tmp / "pmusic", tmp / "plib"
+    lib = init_library(root)
+    old, new, newer, other, x, y = (add_song(lib, music / f"{n}.mp3", n.encode()) for n in ("old", "new", "newer", "other", "x", "y"))
+    for sid, day in ((old, "2023-01-01"), (new, "2024-01-01"), (newer, "2025-01-01"), (x, "2023"), (y, "2024")):
+        lib.store.record("song_field", {"song_id": sid, "field": "date", "value": day, "origin": "guess", "basis": "tag"})
+    for sid in (old, new, x, y):
+        songs_module.set_mine(lib.store, sid, "mine")
+    lib.close()
+    send = lambda *cs: server.apply_changes(root, list(cs))
+    def fam(songs, before, **extra):
+        return {"id": str(uuid.uuid4()), "kind": "family_set", "data": {"song_id": next(iter(songs)), "songs": songs, "before": before, **extra}}
+    def look():
+        conn = server.connect_readonly(root)
+        try:
+            return {s["id"]: s for s in server.list_songs(conn)}
+        finally:
+            conn.close()
+
+    # other isn't Mine: a group carrying its Mine saves both; a refused family saves neither
+    bad = fam({other: other, x: x}, {other: None, x: None}, mine=[other])  # a lone pair pointing at themselves: refused
+    r = send(bad)
+    check("a refused group leaves its Mine unsaved too", r[0]["status"] == "refused" and look()[other]["mine"] != "mine")
+    group = fam({other: new, new: new}, {other: None, new: None}, mine=[other])
+    check("Mine + group save as one change", [x["status"] for x in send(group)] == ["saved"]
+          and look()[other]["mine"] == "mine" and look()[other]["main"] == new)
+    check("the same change sent twice is taken once", [x["status"] for x in send(group)] == ["nothing to do"])
+    undo = fam({other: None, new: None}, {other: new, new: new}, restore_mine=[other])
+    check("its Undo takes the family and the Mine back together", [x["status"] for x in send(undo)] == ["saved"]
+          and look()[other]["main"] is None and look()[other]["mine"] != "mine")
+    pair = fam({old: new, new: new}, {old: None, new: None})
+    send(pair)
+    pick = fam({old: old, new: old}, {old: new, new: new}, picked={old: True}, picked_before={old: False})
+    check("Make main stores the pick", [x["status"] for x in send(pick)] == ["saved"] and look()[old]["picked"] and look()[old]["main"] == old)
+    check("a pick on a song that isn't Main is refused",
+          send(fam({new: old}, {new: old}, picked={new: True}, picked_before={new: False}))[0]["status"] == "refused")
+    check("a stale pick is refused",
+          send(fam({old: old}, {old: old}, picked={old: True}, picked_before={old: False}))[0]["status"] == "refused")
+    # groups made before picks were stored: x+y never picked; old+new picked above
+    send(fam({x: x, y: x}, {x: None, y: None}))
+    lib = open_library(root)
+    out = family.newest_mains(lib)
+    again = family.newest_mains(lib)
+    lib.close()
+    check("mains: the never-picked group gets its newest, the picked one stays",
+          out["Main changed to newest"] == 1 and out["kept (picked by hand)"] == 1 and look()[x]["main"] == y and look()[new]["main"] == old, str(out))
+    check("mains: a second run changes nothing", again["Main changed to newest"] == 0, str(again))
+    lib = open_library(root)
+    before = lib.store.snapshot()
+    lib.close()
+    (root / DB_NAME).unlink()
+    lib = open_library(root)
+    check("picks rebuild from the journal", lib.store.snapshot() == before and before["family_pick"] != [])
+    lib.close()
+
+
+def hand_pick_history_path(tmp):
+    """Make main from before picks were stored is found in the journal; one that was undone isn't."""
+    from vault_server import family
+    music, root = tmp / "hmusic", tmp / "hlib"
+    lib = init_library(root)
+    a, b, c, d = (add_song(lib, music / f"{n}.mp3", n.encode()) for n in ("a", "b", "c", "d"))
+    for sid, day in ((a, "2023"), (b, "2024"), (c, "2023"), (d, "2024")):
+        lib.store.record("song_field", {"song_id": sid, "field": "date", "value": day, "origin": "guess", "basis": "tag"})
+        songs_module.set_mine(lib.store, sid, "mine")
+    rec = lambda s, bf: lib.store.record("family", {"songs": s, "before": bf})
+    rec({a: b, b: b}, {a: None, b: None})
+    rec({a: a, b: a}, {a: b, b: b})  # Make main on the older one, kept
+    rec({c: d, d: d}, {c: None, d: None})
+    rec({c: c, d: c}, {c: d, d: d})  # Make main...
+    rec({c: d, d: d}, {c: c, d: c})  # ...and its Undo
+    out = family.newest_mains(lib)
+    main = lambda sid: lib.store.conn.execute("SELECT main_id FROM song_family WHERE song_id=?", (sid,)).fetchone()[0]
+    check("an old Make main is kept as a pick; an undone one isn't", main(a) == a and main(c) == d
+          and out["kept (picked by hand)"] == 1 and out["already newest"] == 1, str(out))
+    lib.close()
+
+
+def date_year_path():
+    """A year-only tag takes the file's day when it's the same year; another year means a later copy, so the year wins."""
+    check("same year: the exact day", songs_module._with_year("2024", "2024-05-03") == ("2024-05-03", "tag_year"))
+    check("another year: the tag's year", songs_module._with_year("2024", "2026-09-17") == ("2024", "tag"))
+
+
 def main():
     tmp = Path(tempfile.mkdtemp(prefix="vault-servertest-")).resolve()
     music, root = tmp / "music", tmp / "lib"
@@ -488,6 +574,9 @@ def main():
     write_path(tmp)
     sorting_path(tmp)
     family_path(tmp)
+    family_pick_path(tmp)
+    hand_pick_history_path(tmp)
+    date_year_path()
     print()
     print("ALL PASSED" if not failures else f"{len(failures)} FAILED: {failures}")
     return 1 if failures else 0

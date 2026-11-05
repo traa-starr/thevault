@@ -180,7 +180,9 @@ function VersionsView({ url }: { url: string }) {
         text: 'Play',
         onPress: () => player.playNow(url, { id, title, mine: lib?.mine ?? 'mine', sorted: lib?.sorted ?? true }),
       },
-      ...(isMain ? [] : [{ text: 'Make main', onPress: () => makeMainWithToast(id) }]),
+      // the newest is Main by itself; Keep as Main makes it stay when a newer version joins
+      ...(!isMain ? [{ text: 'Make main', onPress: () => makeMainWithToast(id) }]
+        : versions.isPicked(id) ? [] : [{ text: 'Keep as Main', onPress: () => makeMainWithToast(id) }]),
       {
         text: 'Remove from Versions',
         onPress: () => {
@@ -191,7 +193,7 @@ function VersionsView({ url }: { url: string }) {
       ...(isMain ? [] : [{ text: 'Not mine', style: 'destructive' as const, onPress: () => notMine(url, id) }]),
       { text: 'Cancel', style: 'cancel' as const },
     ];
-    Alert.alert(title, isMain ? 'Main: plays in shuffle' : undefined, options);
+    Alert.alert(title, isMain ? `Main${versions.isPicked(id) ? ' (your pick)' : ' (newest)'}: plays in shuffle` : undefined, options);
   };
 
   return (
@@ -203,7 +205,7 @@ function VersionsView({ url }: { url: string }) {
           </Pressable>
           <Text style={s.sheetTitle}>Versions · {list.length}</Text>
         </View>
-        <Text style={s.sheetNote}>The Main plays in shuffle and holds the Library row. Tap a version for Play, Make main, Remove.</Text>
+        <Text style={s.sheetNote}>The Main plays in shuffle and holds the Library row. It's the newest version unless you pick one with Make main.</Text>
         {list.map((id, i) => (
           <Pressable key={id} style={s.row} onPress={() => menu(id, i === 0)}>
             <Text style={s.rowTitle} numberOfLines={1}>
@@ -211,7 +213,7 @@ function VersionsView({ url }: { url: string }) {
               {playing?.id === id ? '  ♪' : ''}
             </Text>
             <Text style={s.rowDetail} numberOfLines={1}>
-              {[i === 0 ? 'Main' : null, info(id)?.folder, info(id)?.date].filter(Boolean).join(' · ')}
+              {[i === 0 ? (versions.isPicked(id) ? 'Main, your pick' : 'Main') : null, info(id)?.folder, info(id)?.date].filter(Boolean).join(' · ')}
             </Text>
           </Pressable>
         ))}

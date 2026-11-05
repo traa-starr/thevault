@@ -15,6 +15,15 @@ import * as versions from './versionStore';
 
 type Song = LibSong;
 type Sort = 'title' | 'date';
+/** One filter at a time; tap it again for all songs. Unsorted: not called Mine and not judged yet. */
+type Filter = 'all' | 'mine' | 'unsorted' | 'grouped';
+const FILTER_WORD: Record<Filter, string> = { all: 'songs', mine: 'Mine', unsorted: 'unsorted', grouped: 'version groups' };
+const FILTER_EMPTY: Record<Filter, string> = {
+  all: 'No titles match',
+  mine: 'No Mine songs yet',
+  unsorted: 'Nothing left unsorted',
+  grouped: 'No version groups yet',
+};
 
 const TIMEOUT_MS = 10000;
 const ROW_HEIGHT = 60;
@@ -31,7 +40,9 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
   const [sort, setSort] = useState<Sort>('date'); // Newest every time the app opens
   const [filter, setFilter] = useState('');
   const [showHidden, setShowHidden] = useState(false);
-  const [mineOnly, setMineOnly] = useState(false);
+  const [only, setOnly] = useState<Filter>('all');
+  const mineOnly = only === 'mine';
+  const toggle = (one: Filter) => setOnly(only === one ? 'all' : one);
   // select mode: the ticked rows, first held first (that one becomes Main)
   const [selecting, setSelecting] = useState(false);
   const [ticked, setTicked] = useState<string[]>([]);
@@ -88,7 +99,12 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     return byTitle.sort((a, b) => ((a.date ?? '') < (b.date ?? '') ? 1 : (a.date ?? '') > (b.date ?? '') ? -1 : 0));
   }, [songs, sort]);
 
-  const base = useMemo(() => (mineOnly ? sorted.filter((song) => song.mine === 'mine') : sorted), [sorted, mineOnly]);
+  const base = useMemo(() => {
+    if (only === 'mine') return sorted.filter((song) => song.mine === 'mine');
+    if (only === 'unsorted') return sorted.filter((song) => song.mine !== 'mine' && !song.sorted);
+    if (only === 'grouped') return sorted.filter((song) => families.has(song.id));
+    return sorted;
+  }, [sorted, only, families]);
 
   const shown = useMemo(() => {
     const wanted = filter.trim().toLowerCase();
@@ -140,6 +156,8 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
   const byId = useMemo(() => new Map((songs ?? []).map((song) => [song.id, song])), [songs]);
   const tickedSongs = ticked.map((id) => byId.get(id)).filter((song): song is Song => !!song);
   const isMineNow = (song: Song) => player.markOf(song).mine === 'mine';
+  // the Main the ticked rows would get: my pick if one has it, else the newest
+  const groupMain = useMemo(() => (selecting && ticked.length > 1 ? versions.groupMainOf(ticked) : null), [selecting, ticked, families]);
 
   const groupTicked = () => {
     const mined = tickedSongs.filter((song) => !isMineNow(song) && !families.has(song.id)).map((song) => song.id);
@@ -217,7 +235,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
           />
           <View style={s.bar}>
             <Text style={s.count}>
-              {filter.trim() ? `${number(shown.length)} of ${number(base.length)}` : `${number(base.length)} ${mineOnly ? 'Mine' : 'songs'}`}
+              {filter.trim() ? `${number(shown.length)} of ${number(base.length)}` : `${number(base.length)} ${FILTER_WORD[only]}`}
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.sortScroll} contentContainerStyle={s.sorts}>
               {playable.length ? (
@@ -225,8 +243,14 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
                   <Text style={s.sort}>Shuffle</Text>
                 </Pressable>
               ) : null}
-              <Pressable onPress={() => setMineOnly(!mineOnly)}>
-                <Text style={[s.sort, mineOnly && s.sortOn]}>Mine</Text>
+              <Pressable onPress={() => toggle('mine')}>
+                <Text style={[s.sort, only === 'mine' && s.sortOn]}>Mine</Text>
+              </Pressable>
+              <Pressable onPress={() => toggle('unsorted')}>
+                <Text style={[s.sort, only === 'unsorted' && s.sortOn]}>Unsorted</Text>
+              </Pressable>
+              <Pressable onPress={() => toggle('grouped')}>
+                <Text style={[s.sort, only === 'grouped' && s.sortOn]}>Grouped</Text>
               </Pressable>
               <Pressable onPress={() => setSort('title')}>
                 <Text style={[s.sort, sort === 'title' && s.sortOn]}>A-Z</Text>
@@ -248,7 +272,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
             getItemLayout={(_, index) => ({ length: ROW_HEIGHT, offset: ROW_HEIGHT * index, index })}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={<Text style={s.empty}>{mineOnly && !filter.trim() ? 'No Mine songs yet' : 'No titles match'}</Text>}
+            ListEmptyComponent={<Text style={s.empty}>{filter.trim() ? 'No titles match' : FILTER_EMPTY[only]}</Text>}
             renderItem={({ item }) => (
               <Pressable
                 style={[s.row, selecting && s.rowSelecting]}
@@ -268,7 +292,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
                   <VersionsChip id={item.id} />
                 </View>
                 <Text style={s.rowDetail} numberOfLines={1}>
-                  {selecting && ticked.length > 1 && ticked[0] === item.id ? 'Main · ' : ''}
+                  {groupMain === item.id ? 'Main · ' : ''}
                   {detail(item)}
                 </Text>
                 </View>

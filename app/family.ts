@@ -3,7 +3,16 @@
 // and what each was before, which is what the laptop checks and records. Undo is the same change turned round.
 // Test: node --experimental-strip-types app/playOrder.test.mjs
 export type Families = ReadonlyMap<string, string>;
-export type FamilyEdit = { songs: Record<string, string | null>; before: Record<string, string | null> };
+/** Mains I picked by hand with Make main. Any other family's Main is its newest version. */
+export type Picks = ReadonlySet<string>;
+export type FamilyEdit = {
+  songs: Record<string, string | null>;
+  before: Record<string, string | null>;
+  picked?: Record<string, boolean>;
+  pickedBefore?: Record<string, boolean>;
+};
+/** A song's date as Library's Newest sort reads it ('2025-03-10', or a bare year), or null. */
+export type DateOf = (id: string) => string | null | undefined;
 
 export const mainOf = (families: Families, id: string) => families.get(id) ?? id;
 export const isVersion = (families: Families, id: string) => mainOf(families, id) !== id;
@@ -27,17 +36,71 @@ export function applyEdit(families: Families, edit: { songs: Record<string, stri
   return out;
 }
 
-export const reverse = (edit: FamilyEdit): FamilyEdit => ({ songs: edit.before, before: edit.songs });
+export function applyPicks(picks: Picks, edit: { picked?: Record<string, boolean> }): Set<string> {
+  const out = new Set(picks);
+  for (const [id, on] of Object.entries(edit.picked ?? {})) {
+    if (on) out.add(id);
+    else out.delete(id);
+  }
+  return out;
+}
 
-const make = (families: Families, songs: Record<string, string | null>): FamilyEdit | null => {
+export const reverse = (edit: FamilyEdit): FamilyEdit => ({
+  songs: edit.before,
+  before: edit.songs,
+  ...(edit.picked ? { picked: edit.pickedBefore ?? {}, pickedBefore: edit.picked } : {}),
+});
+
+/** The newest of these songs by date, the way Newest sorts them (no date last). A tie keeps `prefer`, else the first. */
+export function newestOf(ids: string[], dateOf: DateOf, prefer?: string): string {
+  const key = (id: string) => dateOf(id) ?? '';
+  const best = ids.reduce((a, b) => (key(b) > key(a) ? b : a), ids[0]);
+  return prefer && ids.includes(prefer) && key(prefer) === key(best) ? prefer : best;
+}
+
+/** Turns an action's edit into the one that goes out: every family it touches gets its Main by the rule (my hand pick if
+ * the family has one, else its newest version), and picks that are no longer a Main are dropped. `pick`: Make main. */
+export function settle(families: Families, picks: Picks, edit: FamilyEdit | null, dateOf: DateOf, pick?: string): FamilyEdit | null {
+  if (!edit) return null;
+  const after = applyEdit(families, edit);
+  const picksAfter = new Set(picks);
+  if (pick) picksAfter.add(pick);
+  const songs: Record<string, string | null> = { ...edit.songs };
+  for (const m of new Set(Object.values(edit.songs).filter((one): one is string => one !== null))) {
+    const members = membersOf(after, m);
+    const hand = members.filter((id) => picksAfter.has(id));
+    const main = hand.includes(m) ? m : hand[0] ?? newestOf(members, dateOf, m);
+    members.forEach((id) => (songs[id] = main));
+  }
+  // a pick only lasts on a song that is a Main afterwards: two picked families merged keep one pick
+  const final = applyEdit(families, { songs });
+  const picked: Record<string, boolean> = {};
+  const pickedBefore: Record<string, boolean> = {};
+  for (const id of Object.keys(songs)) {
+    const now = picksAfter.has(id) && final.get(id) === id;
+    if (now !== picks.has(id)) {
+      picked[id] = now;
+      pickedBefore[id] = picks.has(id);
+    }
+  }
+  return make(families, songs, picked, pickedBefore);
+}
+
+function make(
+  families: Families,
+  songs: Record<string, string | null>,
+  picked: Record<string, boolean> = {},
+  pickedBefore: Record<string, boolean> = {},
+): FamilyEdit | null {
   const before: Record<string, string | null> = {};
-  let changes = false;
+  let changes = Object.keys(picked).length > 0;
   for (const [song, main] of Object.entries(songs)) {
     before[song] = families.get(song) ?? null;
     if (before[song] !== main) changes = true;
   }
-  return changes ? { songs, before } : null;
-};
+  if (!changes) return null;
+  return Object.keys(picked).length ? { songs, before, picked, pickedBefore } : { songs, before };
+}
 
 /** What's left of a family once `leaving` go: a lone song left behind becomes plain. */
 function leave(families: Families, main: string, leaving: Set<string>, songs: Record<string, string | null>) {
@@ -57,12 +120,12 @@ export function linkEdit(families: Families, song: string, target: string): Fami
   return make(families, songs);
 }
 
-/** `song` becomes its family's Main. */
-export function makeMainEdit(families: Families, song: string): FamilyEdit | null {
-  if (!isVersion(families, song)) return null;
+/** `song` becomes its family's Main. Settle it with `pick` = song, so it stays Main. */
+export function makeMainEdit(families: Families, song: string, picks: Picks = new Set()): FamilyEdit | null {
+  if (!families.has(song) || (!isVersion(families, song) && picks.has(song))) return null;
   const songs: Record<string, string | null> = {};
   membersOf(families, song).forEach((id) => (songs[id] = song));
-  return make(families, songs);
+  return make(families, songs) ?? { songs, before: { ...songs } }; // already Main by date: the pick is the change
 }
 
 /** `song` leaves its family. A Main leaving hands over to `newMain`, or to the next version. */

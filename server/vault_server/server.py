@@ -1,7 +1,7 @@
 """The server: lists known songs, plays one by id with seeking, lays out what Sort shows, and takes my choices from the phone.
 
 Music is read-only by construction: a music file is only ever opened in `_open_audio`, in read mode, after its live file
-attributes say it's on the laptop. Every read route uses the database in SQLite's read-only mode. `POST /changes` is the
+attributes say it's on the laptop. A song the import copied plays from the library's own copy instead. Every read route uses the database in SQLite's read-only mode. `POST /changes` is the
 one route that changes anything, and it writes only to the journal and database, through `apply_changes`. Listens on the
 laptop itself and its Tailscale address only.
 """
@@ -22,6 +22,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from .backup import BACKUP_DIR, last_backup_age
 from .family import in_family, set_family
+from .importer import kept, phone_copy
 from .library import DB_NAME, MARKER_NAME, LibraryMissing, LibraryRefused, open_library
 from .scanner import is_cloud_only
 from .songs import restore_mine, set_mine
@@ -33,7 +34,7 @@ TAILSCALE_RANGE = ipaddress.ip_network((0x64400000, 10))  # the block Tailscale 
 TAILSCALE_EXE = r"C:\Program Files\Tailscale\tailscale.exe"
 CHUNK = 64 * 1024
 SONG_ID = re.compile(r"[0-9a-fA-F-]{36}")
-AUDIO_ROUTE = re.compile(r"/songs/([^/]*)/audio")
+AUDIO_ROUTE = re.compile(r"/songs/([^/]*)/(audio|copy)")
 MEDIA_TYPES = {".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".wav": "audio/wav", ".flac": "audio/flac",
                ".aif": "audio/aiff", ".aiff": "audio/aiff"}
 NOT_ON_LAPTOP = "not on laptop yet"
@@ -105,7 +106,8 @@ def connect_readonly(root):
     return conn
 
 
-PLACE_SQL = """CASE WHEN EXISTS (SELECT 1 FROM song_places p JOIN sources s USING (path)
+PLACE_SQL = """CASE WHEN EXISTS (SELECT 1 FROM imported i WHERE i.song_id=g.id) THEN 'laptop'
+                WHEN EXISTS (SELECT 1 FROM song_places p JOIN sources s USING (path)
                              WHERE p.song_id=g.id AND p.state='sure' AND s.status='present' AND s.cloud_only=0) THEN 'laptop'
                 WHEN EXISTS (SELECT 1 FROM song_places p JOIN sources s USING (path)
                              WHERE p.song_id=g.id AND s.status='present') THEN 'cloud'
@@ -122,17 +124,19 @@ def show_folder(folder):
 
 def list_songs(conn, hidden=False):
     """Known songs, from the database only: the list never touches the music folders. Not-mine songs are listed only
-    when `hidden` is asked for, and then on their own. `main` is the song's Main if it is one of several versions."""
+    when `hidden` is asked for, and then on their own. `main` is the song's Main if it is one of several versions; `picked`: a Main I picked by hand."""
     rows = conn.execute(f"""
         SELECT g.id, g.title, COALESCE(f.value, 'unknown') AS mine, d.value AS date, COALESCE(f.origin = 'manual', 0) AS sorted,
-               {PLACE_SQL} AS place, {FOLDER_SQL} AS folder, m.main_id AS main
+               {PLACE_SQL} AS place, {FOLDER_SQL} AS folder, m.main_id AS main, k.main_id IS NOT NULL AS picked
         FROM songs g LEFT JOIN song_fields f ON f.song_id=g.id AND f.field='mine'
         LEFT JOIN song_fields d ON d.song_id=g.id AND d.field='date'
         LEFT JOIN song_family m ON m.song_id=g.id
+        LEFT JOIN family_pick k ON k.main_id=g.id
         WHERE COALESCE(f.value, 'unknown') {'=' if hidden else '!='} 'not mine'
         ORDER BY place='laptop' DESC, g.title COLLATE NOCASE""")
     return [{"id": r["id"], "title": r["title"], "mine": r["mine"], "where": r["place"], "date": r["date"],
-             "sorted": bool(r["sorted"]), "folder": show_folder(r["folder"]), "main": r["main"]} for r in rows]
+             "sorted": bool(r["sorted"]), "folder": show_folder(r["folder"]), "main": r["main"],
+             "picked": bool(r["picked"])} for r in rows]
 
 
 def name_stem(title):
@@ -281,6 +285,20 @@ def _open_audio(path):
     return open(path, "rb")
 
 
+def library_copy(root, conn, song_id):
+    """The library's own copy of a Mine song, if the import made one and it's still whole. Not mine: never."""
+    row = conn.execute("""SELECT i.code, i.name, i.size FROM imported i
+                          JOIN song_fields f ON f.song_id=i.song_id AND f.field='mine' AND f.value='mine'
+                          WHERE i.song_id=?""", (song_id,)).fetchone()
+    if not row:
+        return None
+    path = Path(root, "audio", row["code"], row["name"])
+    try:
+        return path if path.stat().st_size == row["size"] else None
+    except OSError:
+        return None
+
+
 def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -323,6 +341,13 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
                         return self._json(200, sorting_view(conn))
                     finally:
                         conn.close()
+                if route == "/kept":
+                    conn = connect_readonly(root)
+                    try:
+                        songs = kept(conn, root)
+                    finally:
+                        conn.close()
+                    return self._json(200, {"songs": songs, "total_bytes": sum(s["size"] for s in songs)})
                 if route == "/songs":
                     hidden = parse_qs(urlsplit(self.path).query).get("hidden") == ["1"]
                     conn = connect_readonly(root)
@@ -332,7 +357,7 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
                         conn.close()
                 m = AUDIO_ROUTE.fullmatch(route)
                 if m and SONG_ID.fullmatch(m[1]):
-                    return self._audio(m[1])
+                    return self._audio(m[1]) if m[2] == "audio" else self._copy(m[1])
                 if route.startswith("/songs/"):
                     return self._error(400, "Songs are played by id only.")
                 return self._error(404, "Nothing here.")
@@ -342,16 +367,37 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
                 return self._error(503, "The library database can't be read right now.")
 
         def _audio(self, song_id):
+            """The library's copy if the import made one, else the original, read-only."""
             conn = connect_readonly(root)
             try:
                 if not conn.execute("SELECT 1 FROM songs WHERE id=?", (song_id,)).fetchone():
                     return self._error(404, "No song with that id.")
-                paths = song_places(conn, song_id)
+                copy = library_copy(root, conn, song_id)
+                paths = [] if copy else song_places(conn, song_id)
             finally:
                 conn.close()
+            if copy:
+                return self._file(str(copy), copy.stat().st_size, lambda: open(copy, "rb"))
             path, size, cloud = find_playable(paths)
             if path is None:
                 return self._error(409, NOT_ON_LAPTOP) if cloud else self._error(404, "That song's file isn't there now.")
+            return self._file(path, size, lambda: _open_audio(path))
+
+        def _copy(self, song_id):
+            """The phone copy (AAC, about 192 kbps) of a Mine song, from the library's own folder."""
+            conn = connect_readonly(root)
+            try:
+                row = conn.execute("""SELECT i.code FROM imported i
+                                      JOIN song_fields f ON f.song_id=i.song_id AND f.field='mine' AND f.value='mine'
+                                      WHERE i.song_id=?""", (song_id,)).fetchone()
+            finally:
+                conn.close()
+            copy = row and phone_copy(root, row["code"])
+            if not copy:
+                return self._error(404, "No phone copy of that song yet. Run the import on the laptop.")
+            return self._file(str(copy), copy.stat().st_size, lambda: open(copy, "rb"))
+
+        def _file(self, path, size, opener):
             wanted = parse_range(self.headers.get("Range"), size)
             if wanted == "bad":
                 self.send_response(416)
@@ -371,7 +417,7 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
             self.end_headers()
             if self.command == "HEAD":
                 return
-            with _open_audio(path) as f:
+            with opener() as f:
                 f.seek(start)
                 left = end - start + 1
                 while left > 0:

@@ -122,9 +122,26 @@ CREATE TABLE IF NOT EXISTS song_family (
     main_id TEXT NOT NULL REFERENCES songs(id),
     ts TEXT NOT NULL
 );
+-- Mains I picked by hand with Make main: that family keeps it. Any other family's Main is its newest version.
+-- Added without a schema bump, like song_family: an older database gets the empty table, then the journal fills it.
+CREATE TABLE IF NOT EXISTS family_pick (main_id TEXT PRIMARY KEY REFERENCES songs(id), ts TEXT NOT NULL);
+-- The library's own copy of each Mine song: `audio/<code>/<name>`, checked by fingerprint (sha256) when made. src_* is
+-- the original it came from, so a rerun knows it hasn't changed without reading it again. Added without a schema bump.
+CREATE TABLE IF NOT EXISTS imported (
+    song_id TEXT PRIMARY KEY REFERENCES songs(id),
+    hash TEXT NOT NULL,
+    code TEXT NOT NULL,
+    name TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    src_path TEXT NOT NULL,
+    src_size INTEGER NOT NULL,
+    src_mtime REAL NOT NULL,
+    ts TEXT NOT NULL
+);
 """
 
-MINE_TABLES = ("songs", "versions", "song_places", "song_fields", "tags", "groups", "group_members", "verdicts", "links", "song_family")
+MINE_TABLES = ("songs", "versions", "song_places", "song_fields", "tags", "groups", "group_members", "verdicts", "links", "song_family",
+               "family_pick", "imported")
 
 # kind -> keys its data must have
 REQUIRED = {
@@ -141,6 +158,7 @@ REQUIRED = {
     "song_field": ("song_id", "field", "value", "origin"),
     "song_field_restore": ("song_id", "field", "value"),
     "family": ("songs", "before"),
+    "imported": ("song_id",),  # with hash, code, name, size, src_*; or dropped: true when the song is no longer Mine
 }
 CHOICES = {
     "song_place": ("state", ("sure", "likely")),
@@ -336,6 +354,11 @@ class Store:
                     raise ValueError("song_field_restore only handles mine.")
                 if data["value"] is not None and data.get("origin") not in ("guess", "manual"):
                     raise ValueError("song_field_restore needs a guess or manual origin to put back.")
+        elif kind == "imported":
+            if not c.execute("SELECT 1 FROM songs WHERE id=?", (data["song_id"],)).fetchone():
+                raise ValueError("imported is for a song that doesn't exist.")
+            if not data.get("dropped") and any(k not in data for k in ("hash", "code", "name", "size", "src_path", "src_size", "src_mtime")):
+                raise ValueError("imported needs the copy's hash, code, name, size and where it came from.")
         elif kind == "song_merge":
             for sid in (data["from_id"], data["into_id"]):
                 if not c.execute("SELECT 1 FROM songs WHERE id=?", (sid,)).fetchone():
@@ -357,6 +380,10 @@ class Store:
         c.execute("UPDATE song_family SET main_id=? WHERE main_id=?", (into, old))
         c.execute("UPDATE OR IGNORE song_family SET song_id=? WHERE song_id=?", (into, old))
         c.execute("DELETE FROM song_family WHERE song_id=?", (old,))
+        c.execute("UPDATE OR IGNORE family_pick SET main_id=? WHERE main_id=?", (into, old))
+        c.execute("DELETE FROM family_pick WHERE main_id=?", (old,))
+        c.execute("UPDATE OR IGNORE imported SET song_id=? WHERE song_id=?", (into, old))
+        c.execute("DELETE FROM imported WHERE song_id=?", (old,))
         c.execute("DELETE FROM songs WHERE id=?", (old,))
         c.execute("UPDATE songs SET title=COALESCE((SELECT value FROM song_fields WHERE song_id=? AND field='title'), title) WHERE id=?",
                   (into, into))
@@ -410,6 +437,19 @@ class Store:
                     c.execute("DELETE FROM song_family WHERE song_id=?", (sid,))
                 else:
                     c.execute("INSERT OR REPLACE INTO song_family VALUES (?,?,?)", (sid, main, ts))
+            for sid, on in (d.get("picked") or {}).items():
+                if on:
+                    c.execute("INSERT OR REPLACE INTO family_pick VALUES (?,?)", (sid, ts))
+                else:
+                    c.execute("DELETE FROM family_pick WHERE main_id=?", (sid,))
+            # a pick only means something on a Main
+            c.execute("DELETE FROM family_pick WHERE main_id NOT IN (SELECT song_id FROM song_family WHERE main_id=song_id)")
+        elif kind == "imported":
+            if d.get("dropped"):
+                c.execute("DELETE FROM imported WHERE song_id=?", (d["song_id"],))
+            else:
+                c.execute("INSERT OR REPLACE INTO imported VALUES (?,?,?,?,?,?,?,?,?)",
+                          (d["song_id"], d["hash"], d["code"], d["name"], d["size"], d["src_path"], d["src_size"], d["src_mtime"], ts))
         elif kind == "sorting_applied":
             pass  # only the journal line matters: the sorting file is turned into verdicts once
         else:

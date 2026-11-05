@@ -90,14 +90,25 @@ export function startOutbox(serverUrl: string) {
 
 export type NewChange =
   | { kind: MineChange['kind']; songId: string; value?: MineChange['data']['value'] }
-  | { kind: 'family_set'; songId: string; edit: FamilyEdit };
+  | { kind: 'family_set'; songId: string; edit: FamilyEdit; mine?: string[]; restore?: string[] };
 
 /** Saves these and sends them together, so a sweep is one send. Gives back what was saved, for an Undo. */
 export function addChanges(list: NewChange[]): Change[] {
   if (!list.length) return [];
   const made = list.map((one): Change =>
     one.kind === 'family_set'
-      ? { id: newId(), kind: 'family_set', data: { song_id: one.songId, songs: one.edit.songs, before: one.edit.before } }
+      ? {
+          id: newId(),
+          kind: 'family_set',
+          data: {
+            song_id: one.songId,
+            songs: one.edit.songs,
+            before: one.edit.before,
+            ...(one.edit.picked ? { picked: one.edit.picked, picked_before: one.edit.pickedBefore ?? {} } : {}),
+            ...(one.mine?.length ? { mine: one.mine } : {}),
+            ...(one.restore?.length ? { restore_mine: one.restore } : {}),
+          },
+        }
       : { id: newId(), kind: one.kind, data: { song_id: one.songId, ...(one.value ? { value: one.value } : {}) } },
   );
   const pending = [...state.pending, ...made];

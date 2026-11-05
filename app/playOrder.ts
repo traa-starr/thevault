@@ -123,11 +123,30 @@ export type MineChange = { id: string; kind: 'mine_set' | 'mine_restore'; data: 
 export type FamilyChange = {
   id: string;
   kind: 'family_set';
-  data: { song_id: string; songs: Record<string, string | null>; before: Record<string, string | null> };
+  data: {
+    song_id: string;
+    songs: Record<string, string | null>;
+    before: Record<string, string | null>;
+    picked?: Record<string, boolean>;
+    picked_before?: Record<string, boolean>;
+    /** Marked Mine in the same go, before the family is made. */
+    mine?: string[];
+    /** Mine put back as it was, after the family is undone. */
+    restore_mine?: string[];
+  };
 };
 export type Change = MineChange | FamilyChange;
 
-const mineOnly = (pending: Change[]) => pending.filter((change): change is MineChange => change.kind !== 'family_set');
+/** The Mine side of what's waiting: a versions change carries its own Mine marks and restores. */
+const mineOnly = (pending: Change[]): MineChange[] =>
+  pending.flatMap((change): MineChange[] =>
+    change.kind !== 'family_set'
+      ? [change]
+      : [
+          ...(change.data.mine ?? []).map((id): MineChange => ({ id: change.id, kind: 'mine_set', data: { song_id: id, value: 'mine' } })),
+          ...(change.data.restore_mine ?? []).map((id): MineChange => ({ id: change.id, kind: 'mine_restore', data: { song_id: id } })),
+        ],
+  );
 
 /** Plays `id` now without touching what comes after: a song not in the order goes in right after the current one. */
 export function playHere(order: Order, id: string): Order {
