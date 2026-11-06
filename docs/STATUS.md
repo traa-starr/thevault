@@ -1,9 +1,9 @@
 # Status
 
-**Phase 1.** Updated 2026-11-04 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 1.** Updated 2026-11-05 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 
-**In progress:** Batch 4d, Compare versions: part 0 done (board notes written). Next is part a. No app or server code changed yet.
-**Next up:** Code: `/next` (Batch 4d, board pass then build).
+**In progress:** Batch 4d, Compare versions: parts 0, a, b built; part c (level match) not started.
+**Next up:** me: phone checks 1-6 (REPORT), then Review. Then Code: `/next` for part c.
 **Current task:** `NEXT.md` "Batch 4d, Compare versions".
 
 ## Done
@@ -26,4 +26,4 @@
 - Level match in Compare: on by default with a toggle (chat-default, owner to confirm).
 
 ## Checks pending
-- None. Batch 4d checks come with its REPORT.
+- Batch 4d checks 1-6 (in REPORT). Level-match check after part c.

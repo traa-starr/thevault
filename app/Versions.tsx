@@ -2,6 +2,7 @@
 // never stops. The rules are in family.ts; sending and Undo are in versions.ts.
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Keyboard, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { compare } from './compareStore';
 import { useOutbox } from './outbox';
 import { player, usePlayer, type PlayerSong } from './playerStore';
 import { withPending } from './playOrder';
@@ -10,6 +11,7 @@ import { useVersions, type LibSong } from './versionStore';
 
 const SHORT_LIST = 40;
 const ROW_HEIGHT = 60;
+const AFTER_CLOSE_MS = 700;
 
 /** The song on screen, as the picker needs it. */
 export type LinkSong = PlayerSong & { folder?: string | null };
@@ -204,6 +206,11 @@ function VersionsView({ url }: { url: string }) {
             <Text style={s.link}>Done</Text>
           </Pressable>
           <Text style={s.sheetTitle}>Versions · {list.length}</Text>
+          <View style={s.grow} />
+          {/* one sheet at a time on iOS: this one goes first, then Compare opens */}
+          <Pressable onPress={() => { close(); setTimeout(() => compare.openFromLibrary(url, versionsOf), AFTER_CLOSE_MS); }}>
+            <Text style={s.link}>Compare</Text>
+          </Pressable>
         </View>
         <Text style={s.sheetNote}>The Main plays in shuffle and holds the Library row. It's the newest version unless you pick one with Make main.</Text>
         {list.map((id, i) => (
@@ -280,6 +287,7 @@ export function VersionsLayer({ url }: { url: string }) {
 }
 
 const s = StyleSheet.create({
+  grow: { flex: 1 },
   chip: { color: '#8ab4f8', fontSize: 13, fontWeight: '600' },
   sheet: { flex: 1, backgroundColor: '#161616', paddingTop: 16, paddingHorizontal: 16 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },

@@ -53,6 +53,8 @@ type State = {
   buttonsHidden: boolean;
   marks: Record<string, Mark>;
   pool: Pool;
+  /** Compare has the sound: the queue's player waits, paused, and its buttons do nothing. */
+  comparing: boolean;
 };
 
 const timeLeftFile = () => new File(Paths.document, 'time-left.txt');
@@ -78,10 +80,12 @@ let state: State = {
   buttonsHidden: buttonsHiddenFile().exists,
   marks: {},
   pool: 'unsorted',
+  comparing: false,
 };
 let url = '';
 const songs = new Map<string, PlayerSong>();
 let saved: Spot | null = null; // the library's place while Sort has the player
+let beforeCompare: { spot: Spot | null } | null = null; // the queue's place while a Compare from Library has the sound
 let engine: Engine | null = null;
 let modeSet: Promise<unknown> | null = null;
 let track: { id: string; order: Order | null }[] = []; // what the playlist player holds, one per position; null: chosen before a shuffle change
@@ -152,6 +156,7 @@ const newTrackStarted = () => {
 };
 
 function onSound(sound: Sound) {
+  if (state.comparing) return; // paused and waiting: nothing it says counts
   if (sound.loaded) everLoaded = true;
   const changes: Partial<State> = { time: sound.time, duration: sound.duration };
   if (sound.time !== lastTime) {
@@ -340,7 +345,7 @@ export const player = {
   },
 
   toggle() {
-    if (!state.order) return;
+    if (!state.order || state.comparing) return;
     if (state.wanted) {
       engine?.pause();
       update({ wanted: false });
@@ -359,7 +364,7 @@ export const player = {
   },
 
   next() {
-    if (!state.order) return;
+    if (!state.order || state.comparing) return;
     const moved = nextInOrder(state.order, avoid());
     if (!moved) {
       update({ note: 'Played every song in this list' });
@@ -378,7 +383,7 @@ export const player = {
   },
 
   previous() {
-    if (!state.order) return;
+    if (!state.order || state.comparing) return;
     const moved = previousInOrder(state.order);
     if (!moved) {
       engine?.seek(0).catch(() => {});
@@ -661,6 +666,51 @@ export const player = {
     }
   },
 
+  /** Compare takes the sound. The queue pauses where it is; what was playing and where are handed to Compare.
+   * `fromLibrary`: Done brings the queue's song back paused, the way leaving Sort does. */
+  startCompare(fromLibrary: boolean) {
+    const out = { id: state.song?.id ?? null, at: state.time, play: state.wanted };
+    engine?.pause();
+    engine?.releaseLockScreen();
+    beforeCompare = fromLibrary ? { spot: state.order && { order: state.order, at: state.time } } : null;
+    update({ comparing: true, wanted: false });
+    return out;
+  },
+
+  /** Done in Compare. From the player: the version heard last plays on at that second, in the queue's spot
+   * (the queue is untouched if it was the queue's song). From Library: the queue's song comes back, paused. */
+  endCompare(serverUrl: string, song: PlayerSong | null, at: number, play: boolean) {
+    const back = beforeCompare;
+    beforeCompare = null;
+    update({ comparing: false });
+    if (back) {
+      if (back.spot) loadOrder(back.spot.order, back.spot.at, false);
+      return;
+    }
+    if (!song) return;
+    url = serverUrl;
+    songs.set(song.id, song);
+    if (state.order && currentId(state.order) === song.id) {
+      newTrackStarted();
+      settleUntil = play ? Date.now() + SETTLE_MS : 0;
+      holdPausedUntil = play ? 0 : Date.now() + HOLD_PAUSED_MS;
+      engine?.setTitle(titleOf(song.id));
+      engine?.seek(at).catch(() => {}).finally(() => {
+        if (play && !state.comparing) engine?.play();
+      });
+      update({ time: at, wanted: play });
+      return;
+    }
+    if (!state.order) {
+      const order = startOrder([song.id], song.id, false);
+      loadOrder(order, at, play);
+      return;
+    }
+    badInARow = 0;
+    loadOrder(playHere(state.order, song.id), at, play);
+  },
+
+  isSorting: () => state.sorting,
   isMine: () => (state.song ? markOf(state.song).mine === 'mine' : false),
   isOut: () => (state.order ? state.order.removed.includes(currentId(state.order)) : false),
   titleOf,

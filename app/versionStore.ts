@@ -193,6 +193,7 @@ export const isPicked = (id: string) => state.picks.has(id);
 export const isVersion = (id: string) => (state.families.get(id) ?? id) !== id;
 export const versionCount = (id: string) => (state.families.has(id) ? membersOf(state.families, id).length : 1);
 export const songTitle = titleOf;
+export const songInfo = (id: string) => state.songs?.find((song) => song.id === id);
 
 const subscribe = (listener: () => void) => {
   listeners.add(listener);

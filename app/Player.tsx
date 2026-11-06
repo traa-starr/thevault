@@ -5,6 +5,7 @@ import { Alert, Animated, Dimensions, Modal, PanResponder, Pressable, StyleSheet
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import ReorderableList, { useIsActive, useReorderableDrag, type ReorderableListDragEndEvent, type ReorderableListReorderEvent } from 'react-native-reorderable-list';
+import { compare } from './compareStore';
 import { openLibrarySelect, HomeButton } from './nav';
 import { player, usePlayer, type Pool } from './playerStore';
 import { VersionsChip, VersionsToast } from './Versions';
@@ -31,7 +32,7 @@ const clock = (seconds: number) => {
 
 type SeekBarProps = { value: number; max: number; onDrag: (value: number) => void; onDrop: (value: number) => void };
 
-function SeekBar({ value, max, onDrag, onDrop }: SeekBarProps) {
+export function SeekBar({ value, max, onDrag, onDrop }: SeekBarProps) {
   const width = useRef(1);
   const grabbedAt = useRef(0);
   const latest = useRef({ max, onDrag, onDrop });
@@ -139,7 +140,7 @@ export function UndoToast({ aboveButtons = false }: { aboveButtons?: boolean }) 
 
 /** Near the bottom of every screen once something has played. */
 export function NowPlayingBar() {
-  const { song, wanted, sorting, trouble, note } = usePlayer();
+  const { song, wanted, sorting, trouble, note, comparing } = usePlayer();
   const swipe = useSwipeUp(() => player.open('queue'));
   if (!song) return null;
   return (
@@ -148,7 +149,7 @@ export function NowPlayingBar() {
       <Pressable style={s.bar} onPress={() => player.open('player')}>
         <View style={s.barText}>
           <Text style={s.barTitle} numberOfLines={1}>{song.title}</Text>
-          <Text style={s.barDetail} numberOfLines={2}>{trouble || note || (sorting ? 'Sorting' : wanted ? 'Playing' : 'Paused')}</Text>
+          <Text style={s.barDetail} numberOfLines={2}>{comparing ? 'Comparing versions' : trouble || note || (sorting ? 'Sorting' : wanted ? 'Playing' : 'Paused')}</Text>
         </View>
         <Pressable style={s.barButton} onPress={player.toggle} hitSlop={8}>
           <Text style={s.barButtonText}>{wanted ? 'Pause' : 'Play'}</Text>
@@ -223,6 +224,11 @@ function FullPlayer() {
               <Text style={s.link}>Another version of…</Text>
             </Pressable>
             <VersionsChip id={song.id} onPress={() => player.closeThen(() => versions.openVersions(song.id))} />
+            {versions.members(song.id).length > 1 ? (
+              <Pressable onPress={() => player.closeThen(() => compare.openFromPlayer(player.url()))}>
+                <Text style={s.link}>Compare</Text>
+              </Pressable>
+            ) : null}
           </View>
         )}
         <Pressable onPress={() => player.open('none')}>

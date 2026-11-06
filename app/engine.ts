@@ -27,6 +27,8 @@ export type Engine = {
   seek: (seconds: number) => Promise<void>;
   setLoop: (loop: boolean) => void;
   setTitle: (title: string) => void;
+  /** Lets go of the lock screen for Compare. The next setTitle takes it back. */
+  releaseLockScreen: () => void;
   stop: () => void;
 };
 
@@ -103,6 +105,10 @@ function playlistEngine({ onSound, onTrack }: Handlers): Engine {
         list.setActiveForLockScreen(true, { title }, LOCK_SCREEN);
         locked = true;
       }
+    },
+    releaseLockScreen: () => {
+      list.clearLockScreenControls();
+      locked = false;
     },
     stop: () => {
       waiting = null;
@@ -181,6 +187,10 @@ function singleEngine({ onSound }: Handlers): Engine {
         player.setActiveForLockScreen(true, { title });
         locked = true;
       }
+    },
+    releaseLockScreen: () => {
+      player.clearLockScreenControls();
+      locked = false;
     },
     stop: () => {
       waiting = null;

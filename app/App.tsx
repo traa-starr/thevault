@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import buildInfo from './build-info.json';
+import { CompareLayer } from './Compare';
 import Library from './Library';
 import { setHome } from './nav';
 import { flush, startOutbox } from './outbox';
@@ -131,6 +132,7 @@ export default function App() {
       <NowPlayingBar />
       <PlayerSheet />
       {address ? <VersionsLayer url={serverUrl(address)} /> : null}
+      {address ? <CompareLayer /> : null}
     </View>
   );
 
