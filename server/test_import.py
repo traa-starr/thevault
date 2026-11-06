@@ -119,6 +119,8 @@ def main():
     data = json.loads(body)
     check("/kept lists the 3 with their sizes", {s["id"] for s in data["songs"]} == {wav, small, big}
           and data["total_bytes"] == sum(s["size"] for s in data["songs"]))
+    check("/kept stamps each copy and lists no copy-less Mine song", data["no_copy"] == []
+          and all(s["stamp"] == f'{s["size"]}-{s["stamp"].split("-")[1]}' for s in data["songs"]))
     server.stop_servers(servers)
 
     lib = open_library(root)

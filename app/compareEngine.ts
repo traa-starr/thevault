@@ -1,5 +1,5 @@
 // Compare's own sound, kept apart from the queue's player. Every loaded version runs at the same second and only the
-// sounding one has volume, so a flip just swaps volumes: nothing loads or seeks at the moment of the flip.
+// sounding one has volume (full, at its true level: no loudness matching), so a flip just swaps volumes: nothing loads or seeks at the moment of the flip.
 // Nothing here knows about families or the queue: compareStore.ts decides what is loaded and what sounds.
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 
@@ -33,13 +33,11 @@ export function createCompareEngine({ onChange, onEnd }: Handlers) {
   let pending: string | null = null;
   let wanted = false;
   let wantedAt = 0;
-  let gains: Record<string, number> = {};
   let title = (id: string) => id;
   let seekingTo: number | null = null;
   let timer: ReturnType<typeof setInterval> | null = null;
   const lengths: Record<string, number> = {};
 
-  const gainOf = (id: string) => gains[id] ?? 1;
   const now = () => {
     const one = loaded.get(sounding);
     return seekingTo ?? (one?.p.currentTime ?? 0);
@@ -61,7 +59,7 @@ export function createCompareEngine({ onChange, onEnd }: Handlers) {
     });
   };
 
-  const setVolumes = () => loaded.forEach((one, id) => (one.p.volume = id === sounding ? gainOf(id) : 0));
+  const setVolumes = () => loaded.forEach((one, id) => (one.p.volume = id === sounding ? 1 : 0));
 
   const lockScreen = () => {
     const one = loaded.get(sounding);
@@ -247,11 +245,6 @@ export function createCompareEngine({ onChange, onEnd }: Handlers) {
       wantedAt = Date.now();
       loaded.forEach((one) => one.p.pause());
       this.seek(0);
-    },
-
-    setGains(next: Record<string, number>) {
-      gains = next;
-      setVolumes();
     },
 
     time: now,

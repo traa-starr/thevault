@@ -232,6 +232,15 @@ def kept(conn, root):
                              ORDER BY d.value IS NULL, d.value DESC, g.title COLLATE NOCASE"""):
         copy = phone_copy(root, r["code"])
         if copy:
-            out.append({"id": r["song_id"], "title": r["title"], "date": r["date"], "main": r["main"], "size": copy.stat().st_size,
-                        "type": copy.suffix.lstrip(".").lower()})
+            st = copy.stat()
+            # the phone keeps this next to its copy: a rebuilt copy has a new stamp, so the phone fetches it again
+            out.append({"id": r["song_id"], "title": r["title"], "date": r["date"], "main": r["main"], "size": st.st_size,
+                        "type": copy.suffix.lstrip(".").lower(), "stamp": f"{st.st_size}-{st.st_mtime_ns}"})
     return out
+
+
+def mine_without_copy(conn, root, listed):
+    """Mine songs missing from /kept (no phone copy yet), so the phone never takes one for a song no longer Mine."""
+    have = {s["id"] for s in listed}
+    return [r["song_id"] for r in conn.execute("SELECT song_id FROM song_fields WHERE field='mine' AND value='mine'")
+            if r["song_id"] not in have]

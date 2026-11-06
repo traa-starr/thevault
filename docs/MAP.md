@@ -18,6 +18,7 @@ From the interview and read-only scans, 2026-10-31. No Tailscale hostnames or IP
 | Dummy lock-test folder | `E:\vault-dummy-protected` | Safe to delete, but the guard test expects the path |
 | Untethered (other project) | `C:\Users\illus\Desktop\untethered\Untethered` | Read-only reference |
 | Vault library + database | `E:\VaultLibrary` (created 2026-10-31) | One folder, database and audio together; marker `VAULT-LIBRARY-MARKER.json`, `audio/`, `phone/`, `vault.db`, `journal.jsonl`, `write.lock`, my sorting file. Found by a marker file, not the drive letter. E: is an external USB drive |
+| Phone copies on the phone | The app's own Documents folder: `phone-copies/`, `phone-copies.json`, `song-list.json` (2026-11-06) | Mine songs for laptop-off play. Rebuilt by downloading again; a wipe loses them (6.2) |
 | Nightly database backup | `C:\VaultBackup\<date-time>\` (vault.db + journal.jsonl), 14 kept | Built 2026-11-01 (ROADMAP 1.9). Task: `server\schedule_backup.ps1`. Skipped with a warning while E: is unplugged |
 
 Installed: Python 3.13, SQLite 3.50 (FTS5 works), Node, ffmpeg (includes Chromaprint), Microsoft Store iCloud, Tailscale (not on PATH), iTunes (Apple's installer), iloader. Missing: gh.

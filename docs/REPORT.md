@@ -1,28 +1,34 @@
 # Report
+**Step:** Batch 6.1, Downloads and offline play, 2026-11-06. Parts 0, 1, a, b done.
 
-**Step:** Batch 4d, Compare versions, 2026-11-05. Parts 0, a, b done. Part c (level match) not started.
 ## Verified by running
-- `npx tsc --noEmit` in `app/`: no errors. `node --test playOrder.test.mjs`: passes, 0 skipped.
-- `python .claude/scripts/check_repo.py`: clean. Not run on the phone yet.
-## Needs the phone (after the build installs)
-1. Full player, a grouped song at about 1:00: tap Compare, swipe the dial to another version. Pass: carries on within about 1 s of the same second, no restart.
-2. Flip 8 times fast, then let it play 10 s. Pass: on the version the dial shows, one version heard, time counting.
-3. Library, Versions chip on a group of 3+, then Compare (top right). Then a group of 2. Pass: Main at 0:00 paused, one row per swipe, Main marked, a fling stops at the end.
-4. Lock the phone mid-Compare. Pass: lock screen names the version, Pause and Play work, no Next/Previous.
-5. Close Compare (Done) from the full player after flipping. Pass: that version keeps playing at that second; Up next unchanged.
-6. Close Compare opened from Library. Pass: the song from before is back in the bar at its spot, paused.
-(Level-match check waits for part c.)
+- `python server/test_import.py`: ALL PASSED (new check: `/kept` stamps each copy, lists no copy-less Mine song).
+- `python server/test_server.py`: ALL PASSED. `node --experimental-strip-types app/playOrder.test.mjs`: ALL PASSED.
+- `npx tsc --noEmit` in `app/`: no errors. `check_repo.py`: clean. Phone copies on the laptop: 314 songs, 830 MB.
+- Part 0: Compare has no gain or loudness code left; every version plays at full volume, its true level.
+
+## Needs the phone
+See STATUS "Checks pending" (6 checks). Needs a new build first (GitHub build, then SideStore).
+
 ## Changed
-New: `app/compareEngine.ts`, `app/compareStore.ts`, `app/Compare.tsx`. Modified: `app/App.tsx`, `app/Player.tsx`, `app/Versions.tsx`, `app/engine.ts` (`releaseLockScreen`), `app/playerStore.ts` (`comparing`, `startCompare`, `endCompare`, `isSorting`), `app/versionStore.ts` (`songInfo`).
+`app/offline.ts` (new), `app/App.tsx`, `app/Library.tsx`, `app/playerStore.ts`, `app/compareStore.ts`,
+`app/compareEngine.ts`, `server/vault_server/importer.py`, `server/vault_server/server.py`, `server/test_import.py`,
+`docs/board/batch-6-offline.md` (new), docs.
+
 ## Differed from NEXT.md
-- Library entry: a Compare button in the Versions view (opened by the Versions chip), not on the row itself; long-press on a row is select mode. Compare from a Versions view opened from the player also starts Library-style (Main, 0:00).
-- A row that can't play (cloud only, missing, laptop off) is stepped over by the dial. One still being checked can be dialled to; it shows Loading until it plays or the check fails.
-- Version length shows once that version has loaded (lengths aren't stored yet).
+- Library now keeps its last song list on the phone, so it opens with the laptop off (needed for checks 3-5; not in NEXT).
+- A download that breaks restarts that one song (2.6 MB average), not mid-file. The batch carries on where it was.
+- With the laptop off, Next and shuffle pass over songs not on the phone instead of trying them.
+- Compare uses phone copies when the laptop isn't known to be on at open, streams the full copy otherwise (4d rule kept).
+
 ## Not done
-- Part c, level match: stop line, session long. Gains are already wired in the engine (`setGains`), so c is the laptop measurement, `/songs` sending it, and the toggle.
+- Downloads run only while the app is open: iOS gives a sideloaded app no dependable background time (board agreed).
+
 ## Decisions needed
-- None new. Board defaults from part 0 are in force (see DECISIONS "Batch 4d build").
+- None blocking. Board defaults taken (DECISIONS): un-Mined songs leave the phone after 7 days; full = stop, never remove.
+
 ## Proposed next step
-Phone checks 1-6, then `/next` for part c.
+Phone checks, then Batch 6.2 (restore and survival).
+
 ## Pitch
-Store each song's length at scan time: the dial could grey a too-short version before it loads.
+A "Remove from phone / Download now" hold action per song: handy once Mine grows past what 8 GB holds.

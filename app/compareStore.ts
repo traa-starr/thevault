@@ -2,6 +2,7 @@
 // nothing goes to the outbox. The app killed mid-Compare reopens on the queue's song, as the queue never moved.
 import { useSyncExternalStore } from 'react';
 import { createCompareEngine, type CompareEngine, type CompareSound } from './compareEngine';
+import { offline } from './offline';
 import { player } from './playerStore';
 import { members, songInfo, songTitle } from './versionStore';
 
@@ -26,6 +27,8 @@ let state: State = { open: false, from: 'player', ids: [], at: 0, can: {}, last:
 let url = '';
 let engine: CompareEngine | null = null;
 let shownSounding = '';
+// set at open: the laptop isn't known to be on, so versions on the phone play from there (same files on every flip)
+let fromPhone = false;
 const listeners = new Set<() => void>();
 
 const update = (changes: Partial<State>) => {
@@ -33,7 +36,9 @@ const update = (changes: Partial<State>) => {
   listeners.forEach((listener) => listener());
 };
 
-const audioUrl = (id: string) => `${url}/songs/${id}/audio`;
+const streamUrl = (id: string) => `${url}/songs/${id}/audio`;
+/** The laptop's full-quality copy when it's on; the phone's copy when it isn't. */
+const audioUrl = (id: string) => (fromPhone && offline.uri(id)) || streamUrl(id);
 
 /** Main first, then newest to oldest; no date last. */
 export function dialOrder(anyId: string) {
@@ -48,10 +53,12 @@ const uris = (ids: string[]) => Object.fromEntries(ids.map((id) => [id, audioUrl
 const nearby = (ids: string[], at: number) => [ids[at - 1], ids[at], ids[at + 1]].filter((id): id is string => !!id);
 
 async function probe(id: string): Promise<Can> {
+  if (fromPhone && offline.uri(id)) return 'ok';
+  if (offline.reachable() === false) return 'unreachable';
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), PROBE_TIMEOUT_MS);
   try {
-    const r = await fetch(audioUrl(id), { method: 'HEAD', signal: abort.signal });
+    const r = await fetch(streamUrl(id), { method: 'HEAD', signal: abort.signal });
     if (r.ok) return 'ok';
     return r.status === 409 ? 'cloud' : 'missing';
   } catch {
@@ -73,6 +80,7 @@ function onChange(sound: CompareSound) {
 
 function begin(serverUrl: string, ids: string[], startId: string, at: number, play: boolean, from: State['from']) {
   url = serverUrl;
+  fromPhone = offline.reachable() !== true;
   const index = Math.max(ids.indexOf(startId), 0);
   const can = Object.fromEntries(ids.map((id) => [id, 'checking' as Can]));
   shownSounding = startId;

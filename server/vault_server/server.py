@@ -22,7 +22,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from .backup import BACKUP_DIR, last_backup_age
 from .family import in_family, set_family
-from .importer import kept, phone_copy
+from .importer import kept, mine_without_copy, phone_copy
 from .library import DB_NAME, MARKER_NAME, LibraryMissing, LibraryRefused, open_library
 from .scanner import is_cloud_only
 from .songs import restore_mine, set_mine
@@ -345,9 +345,10 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
                     conn = connect_readonly(root)
                     try:
                         songs = kept(conn, root)
+                        no_copy = mine_without_copy(conn, root, songs)
                     finally:
                         conn.close()
-                    return self._json(200, {"songs": songs, "total_bytes": sum(s["size"] for s in songs)})
+                    return self._json(200, {"songs": songs, "total_bytes": sum(s["size"] for s in songs), "no_copy": no_copy})
                 if route == "/songs":
                     hidden = parse_qs(urlsplit(self.path).query).get("hidden") == ["1"]
                     conn = connect_readonly(root)

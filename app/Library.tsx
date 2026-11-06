@@ -1,13 +1,15 @@
-// The song list from the laptop: scroll, sort, filter by title, tap to play. Only songs on the laptop can play.
+// The song list from the laptop: scroll, sort, filter by title, tap to play. Songs on the phone play from there; with the
+// laptop off, the last list shows and only those play.
 // Choices the laptop hasn't confirmed yet already show here. Hold a row for select mode: tick songs, then group them as
 // versions, or call them Mine or Not mine, all at once with one Undo.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Hidden from './Hidden';
 import { HomeButton, takeSeed, useSeed } from './nav';
+import { loadSongList, offline, saveSongList, useOffline } from './offline';
 import { flush, useOutbox } from './outbox';
 import { askShuffle } from './Player';
-import { player, type Pool } from './playerStore';
+import { NOT_HERE, player, type Pool } from './playerStore';
 import { withPending } from './playOrder';
 import { setLibrary, useVersions, type LibSong } from './versionStore';
 import { VersionsChip } from './Versions';
@@ -30,7 +32,19 @@ const ROW_HEIGHT = 60;
 const WHERE: Record<string, string> = { laptop: 'On the laptop', cloud: 'Cloud only', gone: 'File missing' };
 
 const number = (n: number) => n.toLocaleString('en-US');
-const detail = (song: Song) => [song.date, WHERE[song.where]].filter(Boolean).join(' · ');
+const detail = (song: Song) => [song.date, offline.has(song.id) ? 'On this phone' : WHERE[song.where]].filter(Boolean).join(' · ');
+const size = (bytes: number) => (bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(1)} GB` : `${Math.round(bytes / 1024 ** 2)} MB`);
+
+/** One quiet line: downloads running, done, or stopped at the limit. */
+function SavedLine() {
+  const o = useOffline();
+  if (!o.wanted && !o.stored) return null;
+  let text = `On this phone: ${number(o.stored)} of ${number(o.wanted)} Mine songs · ${size(o.bytes)} of 8 GB`;
+  if (o.saving) text = `Saving to phone: ${number(o.stored)} of ${number(o.wanted)}`;
+  else if (o.full === 'limit') text = `8 GB limit reached: ${number(o.left)} Mine songs not on this phone`;
+  else if (o.full === 'phone') text = `Phone storage full: ${number(o.left)} Mine songs not on this phone`;
+  return <Text style={s.saved}>{text}</Text>;
+}
 
 export default function Library({ url, onBack }: { url: string; onBack: () => void }) {
   const [fetched, setFetched] = useState<Song[] | null>(null);
@@ -62,10 +76,20 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
         if (!r.ok) throw new Error(`Server said ${r.status}`);
         const data: { songs: Song[] } = await r.json();
         if (!current) return;
+        offline.setReachable(true);
+        saveSongList(data.songs, asked);
         setLibrary(data.songs, asked);
         setFetched(data.songs);
       } catch {
-        if (current) setFailed(true);
+        if (!current) return;
+        setFailed(true);
+        offline.setReachable(false);
+        // the last list, so songs on the phone still play
+        const last = loadSongList<Song>();
+        if (last && !fetched) {
+          setLibrary(last.songs, last.asked);
+          setFetched(last.songs);
+        }
       } finally {
         clearTimeout(timer);
       }
@@ -111,10 +135,14 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     return wanted ? base.filter((song) => song.title.toLowerCase().includes(wanted)) : base;
   }, [base, filter]);
 
-  const playable = useMemo(() => shown.filter((song) => song.where === 'laptop'), [shown]);
+  const { reachable, stored } = useOffline();
+  const laptopOff = reachable === false;
+  const canPlay = (song: Song) => offline.has(song.id) || (!laptopOff && song.where === 'laptop');
+  const playable = useMemo(() => shown.filter(canPlay), [shown, laptopOff, stored]);
 
   const open = (start: Song, shuffle: boolean, pool: Pool = mineOnly ? 'mine' : 'unsorted') => {
     Keyboard.dismiss();
+    if (!canPlay(start)) return player.showMessage(NOT_HERE);
     player.playList(url, playable, start.id, shuffle, pool);
     player.open('player');
   };
@@ -208,6 +236,12 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
         <Text style={s.title}>{selecting ? `${number(ticked.length)} ticked` : 'Library'}</Text>
         <HomeButton />
       </View>
+      {!selecting ? <SavedLine /> : null}
+      {failed && songs ? (
+        <Pressable onPress={() => setAttempt(attempt + 1)}>
+          <Text style={s.offline}>Laptop not reachable: songs on this phone still play. Tap to try again.</Text>
+        </Pressable>
+      ) : null}
       {refused ? <Text style={s.refused}>The laptop refused {refused === 1 ? '1 change' : `${refused} changes`}, so {refused === 1 ? "it wasn't" : "they weren't"} saved</Text> : null}
       {failed && !songs ? (
         <View style={s.middle}>
@@ -276,7 +310,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
             renderItem={({ item }) => (
               <Pressable
                 style={[s.row, selecting && s.rowSelecting]}
-                disabled={!selecting && item.where !== 'laptop'}
+                disabled={!selecting && item.where !== 'laptop' && !offline.has(item.id)}
                 onPress={() => (selecting ? tick(item) : open(item, false))}
                 onLongPress={() => hold(item)}
                 delayLongPress={400}
@@ -288,7 +322,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
                 ) : null}
                 <View style={s.rowText}>
                 <View style={s.rowTop}>
-                  <Text style={[s.rowTitle, item.where !== 'laptop' && s.rowOff]} numberOfLines={1}>{item.title}</Text>
+                  <Text style={[s.rowTitle, !canPlay(item) && s.rowOff]} numberOfLines={1}>{item.title}</Text>
                   <VersionsChip id={item.id} />
                 </View>
                 <Text style={s.rowDetail} numberOfLines={1}>
@@ -353,6 +387,8 @@ const s = StyleSheet.create({
   small: { borderWidth: 1, borderColor: '#555', borderRadius: 10, paddingVertical: 14, paddingHorizontal: 14 },
   smallText: { color: '#ddd', fontSize: 15 },
   off: { opacity: 0.4 },
+  saved: { color: '#888', fontSize: 13, paddingBottom: 6, fontVariant: ['tabular-nums'] },
+  offline: { color: '#f2c97d', fontSize: 14, paddingBottom: 8 },
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   rowTitle: { color: '#fff', fontSize: 16, flexShrink: 1 },
   rowOff: { color: '#777' },

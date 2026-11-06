@@ -7,6 +7,7 @@ import buildInfo from './build-info.json';
 import { CompareLayer } from './Compare';
 import Library from './Library';
 import { setHome } from './nav';
+import { offline } from './offline';
 import { flush, startOutbox } from './outbox';
 import { NowPlayingBar, PlayerSheet, UndoToast } from './Player';
 import { player } from './playerStore';
@@ -101,13 +102,16 @@ export default function App() {
 
   useEffect(() => {
     if (address) startOutbox(serverUrl(address));
+    if (address) offline.start(serverUrl(address));
     check();
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') {
         player.saveNow();
+        offline.pause();
         return;
       }
       flush();
+      if (address) offline.start(serverUrl(address));
       check();
     });
     return () => sub.remove();

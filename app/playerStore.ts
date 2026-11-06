@@ -5,6 +5,7 @@ import { File, Paths } from 'expo-file-system';
 import { useSyncExternalStore } from 'react';
 import { createEngine, type Engine, type Sound } from './engine';
 import type { FamilyEdit } from './family';
+import { offline } from './offline';
 import { addChange, addChanges } from './outbox';
 import { currentId, jumpTo, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
 import { isVersion, members, removeEditFor, sendEdit, showToast, songTitle, undo as undoVersions, type Sent } from './versionStore';
@@ -33,6 +34,7 @@ const MAX_BAD_IN_A_ROW = 3;
 const MAX_STUCK_PROBES = 3;
 const FAILED_QUICKLY_MS = 3000;
 const UP_NEXT_SHOWN = 200;
+export const NOT_HERE = "Not on this phone, and the laptop isn't reachable";
 const NOT_MINE_GUARD_MS = 500; // the next song arrives under the same thumb, so a double tap can't hide two
 
 type State = {
@@ -110,16 +112,19 @@ const update = (changes: Partial<State>) => {
   listeners.forEach((listener) => listener());
 };
 
-const audioUrl = (id: string) => `${url}/songs/${id}/audio`;
+// the phone's own copy first: no network, and it plays with the laptop off
+const audioUrl = (id: string) => offline.uri(id) ?? `${url}/songs/${id}/audio`;
+const cantReach = (id: string) => offline.reachable() === false && !offline.uri(id);
 const titleOf = (id: string) => songs.get(id)?.title ?? '';
 const songNow = (order: Order) => songs.get(currentId(order)) ?? null;
 const markOf = (song: PlayerSong): Mark => state.marks[song.id] ?? song;
 
 // What shuffle avoids: the songs outside the pool, and every version that isn't its family's Main.
+// With the laptop off, Next and shuffle also pass over songs that aren't on the phone.
 const avoid = () => {
   const out = new Set<string>();
   songs.forEach((song) => {
-    if ((markOf(song).mine === 'mine') !== (state.pool === 'mine') || isVersion(song.id)) out.add(song.id);
+    if ((markOf(song).mine === 'mine') !== (state.pool === 'mine') || isVersion(song.id) || cantReach(song.id)) out.add(song.id);
   });
   return out;
 };
@@ -253,6 +258,18 @@ const ensureMode = () =>
 
 /** Starts this order from scratch. Restarts the sound, so ordinary moves between songs let the player do it instead. */
 function loadOrder(order: Order, at: number, play: boolean) {
+  // the laptop is off and this song isn't on the phone: the next one that is, or say so at once, never a spinner
+  if (cantReach(currentId(order))) {
+    const moved = nextInOrder(order, avoid());
+    if (moved && !cantReach(currentId(moved))) {
+      loadOrder(moved, 0, play);
+      update({ note: `Skipped: ${titleOf(currentId(order))} isn't on this phone` });
+      return;
+    }
+    engine?.pause();
+    update({ order, song: songNow(order), time: 0, duration: 0, wanted: false, note: '', trouble: NOT_HERE });
+    return;
+  }
   newTrackStarted();
   settleUntil = play ? Date.now() + SETTLE_MS : 0;
   holdPausedUntil = play ? 0 : Date.now() + HOLD_PAUSED_MS;
@@ -300,6 +317,7 @@ function startStallWatch() {
     const why = await whyStuck(id);
     if (!state.order || currentId(state.order) !== id || Date.now() - lastProgress < STALL_MS) return;
     if (why === 'unreachable') {
+      offline.setReachable(false);
       update({ trouble: 'Laptop not reachable' });
       return;
     }
@@ -346,6 +364,7 @@ export const player = {
 
   toggle() {
     if (!state.order || state.comparing) return;
+    if (cantReach(currentId(state.order))) return update({ trouble: NOT_HERE });
     if (state.wanted) {
       engine?.pause();
       update({ wanted: false });
