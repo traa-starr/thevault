@@ -59,6 +59,7 @@ c. `/kept` and `/songs/{id}/copy`; size report.
 
 ## Batch 4d: Compare versions (after Batch 5)
 **ROADMAP:** 1.23 follow-up. A-B switch in the full player and from a Library group: flip to another version at the same second. The picker is a dial (one version showing at a time, swipe up/down to the next, like the iOS time wheel). Board pass first: new screen.
+*Phone-verified 2026-11-06. No level match: versions play at true level (DECISIONS).*
 
 ## Batch 6: Offline and finish
 **ROADMAP:** 1.17, 1.18 final.

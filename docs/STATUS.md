@@ -1,19 +1,19 @@
 # Status
 
-**Phase 1.** Updated 2026-11-05 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 1.** Updated 2026-11-06 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 
-**In progress:** Batch 4d, Compare versions: parts 0, a, b built; part c (level match) not started.
-**Next up:** me: phone checks 1-6 (REPORT), then Review. Then Code: `/next` for part c.
-**Current task:** `NEXT.md` "Batch 4d, Compare versions".
+**In progress:** nothing.
+**Next up:** Code: `/next` for Batch 6, part 1 (downloads, offline play).
+**Current task:** `NEXT.md` "Batch 6.1, Downloads and offline play".
 
 ## Done
 - Phase 0 closed: `DECISIONS.md`, `SPIKE-RESULTS.md`. Plan approved 2026-11-01.
 - ROADMAP verified: 1.1-1.10, 1.12-1.16, 1.19-1.23. 1.11 built, unproven. Library at `E:\VaultLibrary`, 1,395 songs, 314 Mine, all imported with phone copies.
-- Batches 1 to 5 phone-verified (Batch 5 on 2026-11-04).
+- Batches 1 to 5 and 4d phone-verified (4d on 2026-11-06; level match dropped, my call).
 
 ## Queue
-1. Batch 6: Offline and finish (closes Phase 1).
-2. Parked (Code's pitches): split the 638-song folder set; server `/status` count-only answer; A-Z jump strip; doctor's fail line names changed files; Hidden count on the Hidden link; light vibration when a queue song lifts; song length stored at scan time; doctor warns on Mine songs without copies; blind A-B mode.
+1. Batch 6.2: restore after a wipe, final survival test (closes Phase 1).
+2. Parked (Code's pitches): split the 638-song folder set; server `/status` count-only answer; A-Z jump strip; doctor's fail line names changed files; Hidden count on the Hidden link; light vibration when a queue song lifts; song length stored at scan time; doctor warns on Mine songs without copies.
 
 ## Open questions
 - Board seats didn't load by name in batch 3; meetings run them as general helpers.
@@ -23,7 +23,6 @@
 - Chat-defaults, say if wrong: the 8 same-render copies keep the `Music` copy; `Session Music` loose files stay in the scan.
 - 26 date-only names and the `Untitled...` files wait for later.
 - Mine 315 in the dry run, 314 now: probably one verdict changed since. Doctor should show nothing odd.
-- Level match in Compare: on by default with a toggle (chat-default, owner to confirm).
 
 ## Checks pending
-- Batch 4d checks 1-6 (in REPORT). Level-match check after part c.
+- None until Batch 6.1 is built.
