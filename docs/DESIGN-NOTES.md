@@ -48,3 +48,11 @@ song, to surface forgotten songs. 7. Pull to refresh on Library. 8. Shake to und
 [Shazam Liquid Glass](https://www.engadget.com/apps/shazam-for-ios-just-got-a-liquid-glass-makeover-194954181.html) ·
 [Samply](https://mwm.ai/apps/samply-listen-share/6463439253) · [Highnote](https://highnote.fm) ·
 [SoundCloud waveform comments](https://community.soundcloud.com/playbook-articles/soundcloud-brings-comments-to-the-waveform-on-mobile)
+
+## From my phone checks (2026-11-07)
+- **UX:** buttons everywhere are too big and blocky. Controls should be small, simple, non-intrusive: text-like, the
+  "Compare" word is the right weight. The version wheel (6.5) sets the style: one line of text you scroll.
+- **UX:** haptics only where they feel physical: grabbing a queue song and feeling it bump between spots. None on
+  ordinary taps or flips (I keep haptics off for typing too).
+- **UX (Phase 2 input):** I sort from the player (Mine / Not mine with shuffle) and Library, barely the Sort tab; its
+  folder categories are done except Music and Session Music. Sort cards were best at surfacing my own forgotten songs.
