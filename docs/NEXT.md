@@ -1,22 +1,18 @@
-# NEXT: Batch 6.4, Compare feels instant and stays in the player
-Written by chat, 2026-11-06.
-Log: 6.3 checks 1-4 passed (mine). Flips now take up to ~5 s, as if the whole song loads before it plays; before 6.3 A/B was close to instant (mine). Tapping Compare makes the whole player screen jump (new buttons, subtitle) and breaks immersion (mine). Song keeps playing while Compare gets ready; dial shows only when every version can switch at once (mine). Flip is a hard cut at the same second, no fade (mine). Soft "getting ready" pulse on the Compare button; nearby versions load first (chat-default). Board meets first: the board test (BOARD.md) says yes, it changes how Compare feels after a tap and fixes things I flagged (Code, 2026-11-06) (logged by chat)
+# NEXT: Batch 6.4, Compare feels instant and stays in the player (build)
+Written by chat, 2026-11-07.
+Log: Board answers and disagreements settled, see the two 2026-11-07 rows at the end of `DECISIONS.md`: open dimmed at the ~3 s cap; phone copies when all versions are on the phone; haptic on every flip; "Compare" label with a fixed-width pulse; "2/4" in the dial label only; no undo after Done; no source switch mid-Compare (logged by chat)
 Queue after this: Phase 1 "Done when" with me (away from home, screen locked, laptop asleep). Then `/verify`, then the Phase 2 plan session.
-Read: this file, last 3 rows of `DECISIONS.md`, `DESIGN-NOTES.md` (player parts). Code of `Compare.tsx`, `compareStore.ts`, `compareEngine.ts`, `compareEngine.test.mjs`, `playerStore.ts`, `Player.tsx` as needed.
-Session: Opus, medium effort. Board meeting first (part 0b), then stop for my answers.
+Read: this file, `docs/board/batch-6-4-compare.md` (the plan: Agreed + Tests), last 2 rows of `DECISIONS.md`. Code of `Compare.tsx`, `compareStore.ts`, `compareEngine.ts`, `compareEngine.test.mjs`, `playerStore.ts`, `Player.tsx` as needed.
+Session: Opus, medium effort. Parts 0 and 0b are done.
 ## Parts
-0. **Docs fix from chat (1 min, no code).** In `.claude/agents/logic-architect.md`, replace the `description:` line with exactly:
-   `description: The Vault design board, logic seat. Use only when NEXT.md or the owner calls a design board meeting, to set the rules and data behind a flow - what state lives where, how screens hand off the player, what counts as sorted, how links between songs are stored, undo and safety. Advisory only, never writes code.`
-   Change nothing else in that file.
-0b. **Short board meeting on Compare feel (no code).** Run the four seats per `BOARD.md` on parts a-c below: the screen
-   jump, the "getting ready" wait (pulse, ~3 s cap, dimmed versions) and flip speed. Notes in
-   `docs/board/batch-6-4-compare.md`. Then stop: my answers to its owner questions are needed before part a starts.
-a. **Find why flips got slow, then make them instant.** First measure: does a flipped-to version play from the phone copy or stream from the laptop, and is it loaded before the flip or at the flip? Outcome: every version is loaded and paused at the playing second before the dial shows, so a flip is only "unmute this, mute that" (under ~0.3 s, hard cut, same second). Ready the versions next to the current one first; load all of them if the phone handles it, else a window around the current one (Code measures, logs the call). **Keep every one-sound rule from 6.3**: one audible version at all times, Done with no gap, paused stays paused, the queue's player is never reloaded. I noticed the slow loading may be what made things stable, so add tests with players that are ready instantly and flipped fast.
-b. **Song keeps playing while Compare gets ready.** Tap Compare: the music doesn't change, the Compare button shows a soft pulse, and the dial appears once the versions are ready. If something isn't ready after ~3 s (laptop off, no phone copy), open anyway with that version dimmed and skipped, the way 6.2's offline Compare does.
-c. **The player screen stays still.** Artwork, title, progress bar and their positions don't move. Only the controls area changes: the dial fades in where the play controls are, same height (~200 ms crossfade), and any version label lives inside that area, not as a new line that pushes things down. Done fades it back the same way. It should feel like the player changing modes, not a new page.
+a. **Flips instant.** Measure first (phone copy or stream, loaded before or at the flip), write the numbers in REPORT. Then build the board's plan: versions parked as muted players playing in line, about 6 at once nearest first (Code measures the real iPhone limit and logs the call), sticky window, readiness loading / aligned / skipped, flip = both volumes set in one step. Source rule per Q2. Keep every 6.3 one-sound rule. Add the board's tests list to `compareEngine.test.mjs` (a fake clock is fine).
+b. **Song keeps playing while Compare gets ready.** Per the board's "The wait": music and controls work normally, "Compare" pulses (fixed width), haptic on the tap, dial shows when every version is aligned or skipped, ~3 s cap, then opens with unready ones dimmed (40%, grey "Not ready", skipped). Late arrivals undim without moving the dial. Haptic on every flip.
+c. **Player screen stays still.** One controls slot of fixed height; player mode and Compare mode crossfade inside it (~200 ms); remove the extra "Back to ..." row. Compare row: [play/pause] [dial with version label + "2/4"] [Done]. Subtitle never changes. Lock screen title names the sounding version.
 **Stop line:** if the session runs long, c waits. a goes in first.
 ## Phone check (new build first; server restart not needed unless the doctor says so)
-1. Play a grouped song, tap Compare. Pass: the music never stops; the button pulses; the dial fades in; artwork and title don't move at all. Tap Done: it fades back, music still playing.
-2. Flip between versions at a normal pace, 10 times. Pass: every flip feels close to instant (no load you can hear), same spot in the song, one version at a time.
-3. Swipe the dial fast back and forth 10 times, then pause 2 minutes. Pass: only one version ever plays; nothing starts by itself.
-4. Stop the laptop server, open Compare on a song where some versions aren't on the phone. Pass: the dial still opens within a few seconds, with the missing ones dimmed and skipped. Start the server again after.
+1. Play a grouped song, tap Compare. Pass: music never stops; button pulses; dial fades in; artwork, title and bar don't move at all. Done fades back, no gap.
+2. Flip 10 times at a normal pace. Pass: no load you can hear, a light tick each flip, same spot, never two versions at once.
+3. Swipe the dial fast 20 times (the song with the most versions). Pass: one version at a time, ends on the one you stopped on, no crash.
+4. In Compare, pause 2 minutes, play, flip. Pass: nothing starts by itself; the same drum hit lines up after the flip.
+5. Lock the phone mid-Compare, pause and play from the lock screen, unlock. Pass: title is the version playing; pause silences everything; play brings back one version.
+6. Stop the server, open Compare on a song with versions missing from the phone. Pass: dial opens within ~4 s, missing ones dimmed and skipped. Start the server again after.
