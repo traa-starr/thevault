@@ -161,6 +161,9 @@ def write_path(tmp):
         # a batch: each change gets its own answer, in order
         check("a list gets one answer each", send(change("mine_set", blank, "mine"), change("mine_set", blank, "bad"),
                                                   change("mine_set", merged_away, "not mine")) == ["saved", "refused", "saved"])
+        send(change("mine_set", guessed, "not mine"))
+        check("hidden list: newest-hidden first", list(listed("/songs?hidden=1"))[:2] == [guessed, merged_away])
+        send(change("mine_restore", guessed))
     finally:
         builtins.open = real_open
     check("no music file opened for writing", opened_for_writing == [], str(opened_for_writing))

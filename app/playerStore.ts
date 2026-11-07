@@ -3,6 +3,7 @@
 import { setAudioModeAsync } from 'expo-audio';
 import { File, Paths } from 'expo-file-system';
 import { useSyncExternalStore } from 'react';
+import type { Voice } from './compareEngine';
 import { createEngine, type Engine, type Sound } from './engine';
 import type { FamilyEdit } from './family';
 import { offline } from './offline';
@@ -35,6 +36,7 @@ const MAX_STUCK_PROBES = 3;
 const FAILED_QUICKLY_MS = 3000;
 const UP_NEXT_SHOWN = 200;
 export const NOT_HERE = "Not on this phone, and the laptop isn't reachable";
+const AFTER_COMPARE_MS = 1500; // Done said play: if nothing moves by then, play again (wakes a sound that went quiet)
 const NOT_MINE_GUARD_MS = 500; // the next song arrives under the same thumb, so a double tap can't hide two
 
 type State = {
@@ -105,7 +107,15 @@ let lastSaved = 0;
 let recent: string[] = []; // songs heard lately, newest first: the picker's best clue
 let undoTimer: ReturnType<typeof setTimeout> | undefined;
 let stallTimer: ReturnType<typeof setInterval> | undefined;
+let handOff: (() => void) | null = null; // Compare is handing the sound back: any tap finishes that first
 const listeners = new Set<() => void>();
+
+/** A tap mid hand-off: the queue's player takes the sound now, so the tap acts on the one sound. */
+const settleHandOff = () => {
+  const finish = handOff;
+  handOff = null;
+  finish?.();
+};
 
 const update = (changes: Partial<State>) => {
   state = { ...state, ...changes };
@@ -196,6 +206,7 @@ function finished() {
 }
 
 function onTrack(index: number) {
+  if (state.comparing) return; // Compare loops this song and hides the lock screen's skips: nothing can move on
   const entry = track[index];
   if (!entry || !state.order) return;
   const stale = !entry.order;
@@ -258,6 +269,7 @@ const ensureMode = () =>
 
 /** Starts this order from scratch. Restarts the sound, so ordinary moves between songs let the player do it instead. */
 function loadOrder(order: Order, at: number, play: boolean) {
+  settleHandOff();
   // the laptop is off and this song isn't on the phone: the next one that is, or say so at once, never a spinner
   if (cantReach(currentId(order))) {
     const moved = nextInOrder(order, avoid());
@@ -312,7 +324,7 @@ async function whyStuck(id: string) {
 function startStallWatch() {
   if (stallTimer) return;
   stallTimer = setInterval(async () => {
-    if (!state.wanted || !state.order || Date.now() - lastProgress < STALL_MS) return;
+    if (state.comparing || !state.wanted || !state.order || Date.now() - lastProgress < STALL_MS) return;
     const id = currentId(state.order);
     const why = await whyStuck(id);
     if (!state.order || currentId(state.order) !== id || Date.now() - lastProgress < STALL_MS) return;
@@ -322,6 +334,7 @@ function startStallWatch() {
       return;
     }
     if (why === 'loading' && ++stuckProbes < MAX_STUCK_PROBES) {
+      if (stuckProbes === 1) wake(); // a player left quiet by the sound shutting off under it plays again on a fresh Play
       update({ trouble: 'Still trying to load this song…' });
       return;
     }
@@ -346,6 +359,17 @@ function skipBadSong(why: string) {
   }
 }
 
+/** Pause and play again: a fresh Play turns the phone's sound back on if something switched it off. */
+function wake() {
+  engine?.pause();
+  engine?.play();
+}
+
+const wakeIfQuiet = () => {
+  if (state.comparing || !state.wanted || Date.now() - lastProgress < AFTER_COMPARE_MS) return;
+  wake();
+};
+
 const canUseWindow = (index: number) => !!engine?.windowed && index >= 0 && index < track.length;
 
 export const player = {
@@ -363,6 +387,7 @@ export const player = {
   },
 
   toggle() {
+    settleHandOff();
     if (!state.order || state.comparing) return;
     if (cantReach(currentId(state.order))) return update({ trouble: NOT_HERE });
     if (state.wanted) {
@@ -378,11 +403,13 @@ export const player = {
   },
 
   pause() {
+    settleHandOff();
     engine?.pause();
     update({ wanted: false });
   },
 
   next() {
+    settleHandOff();
     if (!state.order || state.comparing) return;
     const moved = nextInOrder(state.order, avoid());
     if (!moved) {
@@ -402,6 +429,7 @@ export const player = {
   },
 
   previous() {
+    settleHandOff();
     if (!state.order || state.comparing) return;
     const moved = previousInOrder(state.order);
     if (!moved) {
@@ -421,6 +449,7 @@ export const player = {
   },
 
   async seek(seconds: number) {
+    settleHandOff();
     try {
       await engine?.seek(seconds);
     } catch {
@@ -499,6 +528,7 @@ export const player = {
   },
 
   tapNotMine() {
+    settleHandOff();
     const { song, order, time } = state;
     if (!song || !order || Date.now() - lastNotMine < NOT_MINE_GUARD_MS) return;
     // a Main with several versions needs a new Main first; with one other, that one simply becomes a plain song
@@ -562,6 +592,7 @@ export const player = {
 
   /** Sort borrows the player: the library's song, second and order go on a stack, and the sort list gets its own order. */
   enterSort(serverUrl: string, list: PlayerSong[], play = true) {
+    settleHandOff();
     url = serverUrl;
     if (!state.sorting && state.order) saved = { order: state.order, at: state.time };
     engine?.pause();
@@ -690,48 +721,74 @@ export const player = {
     }
   },
 
-  /** Compare takes the sound. The queue pauses where it is; what was playing and where are handed to Compare.
-   * `fromLibrary`: Done brings the queue's song back paused, the way leaving Sort does. */
-  startCompare(fromLibrary: boolean) {
-    const out = { id: state.song?.id ?? null, at: state.time, play: state.wanted };
-    engine?.pause();
-    engine?.releaseLockScreen();
-    beforeCompare = fromLibrary ? { spot: state.order && { order: state.order, at: state.time } } : null;
+  /** Compare takes the sound. From the player, it borrows this player as it is: the song keeps playing, untouched,
+   * and Compare lines the other versions up with it (`voice`). From Library, the queue pauses where it is and Done
+   * brings its song back paused, the way leaving Sort does. Either way the queue's buttons do nothing meanwhile. */
+  startCompare(fromLibrary: boolean): { at: number; play: boolean; voice: Voice | null } {
+    settleHandOff();
+    const out = { at: state.time, play: state.wanted };
+    if (fromLibrary || !engine) {
+      engine?.pause();
+      engine?.releaseLockScreen();
+      beforeCompare = fromLibrary ? { spot: state.order && { order: state.order, at: state.time } } : null;
+      update({ comparing: true, wanted: false });
+      return { ...out, voice: null };
+    }
+    beforeCompare = null;
+    engine.setLoop(true); // the song's end comes back to Compare, never the next song
+    engine.lockScreenSkips(false);
     update({ comparing: true, wanted: false });
-    return out;
+    return { ...out, voice: engine.voice() };
   },
 
-  /** Done in Compare. From the player: the version heard last plays on at that second, in the queue's spot
-   * (the queue is untouched if it was the queue's song). From Library: the queue's song comes back, paused. */
-  endCompare(serverUrl: string, song: PlayerSong | null, at: number, play: boolean) {
+  /** Compare names the version sounding on the lock screen while it borrows this player. */
+  compareTitle(title: string) {
+    engine?.setTitle(title);
+  },
+
+  /** Done in Compare. From the player: the version heard last plays on at that second, in the queue's spot. The
+   * queue's own song: nothing to do, it never stopped. Another version: it loads here silently and this returns the
+   * player, so Compare can hand over once it plays in line (`handing` finishes that early, on any tap).
+   * From Library: the queue's song comes back, paused. */
+  endCompare(serverUrl: string, song: PlayerSong | null, at: number, play: boolean, handing?: () => void): Voice | null {
     const back = beforeCompare;
     beforeCompare = null;
     update({ comparing: false });
+    engine?.setLoop(state.sorting);
+    engine?.lockScreenSkips(true);
     if (back) {
       if (back.spot) loadOrder(back.spot.order, back.spot.at, false);
-      return;
+      return null;
     }
-    if (!song) return;
+    if (!song) return null;
     url = serverUrl;
     songs.set(song.id, song);
+    newTrackStarted();
+    if (play) setTimeout(wakeIfQuiet, AFTER_COMPARE_MS);
     if (state.order && currentId(state.order) === song.id) {
-      newTrackStarted();
       settleUntil = play ? Date.now() + SETTLE_MS : 0;
-      holdPausedUntil = play ? 0 : Date.now() + HOLD_PAUSED_MS;
+      holdPausedUntil = 0;
       engine?.setTitle(titleOf(song.id));
-      engine?.seek(at).catch(() => {}).finally(() => {
-        if (play && !state.comparing) engine?.play();
-      });
       update({ time: at, wanted: play });
-      return;
+      return null;
     }
-    if (!state.order) {
-      const order = startOrder([song.id], song.id, false);
-      loadOrder(order, at, play);
-      return;
-    }
+    const order = state.order ? playHere(state.order, song.id) : startOrder([song.id], song.id, false);
     badInARow = 0;
-    loadOrder(playHere(state.order, song.id), at, play);
+    const voice = engine && handing ? engine.voice() : null;
+    if (voice) voice.volume = 0; // silent until it plays in line with Compare's
+    loadOrder(order, at, play);
+    if (!voice) return null;
+    if (!state.order || currentId(state.order) !== song.id) {
+      voice.volume = 1; // it went to another song (not on this phone): no hand-over
+      return null;
+    }
+    handOff = handing!;
+    return voice;
+  },
+
+  /** Compare has let go of the sound. */
+  handedBack() {
+    handOff = null;
   },
 
   isSorting: () => state.sorting,

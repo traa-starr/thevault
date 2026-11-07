@@ -15,7 +15,7 @@ from pathlib import Path
 from .backup import BACKUP_DIR, check_backup
 from .library import MARKER_NAME, REPO_ROOT, LibraryMissing, LibraryRefused
 from .scanner import fingerprint, scan
-from .server import LOOPBACK, PORT, connect_readonly, start_servers, stop_servers, tailscale_info
+from .server import LOOPBACK, PORT, SERVER_LEVEL, connect_readonly, start_servers, stop_servers, tailscale_info
 from .store import now
 
 PASS, WARN, FAIL = "PASS", "WARN", "FAIL"
@@ -84,17 +84,34 @@ def probe(address, port):
         c.close()
 
 
+def running_level(address, port):
+    """The SERVER_LEVEL of the server running there: 0 for code older than the number, None if it can't be asked."""
+    c = http.client.HTTPConnection(address, port, timeout=10)
+    try:
+        c.request("GET", "/health")
+        r = c.getresponse()
+        body = r.read()
+        return int(json.loads(body).get("server", 0)) if r.status == 200 else 0
+    except (OSError, http.client.HTTPException, ValueError, TypeError, AttributeError):
+        return None
+    finally:
+        c.close()
+
+
 def check_server(root, address, port):
     here = probe(LOOPBACK, port)
     if here == "odd":
         return FAIL, f"something on port {port} answers, but not with the song list. Is another program using it?"
     if here is not None:
+        level = running_level(LOOPBACK, port)
+        if level is not None and level < SERVER_LEVEL:
+            return WARN, f"running older code (version {level}, this code is {SERVER_LEVEL}). Stop it and start it again."
         if not address:
-            return PASS, f"running on this laptop ({here} songs). Tailscale is the line above."
+            return PASS, f"running on this laptop ({here} songs, version {SERVER_LEVEL}). Tailscale is the line above."
         there = probe(address, port)
         if there != here:
             return FAIL, "running on this laptop, not on the Tailscale address. Stop it and start it again."
-        return PASS, f"running, reachable on the laptop and over Tailscale ({here} songs)."
+        return PASS, f"running, reachable on the laptop and over Tailscale ({here} songs, version {SERVER_LEVEL})."
     return _trial_start(root)
 
 

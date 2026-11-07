@@ -1,40 +1,40 @@
 # Report
-**Step:** Batch 6.2, Restore, survival and inline Compare, 2026-11-06. Parts 0, 1, a, b done.
+**Step:** Batch 6.3, Compare audio fix, Hidden order, out-of-date warning, 2026-11-06. Parts a, b, c done.
 
 ## Verified by running
-- `python server/test_server.py`: ALL PASSED, incl. 12 new `/phone-backup` checks (replace whole, refusals, journal untouched).
-- `node --experimental-strip-types app/playOrder.test.mjs`: ALL PASSED (4 new dial-skip checks). `test_backup.py`: ALL PASSED.
+- `node --experimental-strip-types app/compareEngine.test.mjs` (new, fake players): 10 rules pass: no reload of the playing song, never two audible (10 fast flips), Done with no gap, paused stays paused.
+- `python server/test_server.py`: ALL PASSED (new: hidden list newest first). `python server/test_doctor.py`: ALL PASSED
+  (new: version shown, older running server warns). `playOrder.test.mjs`: ALL PASSED. Guard test 39/39.
 - `npx tsc --noEmit` in `app/`: no errors. `check_repo.py`: clean.
 
 ## Needs the phone
-See STATUS "Checks pending" (7 checks). New build first (GitHub build, then SideStore).
+NEXT.md "Phone check" 1-4. New build first, then restart the laptop server (Stop the server, then Start the server).
 
 ## Changed
-`app/`: Compare.tsx (now the inline dial), compareStore.ts, Player.tsx, App.tsx, Library.tsx, Sort.tsx, Cards.tsx,
-Versions.tsx, nav.tsx, outbox.ts, playerStore.ts, playOrder.ts + test, new `phoneBackup.ts`, new `Notices.tsx`.
-`server/`: vault_server/server.py, backup.py, test_server.py. Docs: DECISIONS, STATUS, MAP, REPORT, new
-`board/batch-6-2-restore.md`, new `DESIGN-NOTES.md`.
+`app/`: compareEngine.ts, compareStore.ts, engine.ts, playerStore.ts, phoneBackup.ts, Notices.tsx, Library.tsx, new
+`compareEngine.test.mjs`. `server/`: vault_server/server.py, doctor.py, test_server.py, test_doctor.py. Docs: STATUS, REPORT, DECISIONS.
 
 ## Differed from NEXT.md
-- 0a: couldn't reproduce the 2-place jump off the phone. Likely cause: a late scroll event from the dial's own move to
-  the skipped-to row. Fix: the skip is now one tested rule (nearest playable row in the swipe's direction), and the dial
-  ignores its own echo. Nothing playable that way: it rests on the marked row ("Not on this phone"), never a dead stop.
-- a: added a phone backup on the laptop (`phone-backup.json`, your call): Not sure pile, a copy of unsent changes, last
-  song and spot, 2 settings. Sent on open, on going to the back, 3 s after a change, every 5 min. A fresh install asks
-  for it before sending one, so an empty phone can't overwrite it. Also: "N changes waiting to send" line on Library,
-  Sort and home; "Welcome back" card naming what came back; "Fresh install: connect to your laptop" when it's off.
-- b: Mine / Not mine buttons, Shuffle and swipe-up-to-Queue hide while Compare is open (they act on the queue's song,
-  not the version you hear). Closing the player any way = Done. Compare's old screen and its own seek bar are gone.
-- Not sure pile backs up within 5 min or on going to the back, not on each tap (avoids a file loop between modules).
+- a, the shared cause: two players for one song, plus expo-audio switching the phone's sound off 100 ms after any
+  pause if nothing is playing at that instant. Compare's players paused and closed at Done while the queue's player was
+  still seeking, so the sound went off under it: silence that needed a pause and play, and after 10 s the stall watch
+  gave up on it and skipped to a new song (the "skip" while paused). Also while Compare had the sound, the stall watch
+  still ran on the queue's player and nothing it reported counted.
+- a, the fix: from the player, Compare borrows the queue's own player for the playing song (no reload, no pause; it
+  loops the song and hides lock-screen Next/Previous while open). Other versions load silently beside it. Done on that
+  song: nothing happens to the sound. Done on another version: the queue loads it silently and takes over the way a flip
+  does, once it plays in line (6 s at most; any tap finishes it at once). Compare's players never switch the sound off.
+  Insurance: 1.5 s after Done, a player that should play but hasn't moved gets a fresh Play; the stall watch does the same once before counting.
+- a: from Library, Compare still uses its own players and the queue comes back paused, as 6.2 decided.
+- c: the line also covers "backup didn't save" (shows until the next save works, not literally once). Tap = check again.
+  Checked on open, on coming back to the front and every 5 min, so after a restart it clears on tap or within 5 min.
 
 ## Not done
-- The laptop address must still be retyped after a reinstall (Keychain parked, your call).
+Nothing. a's root cause is read from expo-audio's source, not seen on the phone: checks 1 and 2 decide it.
 
 ## Decisions needed
-- None blocking. Board defaults taken: 48 pt dial row, Compare reads Done while open, song end stops at 0:00 (4d rule).
-
+None.
 ## Proposed next step
-Phone checks, then Phase 1 "Done when" with you (away from home, screen locked, laptop asleep), then the Phase 2 plan session.
-
+Phone checks, then Phase 1 "Done when" with you.
 ## Pitch
-A design-system file (colours, sizes, spacing in one place) before the overhaul, so the redraw is one change. Ideas list in `DESIGN-NOTES.md`.
+Add the new compare test to the planned `/verify` command so every later step re-checks the one-sound rules.

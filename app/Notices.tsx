@@ -1,5 +1,6 @@
-// Two notices that must never be missed (board meeting 5): changes still waiting to reach the laptop, and what came
-// back after a reinstall. Shown at the top of Library, Sort and the home page.
+// Notices that must never be missed (board meeting 5): changes still waiting to reach the laptop, and what came
+// back after a reinstall, shown at the top of Library, Sort and the home page. Library also says when the laptop server
+// is out of date or didn't save the phone's backup.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useOffline } from './offline';
 import { flush, useOutbox } from './outbox';
@@ -16,6 +17,22 @@ export function WaitingLine() {
     <Pressable onPress={() => flush()}>
       <Text style={s.waiting}>
         {count(pending.length, 'change', 'changes')} waiting to send{reachable === false ? ' · Laptop not reachable' : ''}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** The laptop runs older code than this app, or didn't save the phone's backup: one plain line. Tap: ask again. */
+export function LaptopLine() {
+  const { outOfDate, saveFailed } = usePhoneBackup();
+  const { reachable } = useOffline();
+  if (reachable === false || (!outOfDate && !saveFailed)) return null; // unreachable has its own line
+  return (
+    <Pressable onPress={phoneBackup.retry}>
+      <Text style={s.waiting}>
+        {outOfDate
+          ? 'Laptop server is out of date: restart it (Stop the server, then Start the server). Tap to check again.'
+          : "This phone's backup didn't save on the laptop. Tap to try again."}
       </Text>
     </Pressable>
   );

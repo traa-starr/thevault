@@ -14,6 +14,8 @@ const EVERY_MS = 5 * 60 * 1000;
 // player files copied as they are: the last song and spot, and the two display settings
 const LAST_PLAY = 'last-play.json';
 const PLAYER_FILES = [LAST_PLAY, 'time-left.txt', 'buttons-hidden.txt'];
+// The laptop server's code this app needs (server.py SERVER_LEVEL). Raise both together.
+export const NEEDS_SERVER = 2;
 
 type Backup = {
   stamp: string;
@@ -28,6 +30,10 @@ type State = {
   waiting: boolean;
   /** What came back after a reinstall, shown once until OK. */
   restored: Restored | null;
+  /** The laptop answers, but runs older code than this app needs. */
+  outOfDate: boolean;
+  /** The laptop answered but didn't save the last copy. Cleared by the next one that saves. */
+  saveFailed: boolean;
 };
 
 const file = (name: string) => new File(Paths.document, name);
@@ -51,7 +57,7 @@ export function survivalStamp() {
 }
 
 // still waiting from an earlier open that never reached the laptop
-let state: State = { waiting: waitingFile().exists, restored: null };
+let state: State = { waiting: waitingFile().exists, restored: null, outOfDate: false, saveFailed: false };
 let url = '';
 let lastSent = '';
 let soon: ReturnType<typeof setTimeout> | undefined;
@@ -136,17 +142,30 @@ async function send() {
   if (!url || busy) return;
   busy = true;
   try {
-    if (state.waiting) await fetchBack();
-    const body = JSON.stringify(gather());
-    if (body === lastSent) return;
-    await call('/phone-backup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Vault-Client': 'app' },
-      body,
-    });
-    lastSent = body;
-  } catch {
-    // laptop off: the next open, change or timer tries again; a fresh install keeps waiting and sends nothing
+    let health: { server?: unknown };
+    try {
+      health = await call('/health');
+    } catch {
+      return; // laptop off: Library says so already. The next open, change or timer tries again
+    }
+    const outOfDate = !(typeof health.server === 'number' && health.server >= NEEDS_SERVER);
+    if (outOfDate !== state.outOfDate) update({ outOfDate });
+    try {
+      if (state.waiting) await fetchBack();
+      const body = JSON.stringify(gather());
+      if (body === lastSent) return;
+      await call('/phone-backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Vault-Client': 'app' },
+        body,
+      });
+      lastSent = body;
+      if (state.saveFailed) update({ saveFailed: false });
+    } catch {
+      // the laptop answered but didn't take it (older code, a full disk): say so, and try again later.
+      // A fresh install keeps waiting and sends nothing.
+      if (!state.saveFailed) update({ saveFailed: true });
+    }
   } finally {
     busy = false;
   }
@@ -175,6 +194,9 @@ export const phoneBackup = {
   },
 
   dismiss: () => update({ restored: null }),
+
+  /** Ask the laptop again now: a tap on the out-of-date or not-saved line. */
+  retry: () => send(),
 };
 
 onOutbox(() => phoneBackup.soon());

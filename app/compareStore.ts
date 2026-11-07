@@ -1,7 +1,8 @@
 // Compare: the versions of one song on a dial inside the full player, flipped at the same second. Memory only: it changes no verdict, so
 // nothing goes to the outbox. The app killed mid-Compare reopens on the queue's song, as the queue never moved.
+import { createAudioPlayer } from 'expo-audio';
 import { useSyncExternalStore } from 'react';
-import { createCompareEngine, type CompareEngine, type CompareSound } from './compareEngine';
+import { createCompareEngine, type CompareEngine, type CompareSound, type Voice } from './compareEngine';
 import { offline } from './offline';
 import { player } from './playerStore';
 import { members, songInfo, songTitle } from './versionStore';
@@ -68,7 +69,12 @@ async function probe(id: string): Promise<Can> {
   }
 }
 
+// keepAudioSessionActive: pausing or dropping one of Compare's players must never switch the phone's sound off
+// under another player still starting up (that left silence after Done until a pause and play)
+const makePlayer = (uri: string, updateInterval: number) => createAudioPlayer({ uri }, { updateInterval, keepAudioSessionActive: true });
+
 function onChange(sound: CompareSound) {
+  if (!state.open) return; // handing the sound back after Done: nothing to show
   if (sound.sounding !== shownSounding) {
     const last = shownSounding || null;
     shownSounding = sound.sounding;
@@ -78,15 +84,20 @@ function onChange(sound: CompareSound) {
   update({ sound });
 }
 
-function begin(serverUrl: string, ids: string[], startId: string, at: number, play: boolean, from: State['from']) {
+function begin(serverUrl: string, ids: string[], startId: string, at: number, play: boolean, from: State['from'], voice: Voice | null) {
   url = serverUrl;
   fromPhone = offline.reachable() !== true;
   const index = Math.max(ids.indexOf(startId), 0);
   const can = Object.fromEntries(ids.map((id) => [id, 'checking' as Can]));
   shownSounding = startId;
   update({ open: true, from, ids, at: index, can, last: null, sound: { ...empty, sounding: startId, time: at, playing: play } });
-  engine = createCompareEngine({ onChange, onEnd: () => engine?.rewind() });
-  engine.start(startId, uris(ids), at, play, nearby(ids, index), songTitle);
+  engine = createCompareEngine({
+    onChange,
+    onEnd: () => engine?.rewind(),
+    makePlayer,
+    lockScreen: voice ? (id) => player.compareTitle(songTitle(id)) : undefined,
+  });
+  engine.start(startId, uris(ids), at, play, nearby(ids, index), songTitle, voice ?? undefined);
   ids.forEach((id) =>
     probe(id).then((answer) => {
       if (!state.open || !state.ids.includes(id)) return;
@@ -102,7 +113,7 @@ export const compare = {
     if (!now || members(now.id).length < 2 || player.isSorting()) return;
     const ids = dialOrder(now.id);
     const start = player.startCompare(false);
-    begin(serverUrl, ids, now.id, start.at, start.play, 'player');
+    begin(serverUrl, ids, now.id, start.at, start.play, 'player', start.voice);
   },
 
   /** From a Library group: its Main at 0:00, paused. */
@@ -110,7 +121,7 @@ export const compare = {
     if (members(anyId).length < 2 || player.isSorting()) return; // Sort already borrows the player
     const ids = dialOrder(anyId);
     player.startCompare(true);
-    begin(serverUrl, ids, ids[0], 0, false, 'library');
+    begin(serverUrl, ids, ids[0], 0, false, 'library', null);
     player.open('player'); // the dial lives in the full player (board meeting 5)
   },
 
@@ -161,21 +172,33 @@ export const compare = {
     if (target !== sounding) engine.flipTo(target);
   },
 
-  /** Done: Compare lets go of the sound and the player takes it back. */
+  /** Done: the player takes the sound back. The version heard is the queue's song: Compare just lets go, and it plays
+   * on untouched. Another version: the queue loads it silently and Compare hands over the way a flip works. */
   done() {
     if (!state.open) return;
-    const sounding = engine?.sounding() || state.ids[state.at];
-    const at = engine?.time() ?? 0;
-    const play = engine?.playing() ?? false;
-    engine?.stop();
+    const leaving = engine;
     engine = null;
+    const sounding = leaving?.sounding() || state.ids[state.at];
+    const at = leaving?.time() ?? 0;
+    const play = leaving?.playing() ?? false;
     const from = state.from;
     update({ open: false, ids: [], can: {}, last: null, sound: empty });
     const info = songInfo(sounding);
     const song = sounding
       ? { id: sounding, title: songTitle(sounding), mine: info?.mine ?? 'mine', sorted: info?.sorted ?? true }
       : null;
-    player.endCompare(url, from === 'player' ? song : null, at, play);
+    const queueSong = player.current()?.id;
+    if (from === 'library' || !leaving || sounding === queueSong) {
+      leaving?.stop();
+      player.endCompare(url, from === 'player' ? song : null, at, play);
+      return;
+    }
+    const voice = player.endCompare(url, song, at, play, () => leaving.finishNow());
+    if (!voice) {
+      leaving.stop();
+      return;
+    }
+    leaving.handTo(voice, () => player.handedBack());
   },
 };
 

@@ -41,6 +41,10 @@ MEDIA_TYPES = {".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".wav": "audio/wav", "
 NOT_ON_LAPTOP = "not on laptop yet"
 CLIENT_HEADER = "X-Vault-Client"  # a web page can't send this to another site without the server's say-so, which it never gives
 MAX_BODY = 1024 * 1024
+# What this code can do for the app, as one number. Raise it when the app starts needing a new route or answer, and
+# raise NEEDS_SERVER in app/phoneBackup.ts with it: a laptop still running older code then says "out of date".
+# 1: phone backup (6.2). 2: this number in /health (6.3).
+SERVER_LEVEL = 2
 PHONE_BACKUP_NAME = "phone-backup.json"  # in the library folder; not the record, so the journal never sees it
 MINE_VALUES = ("mine", "not mine")
 MIN_FOLDER_SET = 2
@@ -126,7 +130,7 @@ def show_folder(folder):
 
 def list_songs(conn, hidden=False):
     """Known songs, from the database only: the list never touches the music folders. Not-mine songs are listed only
-    when `hidden` is asked for, and then on their own. `main` is the song's Main if it is one of several versions; `picked`: a Main I picked by hand."""
+    when `hidden` is asked for, and then on their own, newest-hidden first (an undo is at the top). `main` is the song's Main if it is one of several versions; `picked`: a Main I picked by hand."""
     rows = conn.execute(f"""
         SELECT g.id, g.title, COALESCE(f.value, 'unknown') AS mine, d.value AS date, COALESCE(f.origin = 'manual', 0) AS sorted,
                {PLACE_SQL} AS place, {FOLDER_SQL} AS folder, m.main_id AS main, k.main_id IS NOT NULL AS picked
@@ -135,7 +139,7 @@ def list_songs(conn, hidden=False):
         LEFT JOIN song_family m ON m.song_id=g.id
         LEFT JOIN family_pick k ON k.main_id=g.id
         WHERE COALESCE(f.value, 'unknown') {'=' if hidden else '!='} 'not mine'
-        ORDER BY place='laptop' DESC, g.title COLLATE NOCASE""")
+        ORDER BY {"f.ts DESC, " if hidden else "place='laptop' DESC, "}g.title COLLATE NOCASE""")
     return [{"id": r["id"], "title": r["title"], "mine": r["mine"], "where": r["place"], "date": r["date"],
              "sorted": bool(r["sorted"]), "folder": show_folder(r["folder"]), "main": r["main"],
              "picked": bool(r["picked"])} for r in rows]
@@ -176,10 +180,11 @@ def sorting_view(conn):
 
 
 def health(root, backup_dir=BACKUP_DIR):
-    """What the phone's warning needs: is the library there, and how old are the last backup and scan (hours, or None)."""
+    """What the phone's warning needs: is the library there, how old are the last backup and scan (hours, or None), and
+    which code is running (`server`: SERVER_LEVEL)."""
     age = last_backup_age(backup_dir)
     out = {"library": (Path(root) / MARKER_NAME).is_file(), "backup_hours": None if age is None else round(age.total_seconds() / 3600, 1),
-           "scan_hours": None}
+           "scan_hours": None, "server": SERVER_LEVEL}
     if out["library"]:
         try:
             conn = connect_readonly(root)

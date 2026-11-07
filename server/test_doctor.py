@@ -97,6 +97,11 @@ def main():
     code, out = run(root, port=servers[0].server_port)
     check("all good: every line passes", code == 0 and all(x.startswith("PASS") for x in out[:-1]) and out[-1].startswith("Overall: PASS"), str(out))
     check("all eight checks plus the fingerprint are there", len(out) == 10, str(out))
+    check("the server line shows the running version", f"version {server.SERVER_LEVEL}" in line(out, "Server"), str(out))
+    doctor.SERVER_LEVEL = server.SERVER_LEVEL + 1  # this code is newer than what's running
+    code, out = run(root, port=servers[0].server_port)
+    doctor.SERVER_LEVEL = server.SERVER_LEVEL
+    check("a server running older code is a warning: restart it", line(out, "Server").startswith("WARN") and "Stop it and start it again" in line(out, "Server"), str(out))
 
     # the Tailscale address isn't being listened on
     code, out = run(root, port=servers[0].server_port, tailscale=lambda: ("127.0.0.2", []))

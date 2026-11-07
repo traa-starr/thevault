@@ -1,9 +1,11 @@
 // The sound itself, behind one small set of commands, so the playlist player and the single player can swap.
 // Nothing here knows about songs or queues: playerStore.ts decides what plays, this only makes it play.
 import { createAudioPlayer, createAudioPlaylist } from 'expo-audio';
+import type { Voice } from './compareEngine';
 
 const UPDATE_MS = 500;
 const LOCK_SCREEN = { showNextTrack: true, showPreviousTrack: true };
+const NO_SKIPS = { showNextTrack: false, showPreviousTrack: false };
 
 type Waiting = { at: number; play: boolean; seeking: boolean };
 export type Sound = { time: number; duration: number; playing: boolean; buffering: boolean; loaded: boolean; finished: boolean };
@@ -29,12 +31,47 @@ export type Engine = {
   setTitle: (title: string) => void;
   /** Lets go of the lock screen for Compare. The next setTitle takes it back. */
   releaseLockScreen: () => void;
+  /** Hides Next and Previous on the lock screen while Compare borrows this player, so it can't move on. */
+  lockScreenSkips: (show: boolean) => void;
+  /** This player as Compare sees it: Compare sets its volume and moves it along with the other versions. */
+  voice: () => Voice;
   stop: () => void;
 };
+
+type Raw = { currentTime: number; duration: number; isLoaded: boolean; isBuffering: boolean; playing: boolean; volume: number };
+
+/** A paused song still waiting to seek reads as loading, so Compare doesn't line it up or flip to it too early. */
+const voiceOf = (raw: Raw, waiting: () => Waiting | null, engine: Pick<Engine, 'play' | 'pause' | 'seek'>): Voice => ({
+  get currentTime() {
+    return waiting()?.at ?? raw.currentTime;
+  },
+  get duration() {
+    return raw.duration;
+  },
+  get isLoaded() {
+    return raw.isLoaded;
+  },
+  get isBuffering() {
+    return raw.isBuffering || !!waiting();
+  },
+  get playing() {
+    return raw.playing;
+  },
+  get volume() {
+    return raw.volume;
+  },
+  set volume(level: number) {
+    raw.volume = level;
+  },
+  play: () => engine.play(),
+  pause: () => engine.pause(),
+  seekTo: (seconds: number) => engine.seek(seconds),
+});
 
 function playlistEngine({ onSound, onTrack }: Handlers): Engine {
   const list = createAudioPlaylist({ updateInterval: UPDATE_MS });
   let locked = false;
+  let shownTitle = '';
   let waiting: Waiting | null = null;
 
   // Seeking before a song has loaded can be lost, so it waits. Reads the player's live answer: an event can be from before.
@@ -62,7 +99,7 @@ function playlistEngine({ onSound, onTrack }: Handlers): Engine {
   });
   list.addListener('trackChanged', () => onTrack(list.currentIndex)); // live index: the event may be from before a load
 
-  return {
+  const engine: Engine = {
     windowed: true,
     load: (uris, index, at, play) => {
       waiting = null;
@@ -99,6 +136,7 @@ function playlistEngine({ onSound, onTrack }: Handlers): Engine {
       list.loop = loop ? 'single' : 'none';
     },
     setTitle: (title) => {
+      shownTitle = title;
       if (locked) {
         list.updateLockScreenMetadata({ title });
       } else {
@@ -110,6 +148,10 @@ function playlistEngine({ onSound, onTrack }: Handlers): Engine {
       list.clearLockScreenControls();
       locked = false;
     },
+    lockScreenSkips: (show) => {
+      if (locked) list.setActiveForLockScreen(true, { title: shownTitle }, show ? LOCK_SCREEN : NO_SKIPS);
+    },
+    voice: () => voiceOf(list, () => waiting, engine),
     stop: () => {
       waiting = null;
       list.clear();
@@ -117,6 +159,7 @@ function playlistEngine({ onSound, onTrack }: Handlers): Engine {
       locked = false;
     },
   };
+  return engine;
 }
 
 function singleEngine({ onSound }: Handlers): Engine {
@@ -147,7 +190,7 @@ function singleEngine({ onSound }: Handlers): Engine {
     });
   });
 
-  return {
+  const engine: Engine = {
     windowed: false,
     load: (uris, index, at, play) => {
       waiting = null;
@@ -192,6 +235,8 @@ function singleEngine({ onSound }: Handlers): Engine {
       player.clearLockScreenControls();
       locked = false;
     },
+    lockScreenSkips: () => {}, // it never shows them
+    voice: () => voiceOf(player, () => waiting, engine),
     stop: () => {
       waiting = null;
       player.pause();
@@ -199,6 +244,7 @@ function singleEngine({ onSound }: Handlers): Engine {
       locked = false;
     },
   };
+  return engine;
 }
 
 export const createEngine = (kind: 'playlist' | 'single', handlers: Handlers) =>
