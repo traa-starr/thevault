@@ -58,7 +58,7 @@ One NEXT = one batch from `BATCH-PLAN.md`, 2-3 phone checks. Split earlier only 
 something hard to undo. A NEXT may have a stop line: parts after it happen only if the session has room.
 
 ## Design board
-Before batches with new screens or flows, Code runs the four board seats (`BOARD.md`) and writes `docs/board/<batch>.md`. Chat turns it into NEXT. Advisory only.
+Before batches with new screens or flows, when NEXT.md calls a meeting, Code runs the four board seats (`BOARD.md`) and writes `docs/board/<batch>.md`. Chat turns it into NEXT. Advisory only.
 
 ## Decisions
 - Reversible and technical: chat or Code decides, logs it, tells me in one line.
