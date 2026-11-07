@@ -1,8 +1,8 @@
 # Status
 
-**Phase 1.** Updated 2026-11-06 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 1.** Updated 2026-11-07 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 **In progress:** nothing.
-**Next up:** me: commit, then new Code session, type `/next` (Batch 6.4: part 0, board meeting 0b, then my answers before part a).
+**Next up:** me: new Code session, type `/next` (Batch 6.4: part 0, board meeting 0b, then my answers before part a).
 **Current task:** `NEXT.md` "Batch 6.4, Compare feels instant and stays in the player".
 
 ## Done
