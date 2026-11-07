@@ -14,7 +14,7 @@
 
 ## Queue
 1. Batch 6.2: restore after a wipe, final survival test (closes Phase 1).
-2. Parked (Code's pitches): split the 638-song folder set; server `/status` count-only answer; A-Z jump strip; doctor's fail line names changed files; Hidden count on the Hidden link; light vibration when a queue song lifts; song length stored at scan time; doctor warns on Mine songs without copies.
+2. Parked (Code's pitches): split the 638-song folder set; server `/status` count-only answer; A-Z jump strip; doctor's fail line names changed files; Hidden count on the Hidden link; light vibration when a queue song lifts; song length stored at scan time; doctor warns on Mine songs without copies; server stops printing harmless "connection reset" tracebacks when the phone drops a connection (chat, 2026-11-06).
 
 ## Open questions
 - Board seats didn't load by name in batch 3; meetings run them as general helpers.
