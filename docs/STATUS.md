@@ -7,6 +7,7 @@
 
 ## Done
 - Phase 0 closed (`SPIKE-RESULTS.md`). ROADMAP verified: 1.1-1.10, 1.12-1.17, 1.19-1.23. 1.11 built, unproven. Library at `E:\VaultLibrary`, 1,395 songs, 314 Mine, all imported with phone copies.
+- Prompt audit 2026-11-06: board seats run only when called; see DECISIONS.
 - Batches 1-5, 4d and 6.1 phone-verified (6.1: 829 MB of 8 GB saved). 6.2 phone-checked 2026-11-06: 6 of 7 passed, closes 1.18 (survival); check 3 (Compare audio) failed, fixed in 6.3. Board notes `board/batch-6-2-restore.md`, design ideas `DESIGN-NOTES.md`.
 
 ## Queue

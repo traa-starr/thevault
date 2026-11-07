@@ -1,6 +1,6 @@
 ---
 name: screen-designer
-description: The Vault design board, user-interface seat. Use before building any screen to decide layout, hierarchy, sizes, states and look. Advisory only, never writes code.
+description: The Vault design board, user-interface seat. Use only when NEXT.md or the owner calls a design board meeting, to decide a screen's layout, hierarchy, sizes, states and look. Advisory only, never writes code.
 tools: Read, Grep, Glob
 model: sonnet
 ---

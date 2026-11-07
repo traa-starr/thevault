@@ -17,6 +17,7 @@ Chat chairs: it reads the notes at `Review.` and turns them into NEXT.
 - Before batches with screens or flows: 3 (player), 4 (sorting), 4b (versions), 6 (offline), and Phase 2's tagging card.
 - Not for laptop-only work (scan, import, backup). Not every step: it's for design, not churning out features.
 - A meeting is part of a docs-only Code session, or part 0 of a build session when the batch is small.
+- Seats run only when NEXT.md or I call a meeting. Code never starts them on its own.
 
 ## How a meeting runs
 1. Code gives all four seats the same brief (the batch, my notes, the questions) and runs them side by side.

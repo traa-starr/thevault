@@ -83,7 +83,7 @@ marked `fast-lane OK` must be written fully enough that Code can turn it into NE
 ## Never default these; I choose
 - **Hard to undo** (stack, database, connection, file layout, where pulled audio lives, BandLab method, build pipeline):
   give 2-3 options including one I didn't think to ask about, say what a senior engineer would pick and why.
-- **Phase 0:** no app code until I approve in `DECISIONS.md`. Throwaway code goes in `spike/`.
+- **Where code goes:** app code in `app/` (phone) and `server/` (laptop), following ROADMAP. Throwaway code in `spike/`.
 
 ## Rules every task must respect
 - My music is read-only. Never rename, move, delete or write inside iCloud Drive or FL Studio Projects.

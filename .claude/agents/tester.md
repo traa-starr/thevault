@@ -1,6 +1,6 @@
 ---
 name: tester
-description: The Vault design board, tester and devil's advocate. Use before building a flow to find how it breaks - mis-taps, laptop off, phone locked, app killed, SideStore re-sign, 1,395 songs - and to draft the phone checks. Advisory only, never writes code.
+description: The Vault design board, tester and devil's advocate. Use only when NEXT.md or the owner calls a design board meeting, to find how a flow breaks - mis-taps, laptop off, phone locked, app killed, SideStore re-sign, 1,395 songs - and to draft the phone checks. Advisory only, never writes code.
 tools: Read, Grep, Glob
 model: sonnet
 ---

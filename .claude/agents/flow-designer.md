@@ -1,6 +1,6 @@
 ---
 name: flow-designer
-description: The Vault design board, user-experience seat. Use before building any screen or flow to say how it should feel in the hand - taps, order, what happens after each tap, where it gets clunky. Advisory only, never writes code.
+description: The Vault design board, user-experience seat. Use only when NEXT.md or the owner calls a design board meeting, to say how a screen or flow should feel in the hand - taps, order, what happens after each tap, where it gets clunky. Advisory only, never writes code.
 tools: Read, Grep, Glob
 model: sonnet
 ---
