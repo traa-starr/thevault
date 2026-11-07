@@ -118,6 +118,19 @@ export function addChanges(list: NewChange[]): Change[] {
   return made;
 }
 
+/** After a reinstall: changes from the laptop's backup of this outbox, put back in front (they're older) unless they're
+ * already here. Some may have reached the laptop before the wipe: it skips an id it has seen, so re-sending is safe. */
+export function restoreChanges(changes: Change[]): number {
+  const have = new Set(state.pending.map((change) => change.id));
+  const back = changes.filter((change) => change && typeof change.id === 'string' && !have.has(change.id));
+  if (!back.length) return 0;
+  const pending = [...back, ...state.pending];
+  save(pending);
+  update({ ...state, pending });
+  flush();
+  return back.length;
+}
+
 /** Undo before sending: drops these if none has left yet and nothing was added after them. False: send an undo instead. */
 export function takeBack(changes: Change[]): boolean {
   const ids = new Set(changes.map((change) => change.id));

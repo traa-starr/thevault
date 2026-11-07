@@ -1,6 +1,6 @@
 // Self-test for the play order: node --experimental-strip-types app/playOrder.test.mjs
 import assert from 'node:assert/strict';
-import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere } from './playOrder.ts';
+import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere, dialTarget } from './playOrder.ts';
 import { applyEdit, applyPicks, groupEdit, groupLead, linkEdit, makeMainEdit, membersOf, removeEdit, reverse, settle } from './family.ts';
 
 const fams = (pairs) => new Map(Object.entries(pairs));
@@ -15,6 +15,27 @@ const walk = (order, avoid = []) => {
   return seen;
 };
 const tests = {
+  'dial: a swipe over a row that cannot play lands on the next one that can, both ways': () => {
+    const on = [true, true, false, true, true]; // the middle version is not on the phone
+    assert.equal(dialTarget(1, 2, on), 3);
+    assert.equal(dialTarget(3, 2, on), 1);
+    assert.equal(dialTarget(0, 1, on), 1);
+    assert.equal(dialTarget(4, 3, on), 3);
+  },
+  'dial: a late echo of the same swipe never moves it again': () => {
+    const on = [true, false, true, true];
+    const first = dialTarget(0, 1, on);
+    assert.equal(first, 2);
+    assert.equal(dialTarget(first, 2, on), 2);
+  },
+  'dial: nothing playable that way rests on the marked row, never a dead stop': () => {
+    assert.equal(dialTarget(1, 2, [true, true, false]), 2);
+    assert.equal(dialTarget(1, 0, [false, true, true]), 0);
+  },
+  'dial: from a marked row, a swipe finds the nearest that can play': () => {
+    assert.equal(dialTarget(2, 3, [true, true, false, false, true]), 4);
+    assert.equal(dialTarget(2, 1, [true, true, false, false, true]), 1);
+  },
   'list order wraps both ways': () => {
     assert.equal(currentId(nextInOrder(list('d'))), 'a');
     assert.equal(currentId(previousInOrder(list('a'))), 'd');

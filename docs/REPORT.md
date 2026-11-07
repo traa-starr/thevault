@@ -1,34 +1,40 @@
 # Report
-**Step:** Batch 6.1, Downloads and offline play, 2026-11-06. Parts 0, 1, a, b done.
+**Step:** Batch 6.2, Restore, survival and inline Compare, 2026-11-06. Parts 0, 1, a, b done.
 
 ## Verified by running
-- `python server/test_import.py`: ALL PASSED (new check: `/kept` stamps each copy, lists no copy-less Mine song).
-- `python server/test_server.py`: ALL PASSED. `node --experimental-strip-types app/playOrder.test.mjs`: ALL PASSED.
-- `npx tsc --noEmit` in `app/`: no errors. `check_repo.py`: clean. Phone copies on the laptop: 314 songs, 830 MB.
-- Part 0: Compare has no gain or loudness code left; every version plays at full volume, its true level.
+- `python server/test_server.py`: ALL PASSED, incl. 12 new `/phone-backup` checks (replace whole, refusals, journal untouched).
+- `node --experimental-strip-types app/playOrder.test.mjs`: ALL PASSED (4 new dial-skip checks). `test_backup.py`: ALL PASSED.
+- `npx tsc --noEmit` in `app/`: no errors. `check_repo.py`: clean.
 
 ## Needs the phone
-See STATUS "Checks pending" (6 checks). Needs a new build first (GitHub build, then SideStore).
+See STATUS "Checks pending" (7 checks). New build first (GitHub build, then SideStore).
 
 ## Changed
-`app/offline.ts` (new), `app/App.tsx`, `app/Library.tsx`, `app/playerStore.ts`, `app/compareStore.ts`,
-`app/compareEngine.ts`, `server/vault_server/importer.py`, `server/vault_server/server.py`, `server/test_import.py`,
-`docs/board/batch-6-offline.md` (new), docs.
+`app/`: Compare.tsx (now the inline dial), compareStore.ts, Player.tsx, App.tsx, Library.tsx, Sort.tsx, Cards.tsx,
+Versions.tsx, nav.tsx, outbox.ts, playerStore.ts, playOrder.ts + test, new `phoneBackup.ts`, new `Notices.tsx`.
+`server/`: vault_server/server.py, backup.py, test_server.py. Docs: DECISIONS, STATUS, MAP, REPORT, new
+`board/batch-6-2-restore.md`, new `DESIGN-NOTES.md`.
 
 ## Differed from NEXT.md
-- Library now keeps its last song list on the phone, so it opens with the laptop off (needed for checks 3-5; not in NEXT).
-- A download that breaks restarts that one song (2.6 MB average), not mid-file. The batch carries on where it was.
-- With the laptop off, Next and shuffle pass over songs not on the phone instead of trying them.
-- Compare uses phone copies when the laptop isn't known to be on at open, streams the full copy otherwise (4d rule kept).
+- 0a: couldn't reproduce the 2-place jump off the phone. Likely cause: a late scroll event from the dial's own move to
+  the skipped-to row. Fix: the skip is now one tested rule (nearest playable row in the swipe's direction), and the dial
+  ignores its own echo. Nothing playable that way: it rests on the marked row ("Not on this phone"), never a dead stop.
+- a: added a phone backup on the laptop (`phone-backup.json`, your call): Not sure pile, a copy of unsent changes, last
+  song and spot, 2 settings. Sent on open, on going to the back, 3 s after a change, every 5 min. A fresh install asks
+  for it before sending one, so an empty phone can't overwrite it. Also: "N changes waiting to send" line on Library,
+  Sort and home; "Welcome back" card naming what came back; "Fresh install: connect to your laptop" when it's off.
+- b: Mine / Not mine buttons, Shuffle and swipe-up-to-Queue hide while Compare is open (they act on the queue's song,
+  not the version you hear). Closing the player any way = Done. Compare's old screen and its own seek bar are gone.
+- Not sure pile backs up within 5 min or on going to the back, not on each tap (avoids a file loop between modules).
 
 ## Not done
-- Downloads run only while the app is open: iOS gives a sideloaded app no dependable background time (board agreed).
+- The laptop address must still be retyped after a reinstall (Keychain parked, your call).
 
 ## Decisions needed
-- None blocking. Board defaults taken (DECISIONS): un-Mined songs leave the phone after 7 days; full = stop, never remove.
+- None blocking. Board defaults taken: 48 pt dial row, Compare reads Done while open, song end stops at 0:00 (4d rule).
 
 ## Proposed next step
-Phone checks, then Batch 6.2 (restore and survival).
+Phone checks, then Phase 1 "Done when" with you (away from home, screen locked, laptop asleep), then the Phase 2 plan session.
 
 ## Pitch
-A "Remove from phone / Download now" hold action per song: handy once Mine grows past what 8 GB holds.
+A design-system file (colours, sizes, spacing in one place) before the overhaul, so the redraw is one change. Ideas list in `DESIGN-NOTES.md`.

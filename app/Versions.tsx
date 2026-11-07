@@ -1,4 +1,4 @@
-// "Another version of…" picker, the Versions view and their toast. Sheets over whatever screen is open, so the music
+// "+ Version" picker, the Versions view and their toast. Sheets over whatever screen is open, so the music
 // never stops. The rules are in family.ts; sending and Undo are in versions.ts.
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Keyboard, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -116,7 +116,7 @@ function Picker({ url }: { url: string }) {
           <Pressable onPress={versions.closePicker}>
             <Text style={s.link}>Cancel</Text>
           </Pressable>
-          <Text style={s.sheetTitle} numberOfLines={1}>Another version of…</Text>
+          <Text style={s.sheetTitle} numberOfLines={1}>+ Version</Text>
         </View>
         <Text style={s.sheetNote} numberOfLines={2}>Linking “{picker.title}”. Pick its Main.</Text>
         <TextInput

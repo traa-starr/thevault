@@ -8,6 +8,7 @@ import Hidden from './Hidden';
 import { HomeButton, takeSeed, useSeed } from './nav';
 import { loadSongList, offline, saveSongList, useOffline } from './offline';
 import { flush, useOutbox } from './outbox';
+import { RestoreNotice, WaitingLine } from './Notices';
 import { askShuffle } from './Player';
 import { NOT_HERE, player, type Pool } from './playerStore';
 import { withPending } from './playOrder';
@@ -169,7 +170,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     setTicked([song.id]);
   };
 
-  // the full player's "Another version of…": select mode with the playing song (its family's row) ticked, scrolled to
+  // the full player's "+ Version": select mode with the playing song (its family's row) ticked, scrolled to
   useEffect(() => {
     if (!seed || !songs) return;
     const id = families.get(seed) ?? seed;
@@ -237,6 +238,8 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
         <HomeButton />
       </View>
       {!selecting ? <SavedLine /> : null}
+      {!selecting ? <RestoreNotice /> : null}
+      <WaitingLine />
       {failed && songs ? (
         <Pressable onPress={() => setAttempt(attempt + 1)}>
           <Text style={s.offline}>Laptop not reachable: songs on this phone still play. Tap to try again.</Text>

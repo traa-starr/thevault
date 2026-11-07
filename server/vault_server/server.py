@@ -2,8 +2,9 @@
 
 Music is read-only by construction: a music file is only ever opened in `_open_audio`, in read mode, after its live file
 attributes say it's on the laptop. A song the import copied plays from the library's own copy instead. Every read route uses the database in SQLite's read-only mode. `POST /changes` is the
-one route that changes anything, and it writes only to the journal and database, through `apply_changes`. Listens on the
-laptop itself and its Tailscale address only.
+one route that changes my choices, and it writes only to the journal and database, through `apply_changes`. `POST
+/phone-backup` keeps one copy of what lives only on the phone, as one file in the library folder, outside the journal: it
+records no choice. Listens on the laptop itself and its Tailscale address only.
 """
 import ipaddress
 import json
@@ -40,6 +41,7 @@ MEDIA_TYPES = {".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".wav": "audio/wav", "
 NOT_ON_LAPTOP = "not on laptop yet"
 CLIENT_HEADER = "X-Vault-Client"  # a web page can't send this to another site without the server's say-so, which it never gives
 MAX_BODY = 1024 * 1024
+PHONE_BACKUP_NAME = "phone-backup.json"  # in the library folder; not the record, so the journal never sees it
 MINE_VALUES = ("mine", "not mine")
 MIN_FOLDER_SET = 2
 MIN_NAME_SET = 3  # two titles alike happen by chance
@@ -299,6 +301,30 @@ def library_copy(root, conn, song_id):
         return None
 
 
+def read_phone_backup(root):
+    """The phone's last backup, or None."""
+    try:
+        return json.loads((Path(root) / PHONE_BACKUP_NAME).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except ValueError:  # a damaged file is no backup; the next one replaces it
+        return None
+
+
+def write_phone_backup(root, backup):
+    """Replaces the backup in one step, so a crash leaves the old one or the new one, never half."""
+    if not isinstance(backup, dict) or not isinstance(backup.get("stamp"), str) or not backup["stamp"]:
+        raise ValueError("A phone backup is an object with the phone's stamp.")
+    backup = {**backup, "saved_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    target = Path(root) / PHONE_BACKUP_NAME
+    if not (Path(root) / MARKER_NAME).is_file():
+        raise LibraryMissing(f"No library at {root}.")
+    tmp = target.with_name(f"{PHONE_BACKUP_NAME}.{threading.get_ident()}.tmp")
+    tmp.write_text(json.dumps(backup, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, target)
+    return backup["saved_at"]
+
+
 def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -333,6 +359,8 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
             try:
                 if route == "/":
                     return self._send(200, PAGE.encode("utf-8"), "text/html; charset=utf-8")
+                if route == "/phone-backup":
+                    return self._json(200, {"backup": read_phone_backup(root)})
                 if route == "/health":
                     return self._json(200, health(root, backup_dir))
                 if route == "/sorting":
@@ -434,7 +462,7 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
             host = self.headers.get("Host", "").rsplit(":", 1)[0].lower().rstrip(".")
             if host not in allowed_hosts:
                 return self._error(403, "Unknown address.")
-            if self.path != "/changes":
+            if self.path not in ("/changes", "/phone-backup"):
                 return self._error(404, "Nothing here.")
             if not self.headers.get(CLIENT_HEADER):
                 return self._error(403, "Changes come from the app.")
@@ -443,6 +471,13 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
                 return self._error(411, "Say how long the changes are.")
             if int(length) > MAX_BODY:
                 return self._error(413, "Too many changes at once.")
+            if self.path == "/phone-backup":
+                try:
+                    return self._json(200, {"saved_at": write_phone_backup(root, json.loads(self.rfile.read(int(length))))})
+                except (ValueError, RecursionError) as e:
+                    return self._error(400, str(e) if "phone backup" in str(e) else "That isn't a phone backup.")
+                except LibraryMissing as e:
+                    return self._error(503, str(e))
             try:
                 changes = json.loads(self.rfile.read(int(length)))["changes"]
             except (ValueError, KeyError, TypeError, RecursionError):

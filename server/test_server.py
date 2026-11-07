@@ -312,6 +312,48 @@ def sorting_path(tmp):
     check("a 300-song Undo stays quick with a real-sized journal", undo_took < 10, f"{undo_took:.1f}s")
 
 
+def phone_backup_path(tmp):
+    """POST and GET /phone-backup: one file in the library folder, replaced whole, never in the journal."""
+    root = tmp / "blib"
+    init_library(root).close()
+    journal_before = (root / JOURNAL_NAME).read_bytes()
+    servers = server.start_servers(root, [server.LOOPBACK], 0)
+    port = servers[0].server_port
+
+    def call(method, body=None, headers=None):
+        c = http.client.HTTPConnection(server.LOOPBACK, port, timeout=10)
+        data = body if isinstance(body, bytes) or body is None else json.dumps(body).encode()
+        c.putrequest(method, "/phone-backup")
+        hdrs = {server.CLIENT_HEADER: "app"} if headers is None else headers
+        if data is not None:
+            hdrs = {**hdrs, "Content-Length": str(len(data))}
+        for k, v in hdrs.items():
+            c.putheader(k, v)
+        c.endheaders()
+        if data is not None:
+            c.send(data)
+        r = c.getresponse()
+        out = json.loads(r.read())
+        c.close()
+        return r.status, out
+
+    check("backup: none yet reads as nothing", call("GET") == (200, {"backup": None}))
+    first = {"stamp": "2026-11-01 10:00", "notSure": ["a"], "outbox": [{"id": "x"}]}
+    status, reply = call("POST", first)
+    check("backup: saved, with the laptop's time", status == 200 and reply["saved_at"])
+    status, reply = call("GET")
+    check("backup: reads back what was sent", status == 200 and reply["backup"]["notSure"] == ["a"] and reply["backup"]["saved_at"])
+    call("POST", {**first, "notSure": []})
+    check("backup: a new one replaces the old whole", call("GET")[1]["backup"]["notSure"] == [])
+    check("backup: refused without the app header", call("POST", first, headers={})[0] == 403)
+    for bad in (b"not json", b"[]", json.dumps({"notSure": []}).encode(), json.dumps({"stamp": ""}).encode()):
+        check(f"backup: bad body refused: {bad[:14]!r}", call("POST", bad)[0] == 400)
+    check("backup: a refused one leaves the last good one", call("GET")[1]["backup"]["stamp"] == first["stamp"])
+    check("backup: the journal never sees it", (root / JOURNAL_NAME).read_bytes() == journal_before)
+    check("backup: no temp files left", sorted(p.name for p in root.glob("phone-backup*")) == ["phone-backup.json"])
+    server.stop_servers(servers)
+
+
 def family_path(tmp):
     """Versions: link, Make main, Remove, Undo, and every refusal. The laptop is the guard against a phone that's wrong."""
     music, root = tmp / "fmusic", tmp / "flib"
@@ -574,6 +616,7 @@ def main():
     write_path(tmp)
     sorting_path(tmp)
     family_path(tmp)
+    phone_backup_path(tmp)
     family_pick_path(tmp)
     hand_pick_history_path(tmp)
     date_year_path()

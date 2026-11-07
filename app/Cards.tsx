@@ -6,7 +6,7 @@ import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from 'react
 import { HomeButton } from './nav';
 import { player, usePlayer } from './playerStore';
 import { startLink } from './Versions';
-import { undo as undoLink, type Sent } from './versionStore';
+import { members, undo as undoLink, type Sent } from './versionStore';
 import type { SortSong, SortView } from './sortData';
 
 type Choice = 'mine' | 'not mine' | 'not sure';
@@ -167,14 +167,16 @@ export default function Cards({ url, view, scope, pile, notSure, onNotSure, onDo
           <Pressable style={s.unsure} onPress={() => latest.current.decide('not sure')}>
             <Text style={s.unsureText}>Not sure</Text>
           </Pressable>
-          {/* Mine and linked: the card moves on as Mine, and its Undo takes back both */}
-          <Pressable
-            onPress={() =>
-              startLink(url, song, (sent) => setUndo((old) => old && { ...old, link: sent }), () => latest.current.decide('mine'))
-            }
-          >
-            <Text style={s.versionLink}>Another version of…</Text>
-          </Pressable>
+          {/* Mine and linked: the card moves on as Mine, and its Undo takes back both. Already in a group: hidden */}
+          {members(song.id).length > 1 ? null : (
+            <Pressable
+              onPress={() =>
+                startLink(url, song, (sent) => setUndo((old) => old && { ...old, link: sent }), () => latest.current.decide('mine'))
+              }
+            >
+              <Text style={s.versionLink}>+ Version</Text>
+            </Pressable>
+          )}
         </>
       ) : (
         <View style={s.middle}>

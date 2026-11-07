@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import Cards from './Cards';
 import { HomeButton } from './nav';
+import { WaitingLine } from './Notices';
 import { player } from './playerStore';
 import { loadNotSure, saveNotSure, useSortData, type SortSet, type SortSong } from './sortData';
 
@@ -95,6 +96,7 @@ export default function Sort({ url, onBack }: { url: string; onBack: () => void 
   return (
     <View style={s.page}>
       <Header onBack={onBack} />
+      <WaitingLine />
       <FlatList
         data={rows}
         keyExtractor={(row) => row.key}

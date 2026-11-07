@@ -10,7 +10,7 @@ export const setHome = (go: () => void, library: () => void) => {
   goLibraryNow = library;
 };
 
-// The song Library should open select mode with, ticked: set by the full player's "Another version of…".
+// The song Library should open select mode with, ticked: set by the full player's "+ Version".
 let seed: string | null = null;
 const seedListeners = new Set<() => void>();
 const setSeed = (id: string | null) => {

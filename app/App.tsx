@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import buildInfo from './build-info.json';
-import { CompareLayer } from './Compare';
 import Library from './Library';
 import { setHome } from './nav';
 import { offline } from './offline';
@@ -13,6 +12,8 @@ import { NowPlayingBar, PlayerSheet, UndoToast } from './Player';
 import { player } from './playerStore';
 import Sort from './Sort';
 import { VersionsLayer } from './Versions';
+import { RestoreNotice, WaitingLine } from './Notices';
+import { phoneBackup, survivalStamp, usePhoneBackup } from './phoneBackup';
 
 const PORT = 8787;
 // Stamped by the GitHub build; "dev" when run from the laptop.
@@ -21,18 +22,6 @@ const buildLine = buildInfo.build === 'dev'
   : `Build ${buildInfo.build}${buildInfo.commit ? ` · ${buildInfo.commit}` : ''}${buildInfo.date ? ` · ${buildInfo.date}` : ''}`;
 const TIMEOUT_MS = 5000;
 const addressFile = () => new File(Paths.document, 'laptop-address.txt');
-
-// Written once and never changed: if this date changes, the phone wiped the app's data (ROADMAP 1.18).
-const survivalStamp = () => {
-  const file = new File(Paths.document, 'survival-stamp.txt');
-  if (file.exists) return file.textSync().trim();
-  const d = new Date();
-  const two = (n: number) => String(n).padStart(2, '0');
-  const stamp = `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`;
-  file.create();
-  file.writeSync(stamp);
-  return stamp;
-};
 
 const loadAddress = () => {
   const file = addressFile();
@@ -72,6 +61,7 @@ export default function App() {
   const [inLibrary, setInLibrary] = useState(false);
   const [inSort, setInSort] = useState(false);
   const [stamp] = useState(survivalStamp);
+  const { waiting: fresh } = usePhoneBackup();
 
   const check = useCallback(async () => {
     if (!address) return;
@@ -103,15 +93,18 @@ export default function App() {
   useEffect(() => {
     if (address) startOutbox(serverUrl(address));
     if (address) offline.start(serverUrl(address));
+    if (address) phoneBackup.start(serverUrl(address));
     check();
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') {
         player.saveNow();
         offline.pause();
+        phoneBackup.pause();
         return;
       }
       flush();
       if (address) offline.start(serverUrl(address));
+      if (address) phoneBackup.start(serverUrl(address));
       check();
     });
     return () => sub.remove();
@@ -136,7 +129,6 @@ export default function App() {
       <NowPlayingBar />
       <PlayerSheet />
       {address ? <VersionsLayer url={serverUrl(address)} /> : null}
-      {address ? <CompareLayer /> : null}
     </View>
   );
 
@@ -159,6 +151,9 @@ export default function App() {
   return withPlayer(
     <View style={s.page}>
       <Text style={s.title}>The Vault</Text>
+      {fresh && !address ? <Text style={s.line}>Fresh install: type your laptop address, with the laptop on, and everything comes back.</Text> : null}
+      <RestoreNotice />
+      <WaitingLine />
       {editing ? (
         <>
           <TextInput

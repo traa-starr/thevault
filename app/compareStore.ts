@@ -1,4 +1,4 @@
-// Compare: the versions of one song on a dial, flipped at the same second. Memory only: it changes no verdict, so
+// Compare: the versions of one song on a dial inside the full player, flipped at the same second. Memory only: it changes no verdict, so
 // nothing goes to the outbox. The app killed mid-Compare reopens on the queue's song, as the queue never moved.
 import { useSyncExternalStore } from 'react';
 import { createCompareEngine, type CompareEngine, type CompareSound } from './compareEngine';
@@ -111,6 +111,7 @@ export const compare = {
     const ids = dialOrder(anyId);
     player.startCompare(true);
     begin(serverUrl, ids, ids[0], 0, false, 'library');
+    player.open('player'); // the dial lives in the full player (board meeting 5)
   },
 
   /** The dial came to rest on row `index`. A row that can't play, or ends before now, is refused. */
@@ -129,7 +130,7 @@ export const compare = {
     const can = state.can[id];
     if (can === 'cloud') return 'Cloud only';
     if (can === 'missing') return "Can't play";
-    if (can === 'unreachable') return 'Laptop not reachable';
+    if (can === 'unreachable') return fromPhone && !offline.has(id) ? 'Not on this phone' : 'Laptop not reachable';
     if (engine?.tooShort(id)) return `Ends ${clock(state.sound.lengths[id] ?? 0)}`;
     return null;
   },

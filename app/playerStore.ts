@@ -632,6 +632,11 @@ export const player = {
     update({ buttonsHidden: !state.buttonsHidden });
   },
 
+  /** The two display settings, read again from their files (a restore after a reinstall just wrote them). */
+  reloadSettings() {
+    update({ timeLeft: timeLeftFile().exists, buttonsHidden: buttonsHiddenFile().exists });
+  },
+
   /** A version from the Versions view: plays now, and what came after it stays as it was. */
   playNow(serverUrl: string, song: PlayerSong) {
     url = serverUrl;

@@ -1,160 +1,158 @@
-// The Compare sheet: one version showing on a dial, swipe up or down to the next, and the sound flips when the dial
-// rests, at the same second. compareStore.ts holds the logic; this only draws it.
+// The inline Compare dial (board meeting 5): one row under the Compare button in the full player. Swipe sideways, or
+// tap an arrow, to the next version; the sound flips when the dial rests, at the same second. The player's own seek bar
+// and Play drive Compare while it's open. compareStore.ts holds the logic; this only draws it.
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from 'react-native';
-import { clock, compare, useCompare } from './compareStore';
-import { SeekBar } from './Player';
-import { usePlayer } from './playerStore';
-import { isPicked, songInfo, songTitle, useVersions } from './versionStore';
+import { Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent, type ScrollViewInstance } from 'react-native';
+import { compare, useCompare } from './compareStore';
+import { dialTarget } from './playOrder';
+import { isPicked, songTitle, useVersions } from './versionStore';
 
-const DIAL_HEIGHT = 120;
+const ROW_HEIGHT = 48;
 const NO_MOMENTUM_MS = 250;
 
-function Dial() {
+export function CompareDial() {
   const { ids, at, can, sound } = useCompare();
+  const { families } = useVersions();
+  const [width, setWidth] = useState(0);
   const scroller = useRef<ScrollViewInstance>(null);
   const resting = useRef(at);
   const noMomentum = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const steering = useRef<number | null>(null);
+  const lastX = useRef(0);
+
+  useEffect(() => compare.familyChanged(), [families]);
+  useEffect(() => () => clearTimeout(noMomentum.current), []);
+
+  const goTo = (index: number, animated = true) => {
+    steering.current = animated ? index : null;
+    scroller.current?.scrollTo({ x: index * width, animated });
+  };
 
   // the dial follows the store when it moves without a swipe: Back to the last one, or a version removed elsewhere
   useEffect(() => {
-    if (resting.current === at) return;
+    if (!width || resting.current === at) return;
     resting.current = at;
-    scroller.current?.scrollTo({ y: at * DIAL_HEIGHT, animated: true });
-  }, [at]);
+    goTo(at);
+  }, [at, width]);
+
+  const onLayout = (e: LayoutChangeEvent) => {
+    const w = Math.round(e.nativeEvent.layout.width);
+    if (w === width) return;
+    setWidth(w);
+    lastX.current = resting.current * w;
+    requestAnimationFrame(() => scroller.current?.scrollTo({ x: resting.current * w, animated: false }));
+  };
 
   const blocked = (id: string) => can[id] === 'cloud' || can[id] === 'missing' || can[id] === 'unreachable';
 
-  const settle = (y: number) => {
-    clearTimeout(noMomentum.current);
-    let index = Math.min(Math.max(Math.round(y / DIAL_HEIGHT), 0), ids.length - 1);
-    // a row that can't play is stepped over in the direction of the swipe; none further: back where it was
-    if (blocked(ids[index])) {
-      const step = index >= resting.current ? 1 : -1;
-      let next = index + step;
-      while (next >= 0 && next < ids.length && blocked(ids[next])) next += step;
-      index = next >= 0 && next < ids.length ? next : resting.current;
-      scroller.current?.scrollTo({ y: index * DIAL_HEIGHT, animated: true });
-    }
+  /** Rests on the row a swipe or an arrow aimed at: a row that can't play is stepped over (playOrder.ts dialTarget). */
+  const restFrom = (landed: number, scroll = false) => {
+    const index = dialTarget(resting.current, landed, ids.map((id) => !blocked(id)));
+    if (scroll || index !== landed) goTo(index);
     resting.current = index;
     compare.rest(index);
   };
 
-  const onDragEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const y = e.nativeEvent.contentOffset.y;
-    noMomentum.current = setTimeout(() => settle(y), NO_MOMENTUM_MS);
+  const settle = (x: number) => {
+    clearTimeout(noMomentum.current);
+    if (!width) return;
+    const landed = Math.min(Math.max(Math.round(x / width), 0), ids.length - 1);
+    // our own move still running: a late event from the swipe that started it must not move the dial again
+    if (steering.current !== null) {
+      if (landed === steering.current) steering.current = null;
+      else goTo(steering.current);
+      return;
+    }
+    restFrom(landed);
+  };
+
+  // a slow drag that stops on a row sends no momentum events: settle once the dial has stopped on a row
+  const waitForStop = (tries = 0) => {
+    clearTimeout(noMomentum.current);
+    noMomentum.current = setTimeout(() => {
+      const x = lastX.current;
+      const onRow = width > 0 && Math.abs(x - Math.round(x / width) * width) < 2;
+      if (onRow || tries >= 8) settle(x);
+      else waitForStop(tries + 1);
+    }, NO_MOMENTUM_MS);
+  };
+
+  const step = (by: number) => {
+    const landed = resting.current + by;
+    if (landed >= 0 && landed < ids.length) restFrom(landed, true);
   };
 
   return (
-    <View style={s.dialFrame}>
-      <Text style={s.hint}>▲</Text>
-      <ScrollView
-        ref={scroller}
-        style={s.dial}
-        pagingEnabled
-        showsVerticalScrollIndicator={false}
-        contentOffset={{ x: 0, y: at * DIAL_HEIGHT }}
-        onScrollEndDrag={onDragEnd}
-        onMomentumScrollBegin={() => clearTimeout(noMomentum.current)}
-        onMomentumScrollEnd={(e) => settle(e.nativeEvent.contentOffset.y)}
-      >
-        {ids.map((id, i) => {
-          const refusal = compare.refusal(id);
-          const length = sound.lengths[id];
-          const tag = id === sound.sounding ? 'Playing' : id === sound.pending ? 'Loading' : refusal ?? '';
-          return (
-            <View key={id} style={s.dialRow}>
-              <Text style={[s.dialTitle, refusal && s.off]} numberOfLines={2}>{songTitle(id)}</Text>
-              <Text style={s.dialDetail} numberOfLines={1}>
-                {[i === 0 ? (isPicked(id) ? 'Main, your pick' : 'Main') : null, songInfo(id)?.date, length ? clock(length) : null]
-                  .filter(Boolean).join(' · ')}
-              </Text>
-              <Text style={[s.tag, id === sound.sounding && s.tagOn]}>{tag || ' '}</Text>
-            </View>
-          );
-        })}
-      </ScrollView>
-      <Text style={s.hint}>▼</Text>
+    <View style={s.dial}>
+      <Pressable style={s.arrow} onPress={() => step(-1)} hitSlop={6} disabled={at === 0} accessibilityLabel="Previous version">
+        <Text style={[s.arrowText, at === 0 && s.dim]}>‹</Text>
+      </Pressable>
+      <View style={s.window} onLayout={onLayout}>
+        {width ? (
+          <ScrollView
+            ref={scroller}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={32}
+            onScroll={(e) => (lastX.current = e.nativeEvent.contentOffset.x)}
+            onScrollBeginDrag={() => {
+              clearTimeout(noMomentum.current);
+              steering.current = null;
+            }}
+            onScrollEndDrag={() => waitForStop()}
+            onMomentumScrollBegin={() => clearTimeout(noMomentum.current)}
+            onMomentumScrollEnd={(e) => settle(e.nativeEvent.contentOffset.x)}
+          >
+            {ids.map((id, i) => {
+              const refusal = compare.refusal(id);
+              const state = id === sound.sounding ? '●' : id === sound.pending ? 'Loading…' : refusal ?? '';
+              return (
+                <View key={id} style={[s.row, { width }]}>
+                  <Text style={[s.title, refusal && s.off]} numberOfLines={1}>
+                    {songTitle(id)}
+                    {i === 0 ? <Text style={s.main}>{isPicked(id) ? '  Main, your pick' : '  Main'}</Text> : null}
+                  </Text>
+                  <Text style={[s.state, id === sound.sounding && s.on]} numberOfLines={1}>{state}</Text>
+                  <Text style={s.count}>{i + 1}/{ids.length}</Text>
+                </View>
+              );
+            })}
+          </ScrollView>
+        ) : null}
+      </View>
+      <Pressable style={s.arrow} onPress={() => step(1)} hitSlop={6} disabled={at >= ids.length - 1} accessibilityLabel="Next version">
+        <Text style={[s.arrowText, at >= ids.length - 1 && s.dim]}>›</Text>
+      </Pressable>
     </View>
   );
 }
 
-function CompareSheet() {
-  const { ids, at, can, last, sound, open } = useCompare();
-  const { families } = useVersions();
-  const [dragAt, setDragAt] = useState<number | null>(null);
-  const [seekingTo, setSeekingTo] = useState<number | null>(null);
-
-  useEffect(() => compare.familyChanged(), [families]);
-
-  if (!open) return null;
-  const playable = ids.filter((id) => can[id] === 'ok' || can[id] === 'checking').length;
-  const shown = Math.min(dragAt ?? seekingTo ?? sound.time, sound.duration || 0);
-  const drop = async (value: number) => {
-    setDragAt(null);
-    if (!sound.duration) return;
-    setSeekingTo(value);
-    await compare.seek(value);
-    setSeekingTo(null);
-  };
-  const lastIndex = last ? ids.indexOf(last) : -1;
-
+/** "Back to <the version heard before>", under the Versions button; only once you've moved off the first one. */
+export function CompareBack() {
+  const { ids, last, sound } = useCompare();
+  const index = last ? ids.indexOf(last) : -1;
+  const show = index >= 0 && last !== sound.sounding;
   return (
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={compare.done}>
-      <View style={s.sheet}>
-        <View style={s.header}>
-          <Pressable onPress={compare.done}>
-            <Text style={s.link}>Done</Text>
-          </Pressable>
-          <Text style={s.title}>Compare</Text>
-        </View>
-        <Dial />
-        <Text style={s.count}>{at + 1} of {ids.length}</Text>
-        {playable < 2 ? <Text style={s.note}>Only one version can play right now.</Text> : null}
-        {lastIndex >= 0 && last !== sound.sounding ? (
-          <Pressable onPress={() => compare.rest(lastIndex)}>
-            <Text style={s.link} numberOfLines={1}>Back to {songTitle(last!)}</Text>
-          </Pressable>
-        ) : (
-          <Text style={s.link}> </Text>
-        )}
-        <SeekBar value={shown} max={sound.duration} onDrag={setDragAt} onDrop={drop} />
-        <View style={s.times}>
-          <Text style={s.time}>{clock(shown)}</Text>
-          <Text style={s.time}>{clock(sound.duration)}</Text>
-        </View>
-        <Pressable style={s.play} onPress={compare.toggle}>
-          <Text style={s.playText}>{sound.playing ? 'Pause' : 'Play'}</Text>
-        </Pressable>
-      </View>
-    </Modal>
+    <Pressable style={s.back} onPress={() => show && compare.rest(index)} disabled={!show}>
+      <Text style={s.backText} numberOfLines={1}>{show ? `Back to ${songTitle(last!)}` : ' '}</Text>
+    </Pressable>
   );
 }
 
-/** Mounted once. iOS shows one sheet at a time, so Compare waits until the player sheet has gone. */
-export function CompareLayer() {
-  const { sheet } = usePlayer();
-  return sheet === 'none' ? <CompareSheet /> : null;
-}
-
 const s = StyleSheet.create({
-  sheet: { flex: 1, backgroundColor: '#161616', paddingTop: 16, paddingHorizontal: 20, gap: 8 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  title: { color: '#fff', fontSize: 20, fontWeight: '700' },
-  link: { color: '#8ab4f8', fontSize: 15, padding: 8, textAlign: 'center' },
-  dialFrame: { alignItems: 'center' },
-  hint: { color: '#555', fontSize: 14 },
-  dial: { height: DIAL_HEIGHT, alignSelf: 'stretch', borderRadius: 12, backgroundColor: '#222' },
-  dialRow: { height: DIAL_HEIGHT, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16 },
-  dialTitle: { color: '#fff', fontSize: 22, fontWeight: '700', textAlign: 'center' },
-  dialDetail: { color: '#999', fontSize: 14, marginTop: 4 },
-  tag: { color: '#888', fontSize: 13, marginTop: 4, fontWeight: '600' },
-  tagOn: { color: '#8ab4f8' },
+  dial: { flexDirection: 'row', alignItems: 'center', height: ROW_HEIGHT, borderRadius: 10, backgroundColor: '#222' },
+  arrow: { width: 36, height: ROW_HEIGHT, alignItems: 'center', justifyContent: 'center' },
+  arrowText: { color: '#8ab4f8', fontSize: 26, lineHeight: 30 },
+  dim: { color: '#444' },
+  window: { flex: 1, height: ROW_HEIGHT, overflow: 'hidden' },
+  row: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { flex: 1, color: '#fff', fontSize: 17, fontWeight: '700' },
+  main: { color: '#999', fontSize: 13, fontWeight: '400' },
+  state: { color: '#888', fontSize: 13, fontWeight: '600', maxWidth: 140 },
+  on: { color: '#8ab4f8' },
   off: { color: '#666' },
-  count: { color: '#888', fontSize: 14, textAlign: 'center' },
-  note: { color: '#d9a', fontSize: 14, textAlign: 'center' },
-  times: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -8 },
-  time: { color: '#ddd', fontSize: 14, fontVariant: ['tabular-nums'] },
-  play: { alignSelf: 'center', minWidth: 120, alignItems: 'center', paddingVertical: 14, borderRadius: 8, backgroundColor: '#fff', marginTop: 16 },
-  playText: { color: '#111', fontSize: 16, fontWeight: '700' },
+  count: { color: '#888', fontSize: 13, fontVariant: ['tabular-nums'] },
+  back: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', maxWidth: '70%' },
+  backText: { color: '#8ab4f8', fontSize: 15 },
 });

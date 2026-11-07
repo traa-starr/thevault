@@ -1,4 +1,4 @@
-"""Nightly backup: the database and the journal, copied to a folder on C:, newest 14 kept.
+"""Nightly backup: the database, the journal and the phone's backup file, copied to a folder on C:, newest 14 kept.
 
 Reads the library and writes only inside the backup folder. The journal is the real record (the database can be rebuilt
 from it), so both are copied while the write lock is held: no half-written line, and the pair match.
@@ -46,6 +46,8 @@ def run_backup(root, dest=BACKUP_DIR, keep=KEEP, when=None):
             finally:
                 src.close()
             shutil.copyfile(root / JOURNAL_NAME, tmp / JOURNAL_NAME)
+            if (root / "phone-backup.json").is_file():  # what lives only on the phone, so a reinstall can get it back
+                shutil.copyfile(root / "phone-backup.json", tmp / "phone-backup.json")
         tmp.rename(folder)
     except BaseException:
         shutil.rmtree(tmp, ignore_errors=True)

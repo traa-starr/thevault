@@ -5,7 +5,8 @@ import { Alert, Animated, Dimensions, Modal, PanResponder, Pressable, StyleSheet
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import ReorderableList, { useIsActive, useReorderableDrag, type ReorderableListDragEndEvent, type ReorderableListReorderEvent } from 'react-native-reorderable-list';
-import { compare } from './compareStore';
+import { CompareBack, CompareDial } from './Compare';
+import { compare, useCompare } from './compareStore';
 import { openLibrarySelect, HomeButton } from './nav';
 import { player, usePlayer, type Pool } from './playerStore';
 import { VersionsChip, VersionsToast } from './Versions';
@@ -163,11 +164,18 @@ export function NowPlayingBar() {
 }
 
 function FullPlayer() {
-  const { song, order, wanted, time, duration, note, trouble, timeLeft, sorting, buttonsHidden, pool } = usePlayer();
+  const { song, order, wanted: playerWanted, time: playerTime, duration: playerDuration, note, trouble, timeLeft, sorting, buttonsHidden, pool } = usePlayer();
   const [dragAt, setDragAt] = useState<number | null>(null);
   const [seekingTo, setSeekingTo] = useState<number | null>(null);
   const swipe = useBlankSwipeUp(() => player.open('queue'));
   const hidden = useRef(new Animated.Value(buttonsHidden ? 1 : 0)).current;
+  // Compare open: it owns the sound, so the title, seek bar and Play are its; Previous and Next wait for Done
+  const cmp = useCompare();
+  const comparing = cmp.open;
+  const time = comparing ? cmp.sound.time : playerTime;
+  const duration = comparing ? cmp.sound.duration : playerDuration;
+  const wanted = comparing ? cmp.sound.playing : playerWanted;
+  const shownId = comparing ? cmp.sound.sounding || cmp.ids[0] : song?.id;
 
   useEffect(() => {
     Animated.timing(hidden, { toValue: buttonsHidden ? 1 : 0, duration: HIDE_MS, useNativeDriver: true }).start();
@@ -177,7 +185,7 @@ function FullPlayer() {
     setDragAt(null);
     if (!duration) return;
     setSeekingTo(value);
-    await player.seek(value);
+    await (comparing ? compare.seek(value) : player.seek(value));
     setSeekingTo(null);
   };
 
@@ -190,8 +198,8 @@ function FullPlayer() {
       </View>
       <View style={s.spacer} />
       <View style={s.pageTop}>
-        <Text style={s.title} numberOfLines={2}>{song?.title}</Text>
-        <Text style={s.note}>{trouble || note || ' '}</Text>
+        <Text style={s.title} numberOfLines={2}>{comparing ? versions.songTitle(shownId ?? '') : song?.title}</Text>
+        <Text style={s.note}>{comparing ? 'Comparing versions' : trouble || note || ' '}</Text>
         <SeekBar value={shown} max={duration} onDrag={setDragAt} onDrop={drop} />
         <View style={s.times}>
           <Text style={s.time}>{clock(shown)}</Text>
@@ -200,43 +208,56 @@ function FullPlayer() {
           </Pressable>
         </View>
         <View style={s.controls}>
-          <Pressable style={s.button} onPress={player.previous}>
+          <Pressable style={[s.button, comparing && s.greyed]} onPress={player.previous} disabled={comparing}>
             <Text style={s.buttonText}>Previous</Text>
           </Pressable>
-          <Pressable style={[s.button, s.play]} onPress={player.toggle}>
+          <Pressable style={[s.button, s.play]} onPress={comparing ? compare.toggle : player.toggle}>
             <Text style={[s.buttonText, s.playText]}>{wanted ? 'Pause' : 'Play'}</Text>
           </Pressable>
-          <Pressable style={s.button} onPress={player.next}>
+          <Pressable style={[s.button, comparing && s.greyed]} onPress={player.next} disabled={comparing}>
             <Text style={s.buttonText}>Next</Text>
           </Pressable>
         </View>
-        {sorting ? null : (
+        {sorting || comparing ? null : (
           <Pressable onPress={() => (order?.shuffle ? player.setShuffleOn(false) : askShuffle((picked) => player.setShuffleOn(true, picked)))}>
             <Text style={[s.link, order?.shuffle && s.linkOn]}>
               {order?.shuffle ? `Shuffle: ${pool === 'mine' ? 'Mine' : 'unsorted'}` : 'Shuffle: off'}
             </Text>
           </Pressable>
         )}
-        {sorting || !song || player.isOut() ? null : (
+        {!shownId || (!comparing && (sorting || player.isOut())) ? null : (
           <View style={s.versionRow}>
             {/* never a sheet over this sheet (iOS froze on that): the player closes first, then the next screen opens */}
-            <Pressable onPress={() => player.closeThen(() => openLibrarySelect(song.id))}>
-              <Text style={s.link}>Another version of…</Text>
-            </Pressable>
-            <VersionsChip id={song.id} onPress={() => player.closeThen(() => versions.openVersions(song.id))} />
-            {versions.members(song.id).length > 1 ? (
-              <Pressable onPress={() => player.closeThen(() => compare.openFromPlayer(player.url()))}>
+            {/* already in a group: hidden, its Versions chip and Compare do the work */}
+            {versions.members(shownId).length > 1 ? null : (
+              <Pressable onPress={() => player.closeThen(() => openLibrarySelect(shownId))}>
+                <Text style={s.link}>+ Version</Text>
+              </Pressable>
+            )}
+            <VersionsChip id={shownId} onPress={() => player.closeThen(() => versions.openVersions(shownId))} />
+            {comparing ? (
+              <Pressable style={s.doneOn} onPress={compare.done}>
+                <Text style={[s.link, s.doneText]}>Done</Text>
+              </Pressable>
+            ) : versions.members(shownId).length > 1 ? (
+              <Pressable onPress={() => compare.openFromPlayer(player.url())}>
                 <Text style={s.link}>Compare</Text>
               </Pressable>
             ) : null}
           </View>
         )}
+        {comparing ? (
+          <>
+            <CompareDial />
+            <CompareBack />
+          </>
+        ) : null}
         <Pressable onPress={() => player.open('none')}>
           <Text style={s.link}>Back</Text>
         </Pressable>
       </View>
       {/* All the blank space down to the buttons: a swipe up opens Queue, a tap does nothing. */}
-      <View style={s.swipeZone} {...swipe} />
+      <View style={s.swipeZone} {...(comparing ? {} : swipe)} />
       {/* Keeps its height with the buttons hidden or gone, so nothing above it jumps. */}
       <View style={s.dock}>
         {sorting ? null : (
@@ -254,7 +275,7 @@ function FullPlayer() {
           style={[s.verdicts, { transform: [{ translateY: hidden.interpolate({ inputRange: [0, 1], outputRange: [0, VERDICT_DROP] }) }] }]}
           pointerEvents={buttonsHidden ? 'none' : 'auto'}
         >
-          {player.isOut() || sorting ? null : (
+          {player.isOut() || sorting || comparing ? null : (
             <>
               <Pressable style={[s.verdict, isMine && s.mineOn]} onPress={player.tapMine}>
                 <Text style={[s.verdictText, isMine && s.playText]}>Mine</Text>
@@ -358,8 +379,16 @@ function Queue() {
  * top pulls this one, so nothing inside it can move it.
  */
 export function PlayerSheet() {
-  const { sheet, song, queueFrom } = usePlayer();
-  const visible = sheet !== 'none' && !!song;
+  const { sheet, song, queueFrom, comparing } = usePlayer();
+  // Compare from a Library group may have no queue song: the sheet still opens, on the group
+  const visible = sheet !== 'none' && (!!song || comparing);
+  const wasVisible = useRef(visible);
+
+  // the sheet closing, any way at all, counts as Done in Compare: the sound carries on as Done leaves it
+  useEffect(() => {
+    if (wasVisible.current && !visible) compare.done();
+    wasVisible.current = visible;
+  }, [visible]);
   const pulled = useRef(new Animated.Value(0)).current;
   // Queue opened from the player pulls down to the player, not all the way out.
   const toPlayer = useRef(false);
@@ -457,6 +486,9 @@ const s = StyleSheet.create({
   toastText: { flex: 1, color: '#fff', fontSize: 15 },
   toastUndo: { color: '#8ab4f8', fontSize: 16, fontWeight: '700' },
   link: { color: '#8ab4f8', fontSize: 15, paddingHorizontal: 8, paddingVertical: 13, textAlign: 'center' },
+  greyed: { opacity: 0.3 },
+  doneOn: { backgroundColor: '#8ab4f8', borderRadius: 8 },
+  doneText: { color: '#111', fontWeight: '700' },
   linkOn: { color: '#fff', fontWeight: '700' },
   queue: { flex: 1, backgroundColor: '#111', paddingHorizontal: 16 },
   queueHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
