@@ -1,13 +1,14 @@
 # Status
 
-**Phase 1.** Updated 2026-11-06 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 1.** Updated 2026-11-06 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 **In progress:** nothing.
-**Next up:** me: new Code session, type `/next` (Batch 6.4).
+**Next up:** me: commit, then new Code session, type `/next` (Batch 6.4: part 0, board meeting 0b, then my answers before part a).
 **Current task:** `NEXT.md` "Batch 6.4, Compare feels instant and stays in the player".
 
 ## Done
 - Phase 0 closed (`SPIKE-RESULTS.md`). ROADMAP verified: 1.1-1.10, 1.12-1.17, 1.19-1.23. 1.11 built, unproven. Library at `E:\VaultLibrary`, 1,395 songs, 314 Mine, all imported with phone copies.
 - Prompt audit 2026-11-06: board seats run only when called; see DECISIONS.
+- Board test 2026-11-06: one yes/no test in `BOARD.md` "When it meets". 6.4 says yes.
 - Batches 1-5, 4d and 6.1 phone-verified (6.1: 829 MB of 8 GB saved). 6.2 phone-checked 2026-11-06: 6 of 7 passed, closes 1.18 (survival); check 3 (Compare audio) failed, fixed in 6.3. Batch 6.3 phone-verified 2026-11-06 (4 of 4): Compare stable, Hidden newest first, laptop line. Flips got slow (up to ~5 s) and the screen jumps: Batch 6.4. Board notes `board/batch-6-2-restore.md`, design ideas `DESIGN-NOTES.md`.
 
 ## Queue

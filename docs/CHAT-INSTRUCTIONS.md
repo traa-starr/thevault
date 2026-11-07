@@ -72,7 +72,7 @@ a. <small and checkable> b. ... c. ...
 ## Phone check
 1. <exact tap, and what passing looks like>
 ```
-Size it as one phone check, about 3 parts. Batches with new screens or flows get a design board meeting first (`BOARD.md`). Stay in the current phase. Write outcomes and limits, not code. A queue item
+Size it as one phone check, about 3 parts. Apply the board test in `BOARD.md` "When it meets" to every batch; a yes means a meeting first. Stay in the current phase. Write outcomes and limits, not code. A queue item
 marked `fast-lane OK` must be written fully enough that Code can turn it into NEXT on `/next pass`.
 
 ## What you decide
