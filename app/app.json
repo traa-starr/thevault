@@ -30,6 +30,14 @@
           "enableBackgroundPlayback": true
         }
       ]
-    ]
+    ],
+    "runtimeVersion": "1",
+    "updates": {
+      "url": "http://127.0.0.1:8787/update",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
+      "disableAntiBrickingMeasures": true
+    }
   }
 }

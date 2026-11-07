@@ -117,8 +117,21 @@ const settleHandOff = () => {
   finish?.();
 };
 
+// The eye switch, per song (DECISIONS 2026-11-07): a sorted song (Mine or Not mine) opens with the buttons hidden, an
+// unsorted one with them showing; a flip by hand lasts until the next song. Compare never touches it, and Done landing
+// on another version keeps the eye as it was (endCompare sets eyeFor first).
+let eyeFor = '';
+const sortedAlready = (song: PlayerSong) => {
+  const mark = state.marks[song.id] ?? song;
+  return mark.sorted && (mark.mine === 'mine' || mark.mine === 'not mine');
+};
+
 const update = (changes: Partial<State>) => {
   state = { ...state, ...changes };
+  if (state.song && state.song.id !== eyeFor) {
+    eyeFor = state.song.id;
+    if (!state.comparing) state = { ...state, buttonsHidden: sortedAlready(state.song) };
+  }
   listeners.forEach((listener) => listener());
 };
 
@@ -765,6 +778,7 @@ export const player = {
       return null;
     }
     if (!song) return null;
+    eyeFor = song.id; // the version Done lands on keeps the eye as it was before Compare
     url = serverUrl;
     songs.set(song.id, song);
     newTrackStarted();

@@ -4,7 +4,7 @@ Music is read-only by construction: a music file is only ever opened in `_open_a
 attributes say it's on the laptop. A song the import copied plays from the library's own copy instead. Every read route uses the database in SQLite's read-only mode. `POST /changes` is the
 one route that changes my choices, and it writes only to the journal and database, through `apply_changes`. `POST
 /phone-backup` keeps one copy of what lives only on the phone, as one file in the library folder, outside the journal: it
-records no choice. Listens on the laptop itself and its Tailscale address only.
+records no choice. `GET /update` hands the phone new app code that `publish` made (updates.py). Listens on the laptop itself and its Tailscale address only.
 """
 import ipaddress
 import json
@@ -28,6 +28,7 @@ from .library import DB_NAME, MARKER_NAME, LibraryMissing, LibraryRefused, open_
 from .scanner import is_cloud_only
 from .songs import restore_mine, set_mine
 from .store import LOCK_NAME, SCHEMA_VERSION, Busy, write_lock
+from .updates import update_answer, update_file
 
 PORT = 8787
 LOOPBACK = "127.0.0.1"
@@ -43,8 +44,8 @@ CLIENT_HEADER = "X-Vault-Client"  # a web page can't send this to another site w
 MAX_BODY = 1024 * 1024
 # What this code can do for the app, as one number. Raise it when the app starts needing a new route or answer, and
 # raise NEEDS_SERVER in app/phoneBackup.ts with it: a laptop still running older code then says "out of date".
-# 1: phone backup (6.2). 2: this number in /health (6.3).
-SERVER_LEVEL = 2
+# 1: phone backup (6.2). 2: this number in /health (6.3). 3: app updates at /update (6.5).
+SERVER_LEVEL = 3
 PHONE_BACKUP_NAME = "phone-backup.json"  # in the library folder; not the record, so the journal never sees it
 MINE_VALUES = ("mine", "not mine")
 MIN_FOLDER_SET = 2
@@ -349,6 +350,15 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
             if self.command != "HEAD":
                 self.wfile.write(body)
 
+        def _raw(self, status, headers, body):
+            self.send_response(status)
+            for k, v in headers.items():
+                self.send_header(k, v)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            if self.command != "HEAD" and body:
+                self.wfile.write(body)
+
         def _json(self, status, data):
             self._send(status, json.dumps(data, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
 
@@ -368,6 +378,17 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
                     return self._json(200, {"backup": read_phone_backup(root)})
                 if route == "/health":
                     return self._json(200, health(root, backup_dir))
+                if route == "/update":  # new app code for the phone, made by `publish` (updates.py)
+                    status, headers, body = update_answer(root, self.headers.get("expo-platform", ""),
+                                                          self.headers.get("expo-runtime-version", ""),
+                                                          f"http://{self.headers.get('Host', '')}")
+                    return self._raw(status, headers, body)
+                if route.startswith("/update-files/"):
+                    name, _, rel = route[len("/update-files/"):].partition("/")
+                    path = update_file(root, name, rel)
+                    if not path:
+                        return self._error(404, "No such update file.")
+                    return self._file(str(path), path.stat().st_size, lambda: open(path, "rb"))
                 if route == "/sorting":
                     conn = connect_readonly(root)
                     try:

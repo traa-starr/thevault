@@ -1,10 +1,16 @@
 // What you see of the player: the bar, the full player as a sheet, the queue and the Undo toast. The player itself is
 // playerStore.ts, so closing any of these never touches the music.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as Haptics from 'expo-haptics';
 import { Alert, Animated, Dimensions, Modal, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import ReorderableList, { useIsActive, useReorderableDrag, type ReorderableListDragEndEvent, type ReorderableListReorderEvent } from 'react-native-reorderable-list';
+
+/** A light tick: a queue song grabbed, and each spot it bumps past while dragged. */
+const tick = () => {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+};
 import { CompareDial } from './Compare';
 import { compare, useCompare } from './compareStore';
 import { openLibrarySelect, HomeButton } from './nav';
@@ -180,6 +186,9 @@ function FullPlayer() {
   const shownId = comparing ? cmp.sound.sounding || cmp.ids[0] : song?.id;
   const mode = useRef(new Animated.Value(comparing ? 1 : 0)).current;
   const pulse = useRef(new Animated.Value(1)).current;
+  // the Compare word: fades out while Compare is open, pulses during the wait. One node always attached: switching it
+  // between two animated values left it blank after Done until the player was reopened (6.4)
+  const compareWord = useMemo(() => Animated.multiply(pulse, mode.interpolate({ inputRange: [0, 1], outputRange: [1, 0] })), [pulse, mode]);
 
   useEffect(() => {
     Animated.timing(mode, { toValue: comparing ? 1 : 0, duration: FADE_MS, useNativeDriver: true }).start();
@@ -258,13 +267,14 @@ function FullPlayer() {
             )}
           </Animated.View>
           <Animated.View style={[s.layer, { opacity: mode }]} pointerEvents={comparing ? 'auto' : 'none'}>
+            {/* small and quiet, like the Compare word: Play, the version wheel, Done */}
             <View style={s.compareRow}>
-              <Pressable style={[s.button, s.play, s.playSmall]} onPress={compare.toggle}>
-                <Text style={[s.buttonText, s.playText]}>{cmp.sound.playing ? 'Pause' : 'Play'}</Text>
+              <Pressable style={s.compareAct} onPress={compare.toggle} hitSlop={8}>
+                <Text style={s.compareActText}>{cmp.sound.playing ? 'Pause' : 'Play'}</Text>
               </Pressable>
               <View style={s.dialSlot}>{comparing ? <CompareDial /> : null}</View>
-              <Pressable style={[s.button, s.doneOn]} onPress={compare.done}>
-                <Text style={[s.buttonText, s.doneText]}>Done</Text>
+              <Pressable style={s.compareAct} onPress={compare.done} hitSlop={8}>
+                <Text style={[s.compareActText, s.doneText]}>Done</Text>
               </Pressable>
             </View>
           </Animated.View>
@@ -281,7 +291,7 @@ function FullPlayer() {
             <VersionsChip id={shownId} onPress={() => player.closeThen(() => versions.openVersions(shownId))} />
             {/* stays in place in Compare (faded out, no taps), so the row never shifts */}
             {versions.members(shownId).length > 1 ? (
-              <Animated.View style={{ opacity: comparing ? mode.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) : pulse }} pointerEvents={comparing ? 'none' : 'auto'}>
+              <Animated.View style={{ opacity: compareWord }} pointerEvents={comparing ? 'none' : 'auto'}>
                 <Pressable onPress={() => compare.openFromPlayer(player.url())}>
                   <Text style={s.link}>Compare</Text>
                 </Pressable>
@@ -310,17 +320,18 @@ function FullPlayer() {
         )}
         <Animated.View
           style={[s.verdicts, { transform: [{ translateY: hidden.interpolate({ inputRange: [0, 1], outputRange: [0, VERDICT_DROP] }) }] }]}
-          pointerEvents={buttonsHidden ? 'none' : 'auto'}
+          pointerEvents={buttonsHidden || comparing ? 'none' : 'auto'}
         >
-          {player.isOut() || sorting || comparing ? null : (
-            <>
+          {/* only the eye shows or hides these; in Compare they stay as the eye says, dimmed, and take no taps */}
+          {player.isOut() || sorting ? null : (
+            <View style={[s.verdictPair, comparing && s.verdictsResting]}>
               <Pressable style={[s.verdict, isMine && s.mineOn]} onPress={player.tapMine}>
                 <Text style={[s.verdictText, isMine && s.playText]}>Mine</Text>
               </Pressable>
               <Pressable style={s.verdict} onPress={player.tapNotMine}>
                 <Text style={s.verdictText}>Not mine</Text>
               </Pressable>
-            </>
+            </View>
           )}
         </Animated.View>
       </View>
@@ -366,8 +377,13 @@ function Queue() {
   const thaw = useCallback(() => setFrozen(null), []);
   const onDragStart = useCallback(() => {
     'worklet';
+    runOnJS(tick)();
     runOnJS(freeze)();
   }, [freeze]);
+  const onIndexChange = useCallback(() => {
+    'worklet';
+    runOnJS(tick)();
+  }, []);
   // A row dropped where it started never reaches onReorder, so it thaws here.
   const onDragEnd = useCallback((e: ReorderableListDragEndEvent) => {
     'worklet';
@@ -402,6 +418,7 @@ function Queue() {
         autoscrollThreshold={EDGE_ZONE}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
+        onIndexChange={onIndexChange}
         onReorder={onReorder}
         keyExtractor={(id) => id}
         ListEmptyComponent={<Text style={s.queueEmpty}>Nothing after this song</Text>}
@@ -501,6 +518,8 @@ const s = StyleSheet.create({
   eyePupil: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#aaa' },
   eyeSlash: { position: 'absolute', width: 32, height: 2, backgroundColor: '#aaa', transform: [{ rotate: '-35deg' }] },
   verdicts: { height: 56, flexDirection: 'row', gap: 12 },
+  verdictPair: { flex: 1, flexDirection: 'row', gap: 12 },
+  verdictsResting: { opacity: 0.35 },
   verdict: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: '#555' },
   verdictText: { color: '#fff', fontSize: 17, fontWeight: '600' },
   titleBox: { height: 72, justifyContent: 'flex-end' },
@@ -518,7 +537,8 @@ const s = StyleSheet.create({
   controls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12 },
   compareRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dialSlot: { flex: 1 },
-  playSmall: { minWidth: 72, paddingHorizontal: 10 },
+  compareAct: { minWidth: 56, height: 40, alignItems: 'center', justifyContent: 'center' },
+  compareActText: { color: '#fff', fontSize: 15 },
   button: { paddingVertical: 14, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, borderColor: '#555' },
   buttonText: { color: '#fff', fontSize: 16 },
   play: { minWidth: 92, alignItems: 'center', backgroundColor: '#fff', borderColor: '#fff' },
@@ -529,8 +549,7 @@ const s = StyleSheet.create({
   toastText: { flex: 1, color: '#fff', fontSize: 15 },
   toastUndo: { color: '#8ab4f8', fontSize: 16, fontWeight: '700' },
   link: { color: '#8ab4f8', fontSize: 15, paddingHorizontal: 8, paddingVertical: 13, textAlign: 'center' },
-  doneOn: { backgroundColor: '#8ab4f8', borderColor: '#8ab4f8', paddingHorizontal: 12 },
-  doneText: { color: '#111', fontWeight: '700' },
+  doneText: { color: '#8ab4f8', fontWeight: '600' },
   linkOn: { color: '#fff', fontWeight: '700' },
   queue: { flex: 1, backgroundColor: '#111', paddingHorizontal: 16 },
   queueHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },

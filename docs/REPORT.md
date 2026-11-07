@@ -1,36 +1,40 @@
 # Report
 
-**Step:** Batch 6.4, Compare feels instant and stays in the player. Parts a, b, c, 2026-11-07.
+**Step:** Batch 6.5, over-the-air updates + last Compare fixes (build). Parts 0, b, c, a, d, 2026-11-07.
 
-**Verified by running:** `compareEngine.test.mjs`: all rules pass (22 tests, 12 new from the board's list, fake clock).
-`playOrder.test.mjs`: ALL PASSED. `tsc --noEmit`: clean. Guard test: 39/39. `check_repo.py`: clean.
+**Verified by running:** `tsc --noEmit`: clean. `expo export --platform ios`: bundles (1,205 modules). `compareEngine.test.mjs`:
+all rules pass (24 tests; 2 new lock-screen tests fail on the old engine). `playOrder.test.mjs`, `test_server.py`, `test_doctor.py`:
+ALL PASSED. New `test_updates.py`: ALL PASS (17). Guard 39/39. `check_repo.py`: clean.
+Part 0 proven on the laptop: a real `publish` into a throwaway library, then `GET /update` answered 200 multipart with
+runtime 1, and the 3.3 MB bundle downloaded with a matching hash. `expo config` shows the updates settings in the build.
 
-**Needs the phone:** new build first (adds expo-haptics, a native module). The 6 checks in `NEXT.md` "Phone check".
+**Needs the phone:** new build first (adds expo-updates, native). Restart the laptop server (level 3). The 6 checks below.
 
-**Changed:** app/Compare.tsx, app/Player.tsx, app/compareEngine.ts, app/compareEngine.test.mjs, app/compareStore.ts,
-app/playerStore.ts, app/package.json, app/package-lock.json.
+**Changed:** app/App.tsx, Compare.tsx, Player.tsx, app.json, compareEngine.ts, compareEngine.test.mjs, compareStore.ts,
+package.json, package-lock.json, phoneBackup.ts, playerStore.ts, new app/updates.ts; server/vault_cli.py,
+vault_server/server.py, new vault_server/updates.py, new test_updates.py; docs/COMMANDS.md, STATUS, REPORT, DECISIONS.
 
 **Done:**
-- a: up to 6 players at once, the queue's own counted (`MAX_PLAYERS`), nearest first, one new load every 150 ms, sticky
-  under 3 rows. Each version is "aligned" once it's ready, playing and in line; a flip to an aligned one is the same tick.
-  Flip = all volumes set in one loop (unchanged); every 6.3 rule kept. Source per Q2. Resting past the window loads it, then flips.
-- b: Compare tap = haptic, the song plays on with its own buttons, Compare pulses. Dial shows when the window is aligned or
-  can't play, or at 3 s. Skip song, second tap, sheet closed or song end during the wait = cancel. Haptic on every flip.
-- c: one 124 px slot, player controls and [Play] [dial] [Done] crossfade in 200 ms; "Back to ..." row gone; subtitle fixed;
-  title box always two lines high. Compare word stays in place (faded) during Compare, so the version row can't shift.
+- 0: build holds a placeholder update address; the app points updates at the typed laptop address (counts from the next
+  open). Laptop serves `/update` (Expo protocol v1, iOS only, runtime must match) and `/update-files/...` from
+  `E:\VaultLibrary\updates` (last 5 kept). On open, a new update reloads the app at once if nothing plays (first minute),
+  else it's used next open. Home screen's bottom line shows "Update <date>, <time>" when running one. Server level 3.
+- b: the engine follows the player the lock screen drives (the queue's, even when silent). Compare word uses one fade node.
+- c: Mine/Not mine show only by the eye; in Compare they stay as the eye says, dimmed, no taps. Sorted songs open hidden,
+  unsorted showing; a hand flip lasts to the next song; Done on another version keeps the eye.
+- a: vertical wheel, one row, name in Compare's blue + dim "3/5", snaps; a wheel stopped between rows finishes on its row;
+  a row that can't sound goes back to the one you hear after 0.6 s; a version lining up shows dimmed. Play/Done are text.
+- d: no haptic on Compare tap or flips; light tick on queue grab and each spot passed (`onIndexChange`).
 
 **Differed from NEXT.md:**
-- Measure first: not done. Phone timing needs the phone, and the laptop server wasn't running for a stream timing.
-  The board's code reading (3-player window rebuilt + stream + seek + settle) was taken as the cause.
-- iPhone player limit not measured: 6 is the board's guess. If check 3 crashes or goes silent on the biggest song, lower it.
-- Rows past the 6-player window are not dimmed: you can rest on them, they show "Loading…" and flip when ready (the
-  "short wait"). Only loaded rows not ready after the wait are dimmed and skipped. From Library, slow rows dim until ready.
-- Done sits at the end of the Compare row (NEXT's layout), not where the Compare word was.
+- Check 0's "visible word": the home screen's bottom line ("Build N..." becomes "Update <date>, <time>"), so no second commit.
+- Override needs one close/reopen after installing before updates count (Expo rule). Laptop off: the check fails quietly.
+- Anti-bricking is off (Expo requires it for a typed address): a crashing update may need a reinstall. Publish only tested code.
+- Runtime version is a fixed "1" in app.json: raise it with any native change, or old builds would get code they can't run.
+- Eye and Done-word fixes have no automated test (React and expo modules don't run in node). Only expo-updates is native.
 
-**Not done:** nothing in scope.
+**Not done:** nothing in scope. **Decisions needed:** none.
 
-**Decisions needed:** none.
+**Proposed next step:** phone checks 0-5, then chat Review; then Phase 1 "Done when".
 
-**Proposed next step:** phone checks 1-6, then chat Review.
-
-**Pitch:** a hidden "flip ms" readout (long-press the dial count) so the real flip time on the phone gets measured.
+**Pitch:** `publish` refuses unless tsc and the engine tests pass first, so a broken update can't reach the phone.

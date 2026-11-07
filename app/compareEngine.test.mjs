@@ -384,5 +384,25 @@ await pass(2000);
 assert.equal(ended, 1);
 e.stop();
 
+// ---- Batch 6.5: the lock screen drives the queue's player, even when another version is sounding ----
+// 23. Flipped to B, lock-screen pause (it pauses the silent queue player): all silent and it stays that way
+e = fresh();
+e.start('a', uris, 30, true, ['b'], (id) => id, queue);
+await pass(1500);
+e.flipTo('b');
+await pass(2000);
+assert.equal(e.sounding(), 'b');
+queue.pause(); // the lock screen's pause
+await pass(2000);
+assert.equal(audible().length, 0, 'lock-screen pause silences B too');
+assert.ok(!queue.playing, 'the pause is not undone');
+assert.equal(e.playing(), false);
+// 24. Lock-screen play brings back B, the version that was sounding, not A
+queue.play();
+await pass(1500);
+assert.equal(e.sounding(), 'b');
+assert.deepEqual(audible().map((f) => f.name), ['B'], 'B sounds again');
+e.stop();
+
 mock.timers.reset();
 console.log('compareEngine: all rules pass');

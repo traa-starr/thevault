@@ -1,7 +1,6 @@
 // Compare: the versions of one song on a dial inside the full player, flipped at the same second. Memory only: it changes no verdict, so
 // nothing goes to the outbox. The app killed mid-Compare reopens on the queue's song, as the queue never moved.
 import { createAudioPlayer } from 'expo-audio';
-import * as Haptics from 'expo-haptics';
 import { useSyncExternalStore } from 'react';
 import { compareWindow, createCompareEngine, dialReady, WAIT_CAP_MS, type CompareEngine, type CompareSound, type Voice } from './compareEngine';
 import { offline } from './offline';
@@ -60,8 +59,6 @@ export function dialOrder(anyId: string) {
 
 const uris = (ids: string[]) => Object.fromEntries(ids.map((id) => [id, audioUrl(id)]));
 
-const tap = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-
 const refused = (id: string) => {
   const can = state.can[id];
   return can === 'cloud' || can === 'missing' || can === 'unreachable';
@@ -100,7 +97,6 @@ function onChange(sound: CompareSound) {
   if (sound.sounding !== shownSounding) {
     const last = shownSounding || null;
     shownSounding = sound.sounding;
-    tap(); // a light tick on every flip, felt without looking
     update({ sound, last });
     return;
   }
@@ -166,6 +162,9 @@ function begin(serverUrl: string, ids: string[], startId: string, at: number, pl
 }
 
 export const compare = {
+  /** Compare holds the sound or is getting ready to. */
+  busy: () => state.open || state.preparing,
+
   /** From the full player: the song plays on with its own buttons while the other versions line up at its second,
    * then the dial shows (WAIT_CAP_MS at most). A second tap during the wait cancels. */
   openFromPlayer(serverUrl: string) {
@@ -173,7 +172,6 @@ export const compare = {
     const now = player.current();
     const voice = player.voice();
     if (!now || !voice || members(now.id).length < 2 || player.isSorting()) return;
-    tap();
     const { time, wanted } = player.position();
     begin(serverUrl, dialOrder(now.id), now.id, time, wanted, 'player', voice, true);
   },

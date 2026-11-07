@@ -14,6 +14,8 @@ import Sort from './Sort';
 import { VersionsLayer } from './Versions';
 import { RestoreNotice, WaitingLine } from './Notices';
 import { phoneBackup, survivalStamp, usePhoneBackup } from './phoneBackup';
+import { compare } from './compareStore';
+import { pointUpdatesAt, updateLine, useReloadOnUpdate } from './updates';
 
 const PORT = 8787;
 // Stamped by the GitHub build; "dev" when run from the laptop.
@@ -62,6 +64,7 @@ export default function App() {
   const [inSort, setInSort] = useState(false);
   const [stamp] = useState(survivalStamp);
   const { waiting: fresh } = usePhoneBackup();
+  useReloadOnUpdate(() => player.position().wanted || compare.busy(), () => player.saveNow());
 
   const check = useCallback(async () => {
     if (!address) return;
@@ -88,6 +91,7 @@ export default function App() {
   // the last song back in the bar, paused where it was, as soon as the app opens
   useEffect(() => {
     if (address) player.restore(serverUrl(address));
+    if (address) pointUpdatesAt(serverUrl(address));
   }, [address]);
 
   useEffect(() => {
@@ -191,7 +195,7 @@ export default function App() {
         </>
       ) : null}
       <Text style={s.stamp}>Data since {stamp}</Text>
-      <Text style={s.build}>{buildLine}</Text>
+      <Text style={s.build}>{updateLine(buildLine)}</Text>
     </View>,
   );
 }

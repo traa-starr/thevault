@@ -138,6 +138,8 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
     const one = loaded.get(sounding);
     return seekingTo ?? (one?.v.currentTime ?? 0);
   };
+  /** The queue's player when it holds the lock screen (from the player), else null. */
+  const remote = () => (lockScreen ? [...loaded.values()].find((one) => !one.own && one.id !== HANDOFF) ?? null : null);
   const isReady = (one: One) => one.v.isLoaded && !one.v.isBuffering;
   const drift = (one: One) => (one.own ? DRIFT_S : BORROWED_DRIFT_S);
 
@@ -238,9 +240,12 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
       wanted = main.v.playing;
       wantedAt = Date.now();
     }
-    // the sounding version paused or started without us: a lock-screen tap or a call. Everything follows it.
-    if (Date.now() - wantedAt > ADOPT_MS && seekingTo === null && isReady(main) && !main.syncing && main.v.playing !== wanted && !main.finished) {
-      wanted = main.v.playing;
+    // the player the lock screen drives paused or started without us: a lock-screen tap or a call. Everything follows
+    // it. From the player that is the queue's player, silent or not (6.4 check 5: a lock-screen pause on another
+    // version was undone at once); from Library, the sounding version.
+    const control = remote() ?? main;
+    if (!handedOff && Date.now() - wantedAt > ADOPT_MS && seekingTo === null && isReady(control) && !control.syncing && control.v.playing !== wanted && !control.finished) {
+      wanted = control.v.playing;
       wantedAt = Date.now();
     }
     // a borrowed player loops its song while Compare has it: a jump from the end back to the start is the song's end
