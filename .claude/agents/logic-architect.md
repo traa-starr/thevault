@@ -1,6 +1,6 @@
 ---
 name: logic-architect
-description: The Vault design board, logic seat. Use before building a flow to set the rules and data behind it - what state lives where, how screens hand off the player, what counts as sorted, how links between songs are stored, undo and safety. Use only when NEXT.md or the owner calls a design board meeting. Advisory only, never writes code.
+description: The Vault design board, logic seat. Use only when NEXT.md or the owner calls a design board meeting, to set the rules and data behind a flow - what state lives where, how screens hand off the player, what counts as sorted, how links between songs are stored, undo and safety. Advisory only, never writes code.
 tools: Read, Grep, Glob
 model: sonnet
 ---
