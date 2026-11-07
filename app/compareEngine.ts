@@ -20,6 +20,34 @@ const END_MARGIN_S = 0.5; // a version that ends within this of now can't be fli
 const ADOPT_MS = 1500; // a pause or play that lasts this long and wasn't ours came from the lock screen or a call
 export const HANDOFF_MS = 6000; // the queue's player not in line by then: it takes over anyway, so two never play on
 export const HANDOFF = '#handoff';
+/** Players loaded at once, the sounding one included (borrowed or not). The board's guess, pending a phone measurement. */
+export const MAX_PLAYERS = 6;
+const STICKY_ROWS = 3; // a loaded version closer than this to the dial stays loaded
+const STAGGER_MS = 150; // new players start one at a time, nearest first, so they don't all fight for the stream at once
+
+/** The wait before the dial shows, at most. */
+export const WAIT_CAP_MS = 3000;
+
+/** The dial can show: every version in the window is aligned or can't play, or the wait reached its cap. */
+export const dialReady = (window: string[], aligned: Record<string, boolean>, blocked: (id: string) => boolean, waitedMs: number) =>
+  waitedMs >= WAIT_CAP_MS || window.every((id) => aligned[id] || blocked(id));
+
+/** The versions to keep loaded with the dial resting on row `at`: the nearest first, up to `cap`. Versions already
+ * loaded stay while they're under STICKY_ROWS away, so a swipe back and forth doesn't rebuild them. `blocked` rows
+ * (can't play) never load. The order is the load order. */
+export function compareWindow(ids: string[], at: number, loaded: Iterable<string>, blocked: (id: string) => boolean = () => false, cap = MAX_PLAYERS) {
+  const near = ids
+    .map((id, i) => ({ id, d: Math.abs(i - at), i }))
+    .filter(({ id }) => !blocked(id))
+    .sort((a, b) => a.d - b.d || b.i - a.i);
+  const have = new Set(loaded);
+  const keep: string[] = near.filter(({ id, d }) => d === 0 || (have.has(id) && d < STICKY_ROWS)).map(({ id }) => id);
+  for (const { id } of near) {
+    if (keep.length >= cap) break;
+    if (!keep.includes(id)) keep.push(id);
+  }
+  return keep;
+}
 
 /** What Compare needs from a player: the versions it makes, and the queue's own player it borrows. */
 export type Voice = {
@@ -45,6 +73,9 @@ export type CompareSound = {
   /** Lengths learned so far, by version. */
   lengths: Record<string, number>;
   ready: Record<string, boolean>;
+  /** Versions that have been ready, in line and (when playing) playing at least once since they loaded: a flip to them
+   * is near instant. Sticky: a short drift while it's pulled back doesn't dim it again. */
+  aligned: Record<string, boolean>;
 };
 type MakePlayer = (uri: string, updateInterval: number) => AudioPlayer;
 type Handlers = {
@@ -96,6 +127,12 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
   let handedOff: (() => void) | null = null;
   let handOffBy = 0;
   const lengths: Record<string, number> = {};
+  const aligned = new Set<string>();
+  const toMake: string[] = []; // waiting to load, nearest first
+  let lastMade = 0;
+  let uriOf: Record<string, string> = {};
+  let following = false; // the wait before the dial: the queue's own buttons drive the borrowed player, Compare follows
+  let stopped = false;
 
   const now = () => {
     const one = loaded.get(sounding);
@@ -106,7 +143,10 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
 
   const report = () => {
     const ready: Record<string, boolean> = {};
-    loaded.forEach((one, id) => (ready[id] = isReady(one)));
+    loaded.forEach((one, id) => {
+      ready[id] = isReady(one);
+      if (id === sounding || canFlipTo(one)) aligned.add(id);
+    });
     const one = loaded.get(sounding);
     onChange({
       sounding,
@@ -116,6 +156,7 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
       playing: wanted,
       lengths: { ...lengths },
       ready,
+      aligned: Object.fromEntries([...aligned].map((id) => [id, true])),
     });
   };
 
@@ -155,6 +196,7 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
 
   const drop = (one: One) => {
     loaded.delete(one.id);
+    aligned.delete(one.id);
     if (!one.own) return; // the queue's player: never paused or removed here
     one.own.pause();
     one.own.remove();
@@ -175,10 +217,27 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
     done?.();
   };
 
+  const makeNext = () => {
+    while (toMake.length) {
+      const id = toMake.shift()!;
+      if (loaded.has(id) || !uriOf[id]) continue;
+      make(id, uriOf[id]);
+      lastMade = Date.now();
+      return;
+    }
+  };
+
   const tick = () => {
+    if (stopped) return;
     if (handedOff && Date.now() > handOffBy) return flip(HANDOFF);
+    if (toMake.length && Date.now() - lastMade >= STAGGER_MS) makeNext();
     const main = loaded.get(sounding);
     if (!main) return;
+    // the wait: the queue's buttons play and pause the borrowed player; the silent versions follow it at once
+    if (following && !main.own && isReady(main) && main.v.playing !== wanted) {
+      wanted = main.v.playing;
+      wantedAt = Date.now();
+    }
     // the sounding version paused or started without us: a lock-screen tap or a call. Everything follows it.
     if (Date.now() - wantedAt > ADOPT_MS && seekingTo === null && isReady(main) && !main.syncing && main.v.playing !== wanted && !main.finished) {
       wanted = main.v.playing;
@@ -196,6 +255,7 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
     loaded.forEach((one) => {
       if (one.v.duration) lengths[one.id] = one.v.duration;
       if (one.finished) return;
+      if (following && !one.own) return; // never play or pause the queue's player for it while it has its buttons
       if (wanted && !one.v.playing && one.v.isLoaded) one.v.play();
       if (!wanted && one.v.playing) one.v.pause();
       if (one.id === sounding || seekingTo !== null) return;
@@ -217,6 +277,7 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
     p.volume = 0;
     const one: One = { id, v: ownVoice(p), own: p, lead: START_LEAD_S, lastSync: 0, syncing: false, finished: false };
     p.addListener('playbackStatusUpdate', (status) => {
+      if (stopped || !loaded.has(id)) return; // a late answer from a player already let go
       if (status.duration) lengths[id] = status.duration;
       if (status.isLoaded && !one.lastSync && id !== sounding) pull(one, true);
       if (status.didJustFinish) {
@@ -250,6 +311,7 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
       wanted = play;
       wantedAt = Date.now();
       lastNow = 0;
+      stopped = false;
       if (voice) {
         lend(id, voice);
       } else {
@@ -279,15 +341,33 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
       timer = setInterval(tick, TICK_MS);
     },
 
-    /** Loads these versions and lets go of the rest. The sounding and pending ones always stay. */
+    /** Loads these versions, in this order, one at a time, and lets go of the rest. The sounding and pending ones
+     * always stay. */
     keep(ids: string[], uris: Record<string, string>) {
-      const wantedIds = new Set([...ids, sounding, ...(pending ? [pending] : [])]);
+      if (stopped) return;
+      uriOf = { ...uriOf, ...uris };
+      // the queue's player stays: it exists either way, and dropping it would leave it playing unmanaged
+      const lent = [...loaded.values()].filter((one) => !one.own).map((one) => one.id);
+      const first = [...new Set([sounding, ...(pending ? [pending] : []), ...lent])];
+      const rest = ids.filter((id) => !first.includes(id)).slice(0, Math.max(MAX_PLAYERS - first.length, 0));
+      const wantedIds = new Set([...first, ...rest]);
       keepOnly(wantedIds);
+      toMake.length = 0;
       wantedIds.forEach((id) => {
-        if (!loaded.has(id) && uris[id]) make(id, uris[id]);
+        if (!loaded.has(id) && uriOf[id]) toMake.push(id);
       });
+      if (Date.now() - lastMade >= STAGGER_MS) makeNext();
       setVolumes();
     },
+
+    /** The wait before the dial shows: the queue's player keeps its own buttons and Compare follows it. Off once the
+     * dial shows and Compare drives. */
+    follow(on: boolean) {
+      following = on;
+    },
+
+    /** Loaded now, nearest first, so the store can work out the window. */
+    loadedIds: () => [...loaded.keys()],
 
     /** Flips to `id` once it is ready and in line; the one sounding now keeps playing until then. */
     flipTo(id: string) {
@@ -299,6 +379,11 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
       }
       pending = id;
       const target = loaded.get(id);
+      if (!target && uriOf[id]) {
+        // past the loaded window: it loads first, then flips once it plays in line
+        toMake.unshift(id);
+        makeNext();
+      }
       if (target && target.v.isLoaded && offBy(target) > drift(target)) pull(target, true);
       tick();
     },
@@ -374,6 +459,8 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
 
     /** Lets go of everything. Compare's own players stop; a borrowed player is left playing as it is, at full volume. */
     stop() {
+      stopped = true;
+      toMake.length = 0;
       if (timer) clearInterval(timer);
       timer = null;
       if (!lockScreen) loaded.get(sounding)?.own?.clearLockScreenControls();

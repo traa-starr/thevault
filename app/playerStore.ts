@@ -741,6 +741,10 @@ export const player = {
     return { ...out, voice: engine.voice() };
   },
 
+  /** The queue's player for Compare's wait, untouched: it keeps its own buttons until the dial shows. */
+  voice: (): Voice | null => (engine && !state.sorting ? engine.voice() : null),
+  position: () => ({ time: state.time, wanted: state.wanted }),
+
   /** Compare names the version sounding on the lock screen while it borrows this player. */
   compareTitle(title: string) {
     engine?.setTitle(title);
@@ -806,3 +810,6 @@ const subscribe = (listener: () => void) => {
 };
 
 export const usePlayer = () => useSyncExternalStore(subscribe, () => state);
+
+/** Any change to the player, for code outside React (Compare's wait watches for the song changing). */
+export const onPlayerChange = subscribe;

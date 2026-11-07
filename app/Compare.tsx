@@ -7,11 +7,11 @@ import { compare, useCompare } from './compareStore';
 import { dialTarget } from './playOrder';
 import { isPicked, songTitle, useVersions } from './versionStore';
 
-const ROW_HEIGHT = 48;
+const ROW_HEIGHT = 50;
 const NO_MOMENTUM_MS = 250;
 
 export function CompareDial() {
-  const { ids, at, can, sound } = useCompare();
+  const { ids, at, sound } = useCompare();
   const { families } = useVersions();
   const [width, setWidth] = useState(0);
   const scroller = useRef<ScrollViewInstance>(null);
@@ -28,7 +28,7 @@ export function CompareDial() {
     scroller.current?.scrollTo({ x: index * width, animated });
   };
 
-  // the dial follows the store when it moves without a swipe: Back to the last one, or a version removed elsewhere
+  // the dial follows the store when it moves without a swipe: a version removed elsewhere
   useEffect(() => {
     if (!width || resting.current === at) return;
     resting.current = at;
@@ -43,7 +43,8 @@ export function CompareDial() {
     requestAnimationFrame(() => scroller.current?.scrollTo({ x: resting.current * w, animated: false }));
   };
 
-  const blocked = (id: string) => can[id] === 'cloud' || can[id] === 'missing' || can[id] === 'unreachable';
+  // can't play, or not lined up after the wait: stepped over by swipes and arrows
+  const blocked = (id: string) => !!compare.refusal(id) || compare.notReady(id);
 
   /** Rests on the row a swipe or an arrow aimed at: a row that can't play is stepped over (playOrder.ts dialTarget). */
   const restFrom = (landed: number, scroll = false) => {
@@ -106,15 +107,16 @@ export function CompareDial() {
           >
             {ids.map((id, i) => {
               const refusal = compare.refusal(id);
-              const state = id === sound.sounding ? '●' : id === sound.pending ? 'Loading…' : refusal ?? '';
+              const notReady = compare.notReady(id);
+              const state = id === sound.sounding ? '●' : id === sound.pending ? 'Loading…' : refusal ?? (notReady ? 'Not ready' : '');
               return (
-                <View key={id} style={[s.row, { width }]}>
-                  <Text style={[s.title, refusal && s.off]} numberOfLines={1}>
-                    {songTitle(id)}
-                    {i === 0 ? <Text style={s.main}>{isPicked(id) ? '  Main, your pick' : '  Main'}</Text> : null}
-                  </Text>
-                  <Text style={[s.state, id === sound.sounding && s.on]} numberOfLines={1}>{state}</Text>
-                  <Text style={s.count}>{i + 1}/{ids.length}</Text>
+                <View key={id} style={[s.row, { width }, (refusal || notReady) && s.dimmed]}>
+                  <Text style={s.title} numberOfLines={1}>{songTitle(id)}</Text>
+                  <View style={s.line}>
+                    <Text style={s.count}>{i + 1}/{ids.length}</Text>
+                    {i === 0 ? <Text style={s.main}>{isPicked(id) ? 'Main, your pick' : 'Main'}</Text> : null}
+                    <Text style={[s.state, id === sound.sounding && s.on]} numberOfLines={1}>{state}</Text>
+                  </View>
                 </View>
               );
             })}
@@ -128,31 +130,18 @@ export function CompareDial() {
   );
 }
 
-/** "Back to <the version heard before>", under the Versions button; only once you've moved off the first one. */
-export function CompareBack() {
-  const { ids, last, sound } = useCompare();
-  const index = last ? ids.indexOf(last) : -1;
-  const show = index >= 0 && last !== sound.sounding;
-  return (
-    <Pressable style={s.back} onPress={() => show && compare.rest(index)} disabled={!show}>
-      <Text style={s.backText} numberOfLines={1}>{show ? `Back to ${songTitle(last!)}` : ' '}</Text>
-    </Pressable>
-  );
-}
-
 const s = StyleSheet.create({
   dial: { flexDirection: 'row', alignItems: 'center', height: ROW_HEIGHT, borderRadius: 10, backgroundColor: '#222' },
-  arrow: { width: 36, height: ROW_HEIGHT, alignItems: 'center', justifyContent: 'center' },
-  arrowText: { color: '#8ab4f8', fontSize: 26, lineHeight: 30 },
+  arrow: { width: 26, height: ROW_HEIGHT, alignItems: 'center', justifyContent: 'center' },
+  arrowText: { color: '#8ab4f8', fontSize: 24, lineHeight: 28 },
   dim: { color: '#444' },
   window: { flex: 1, height: ROW_HEIGHT, overflow: 'hidden' },
-  row: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: { flex: 1, color: '#fff', fontSize: 17, fontWeight: '700' },
-  main: { color: '#999', fontSize: 13, fontWeight: '400' },
-  state: { color: '#888', fontSize: 13, fontWeight: '600', maxWidth: 140 },
+  row: { height: ROW_HEIGHT, justifyContent: 'center', paddingHorizontal: 2 },
+  dimmed: { opacity: 0.4 },
+  title: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  line: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
+  main: { color: '#999', fontSize: 12 },
+  state: { flexShrink: 1, color: '#888', fontSize: 12, fontWeight: '600' },
   on: { color: '#8ab4f8' },
-  off: { color: '#666' },
-  count: { color: '#888', fontSize: 13, fontVariant: ['tabular-nums'] },
-  back: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', maxWidth: '70%' },
-  backText: { color: '#8ab4f8', fontSize: 15 },
+  count: { color: '#888', fontSize: 12, fontVariant: ['tabular-nums'] },
 });

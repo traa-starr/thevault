@@ -1,8 +1,8 @@
 # Status
 
-**Phase 1.** Updated 2026-11-07 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 1.** Updated 2026-11-07 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 **In progress:** nothing.
-**Next up:** Code: `/next` builds 6.4 parts a-c.
+**Next up:** me: new build, phone checks, then Review.
 **Current task:** `NEXT.md` "Batch 6.4, Compare feels instant and stays in the player".
 
 ## Done
@@ -10,6 +10,7 @@
 - Prompt audit 2026-11-06: board seats run only when called; see DECISIONS.
 - Board test 2026-11-06: one yes/no test in `BOARD.md` "When it meets". 6.4 says yes.
 - 6.4 board met 2026-11-07: notes `board/batch-6-4-compare.md`; answers and calls in DECISIONS.
+- 6.4 built 2026-11-07 (parts a-c), tests pass, not yet on the phone. Player cap 6 unmeasured.
 - Batches 1-5, 4d and 6.1 phone-verified (6.1: 829 MB of 8 GB saved). 6.2 phone-checked 2026-11-06: 6 of 7 passed, closes 1.18 (survival); check 3 (Compare audio) failed, fixed in 6.3. Batch 6.3 phone-verified 2026-11-06 (4 of 4): Compare stable, Hidden newest first, laptop line. Flips got slow (up to ~5 s) and the screen jumps: Batch 6.4. Board notes `board/batch-6-2-restore.md`, design ideas `DESIGN-NOTES.md`.
 
 ## Queue
@@ -23,4 +24,4 @@
 - Waiting for later: `SAVE ME` (mine?), 26 date-only names, `Untitled...` files. Same-render copies keep `Music`; Mine 314.
 
 ## Checks pending
-Batch 6.4 once built: see `NEXT.md` "Phone check".
+Batch 6.4 (new build, adds expo-haptics): see `NEXT.md` "Phone check".
