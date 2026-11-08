@@ -36,3 +36,4 @@ Older rows: `decisions/phase-0-1.md` (Phase 0 and Phase 1, word for word).
 ## From Phase 2 on
 | Topic | Choice | Why |
 |---|---|---|
+| Fold pass, /verify started (2026-11-07) | Fold passed (fast-lane `/next pass`); `/verify` next | Queue item 1 marked fast-lane OK |

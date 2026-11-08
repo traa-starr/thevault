@@ -7,6 +7,7 @@ None of these change, move or delete my music. Chat keeps this file up to date w
 |---|---|---|
 | **Start the server** (phone needs this to play and sort) | `python server\vault_cli.py serve E:\VaultLibrary` | It keeps running. Leave the window open; Ctrl+C stops it |
 | **Doctor**: health check before phone tests | `python server\vault_cli.py doctor E:\VaultLibrary` | PASS / WARN / FAIL lines. Fixes nothing, only reports |
+| **Verify**: every laptop check at once | `python .claude/scripts/verify.py` (or `/verify`) | One PASS/FAIL per check and a total. About 6 min (server test is slow). Read-only |
 | **Scan**: record what's in the music folders | `python server\vault_cli.py scan E:\VaultLibrary C:\Users\illus\iCloudDrive` | A count, then a "Music fingerprint" line. FAIL there means files changed during the scan: just run it again |
 | **Pull cloud songs**: download cloud-only songs | `python server\vault_cli.py pull-cloud E:\VaultLibrary C:\Users\illus\iCloudDrive` | `[12/909] songname` lines. Ctrl+C any time; rerun to carry on. Add a number at the end to only do that many |
 | **Backup now** | `python server\vault_cli.py backup E:\VaultLibrary` | "Backed up to C:\VaultBackup\..." |

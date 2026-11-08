@@ -1,31 +1,17 @@
-# Report
+**Step:** /verify, 2026-11-07.
 
-**Step:** Phase 1 close: fold DECISIONS. Parts a, b, c, 2026-11-07.
+**Verified by running:** `python .claude/scripts/verify.py`: 11/11 PASS (6 server tests incl. doctor, playOrder, compareEngine, tsc, guard test, check_repo). `check_repo.py` PASS.
 
-## Verified by running
-- Archive `docs/decisions/phase-0-1.md`: 246 table lines (231 rows + headers), same as the 246 in the old DECISIONS. Copied by line range, word for word.
-- `docs/DECISIONS.md`: 4,160 bytes (target under 8 KB), was 75,974.
-- `check_repo.py`: clean.
+**Needs the phone:** None.
 
-## Needs the phone
-None.
+**Changed:** `CLAUDE.md`, `docs/COMMANDS.md`, `docs/DECISIONS.md`, `docs/NEXT.md`, `docs/STATUS.md`, new `.claude/scripts/verify.py`, new `.claude/skills/verify/SKILL.md`.
 
-## Changed
-- `CLAUDE.md`, `docs/DECISIONS.md`, `docs/MAP.md`, new `docs/decisions/phase-0-1.md`.
+**Differed from NEXT.md:** NEXT written by Code from the queue (fast-lane pass). All `server/test_*.py` run, not just server+doctor (backup, import, library, updates too). Per-check limit 15 min.
 
-## Differed from NEXT.md
-- DECISIONS had two table headings (planning chats, Phase 0), with all Phase 1 rows under the Phase 0 table. Both moved whole, headings included.
-- Phase 0 summary kept as is, except its "rows are below" line now points to the archive.
-- New table titled "From Phase 2 on", columns Topic | Choice | Why (the most recent table's columns).
+**Not done:** nothing.
 
-## Not done
-Nothing.
+**Decisions needed:** none.
 
-## Decisions needed
-None.
+**Proposed next step:** Opus plan session for Phase 2 tagging (`PLAN-SESSION.md`), needs chat.
 
-## Proposed next step
-`/verify` (fast-lane OK).
-
-## Pitch
-A `check_repo.py` warning when DECISIONS goes over 8 KB, so the next fold shows up by itself.
+**Pitch:** `test_server.py` takes 5.5 min, almost all in the 7,200-line journal timing step (one disk sync per line); build that journal in one go so `/verify` runs in under a minute.
