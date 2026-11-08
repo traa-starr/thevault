@@ -7,7 +7,9 @@ make the few calls only I can make. Adapted from Untethered, without its heavy p
 - **Chat (claude.ai Project, the manager):** keeps the whole picture, checks Code's work, makes reversible calls itself,
   asks me only about taste, scope, money and anything hard to undo. Writes the next task. Writes no code. Instructions:
   `docs/CHAT-INSTRUCTIONS.md`.
-- **Code (fresh session per step):** does exactly what `docs/NEXT.md` says, then `/wrap`.
+- **Code (fresh session per step):** does the task in `docs/NEXT.md`, then `/wrap`. Goal format (default): plans its own
+  steps, proves the Done when lines it can run, stops and asks if the goal is unclear or a call is mine. Recipe format
+  (loop changes, near my music folders, my first-time setup screens): follows the parts in order.
 - **Me:** phone tests, the few decisions, git buttons, carrying the line.
 
 ## The files

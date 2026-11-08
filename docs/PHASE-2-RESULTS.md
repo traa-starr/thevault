@@ -11,3 +11,10 @@ My phone results, one line each (written by chat). Measured results stay in REPO
 6. Laptop off: "Saved on phone · 1 waiting" + grey "on phone"; Laptop on turns it "On laptop": **pass**
 7. Half-typed line still there after closing and reopening the mockup: **pass**
 8. Player mode: same screen without counter, Not mine, Next; feels right: **pass**
+
+## Batch 1: tag from the player (2026-11-08, real app)
+1. Tag here, 30 s typing, Return: row shows the tap's second, row tap jumps, amber tick on seek bar: **pass**
+- Found during check 1: tapping the player's Unhide button (shows the Mine/Not mine buttons) crashes the app, every time, after every restart. Worked before this update, so batch 1 broke it: **fail (bug)**
+2. Airplane mode: tag, kill mid-typing a second, reopen: draft back, both rows "Saved on phone": **pass**
+3. Airplane off at home: both rows turned "On laptop" within a minute: **pass**
+4. Taste, player fit: **something off.** (a) "Tag here" too big and odd: just "Tag". (b) It floats oddly when the Mine/Not mine buttons are hidden. (c) The always-on tag list should go: hidden by default behind a small text button "Tags" (like "Compare"), tap to see tags and edit them there. By default tags only show above the player controls, as they work now (liked). Typing view (field, nudge, Cancel) looks good. My sketch (2026-11-08): Shuffle becomes an icon in the Previous/Play/Next row, everything below moves up, Tag moves onto the Back row, probably as an icon.

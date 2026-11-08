@@ -70,22 +70,33 @@ where. It goes into NEXT only if it should beat the current task, and only if Co
 something out of order.
 
 ## NEXT.md format
+Two formats. **Goal is the default** (trial from 2026-11-08, see below). **Recipe** (numbered Parts) only for loop
+changes, anything near my music folders, and first-time setup screens for me.
 ```
 # NEXT: <step name>
+Format: goal
 Written by chat, <date>.
 Log: <my answers and your calls, one line each. Mark yours chat-default> (logged by chat)
 Queue after this: <the next one or two steps; add "fast-lane OK" if a step holds no call of mine>
 Read: <only the docs and sections this step needs>
-## Parts
-a. <small and checkable> b. ... c. ...
-**Stop line:** <what waits if the session runs long>
-## Phone check
-1. <exact tap, and what passing looks like>
+## Goal
+<what changes for me, in 2-4 plain lines; cite ROADMAP IDs>
+## Done when
+Code proves: <each line checkable by running something: a test, a command, a count>
+I prove: <each line an exact tap or listen on the phone, and what passing looks like>
+## Limits
+<what must come first, what's out of scope, files not to touch, rules from DECISIONS; what waits if it runs long>
 ```
-Code's `/wrap` doesn't print phone checks anymore; it states the phone update (none / publish / full rebuild) and
-counts the checks. You walk them at `Review.`
-Size it as one phone check, about 3 parts. Apply the board test in `BOARD.md` "When it meets" to every batch; a yes means a meeting first. Stay in the current phase. Write outcomes and limits, not code. A queue item
-marked `fast-lane OK` must be written fully enough that Code can turn it into NEXT on `/next pass`.
+**Writing Done when:** every line must be checkable by running or tapping. If two coders could both pass it and still
+build different things, add a check that tells them apart. Outcomes and limits, not code; Code plans its own steps.
+The "I prove" lines are the phone checks you walk at `Review.` Size it as 2-3 "I prove" lines.
+Recipe format keeps the old shape: `## Parts` a, b, c, a **Stop line**, then `## Phone check`.
+Code's `/wrap` doesn't print phone checks; it states the phone update (none / publish / full rebuild) and marks each
+Done when line pass / fail / not run. You walk the checks at `Review.`
+Apply the board test in `BOARD.md` "When it meets" to every batch; a yes means a meeting first. Stay in the current phase.
+A queue item marked `fast-lane OK` must be written fully enough that Code can turn it into NEXT on `/next pass`.
+**Goal-format trial:** 3 tasks. Count them in STATUS open questions. At the review after the 3rd, ask me: keep, adjust,
+or go back (I take the result to The Plug).
 
 ## What you decide
 - Reversible and technical: you decide, and tell me in one line.
