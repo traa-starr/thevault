@@ -36,10 +36,16 @@ Not yours: `REPORT.md` (Code's, overwritten each step), code, git. You only sugg
 match what I've reported, no doc contradicts DECISIONS, STATUS and REPORT under 40 lines. Fix what you can; flag the rest
 in one line.
 
+**One job, one place.** `Review.` is the whole review: my phone checks, your file updates and the next NEXT, all in
+chat. Code never does chat's job (printing checks, recaps, loop steps) and I never carry a job Code or the server can
+do themselves: any laptop command whose timing Code or the server knows (publish, server restart, phone copies) they
+run on their own. I run only what needs my hands: git, sign-ins, SideStore, the phone. When you see me doing a job by
+hand that the laptop could time itself, put it in the next NEXT.
+
 ## When I type `Review.`
-By now I've committed, pushed and done REPORT's "Phone update". I don't bring results: you walk me through the checks.
-1. Read STATUS, REPORT, NEXT, the end of DECISIONS. Say where we are in two lines. If REPORT's "Phone update" isn't
-   `none`, ask one yes/no first: "Did you run the update?" (give the exact line from COMMANDS.md).
+By now I've committed and pushed. Code's `/wrap` already published any update and restarted the server; I've reopened the app. I don't bring results: you walk me through the checks.
+1. Read STATUS, REPORT, NEXT, the end of DECISIONS. Say where we are in two lines. Only if REPORT says `full rebuild`
+   or publish failed, ask one yes/no first: "Did you do the update?" (exact line from COMMANDS.md).
 2. Check Code's work quietly: REPORT's step matches NEXT; every part done or explained; "Changed" matches git or file
    times; nothing claimed without being run; nothing built that wasn't asked for. Check against VISION and DECISIONS.
    Hold any problems until the checks are done, unless one makes the checks pointless.
@@ -78,6 +84,7 @@ changes, anything near my music folders, and first-time setup screens for me.
 Format: goal
 Written by chat, <date>.
 Log: <my answers and your calls, one line each. Mark yours chat-default> (logged by chat)
+Size: <what Code can do before I must test or decide, and why this NEXT is that big>
 Queue after this: <the next one or two steps; add "fast-lane OK" if a step holds no call of mine>
 Read: <only the docs and sections this step needs>
 ## Goal
@@ -85,12 +92,22 @@ Read: <only the docs and sections this step needs>
 ## Done when
 Code proves: <each line checkable by running something: a test, a command, a count>
 I prove: <each line an exact tap or listen on the phone, and what passing looks like>
+## Stretch (only if every goal is met and budget is left)
+<next fast-lane queue items, in order; Code says in REPORT which it took>
 ## Limits
 <what must come first, what's out of scope, files not to touch, rules from DECISIONS; what waits if it runs long>
 ```
 **Writing Done when:** every line must be checkable by running or tapping. If two coders could both pass it and still
 build different things, add a check that tells them apart. Outcomes and limits, not code; Code plans its own steps.
 The "I prove" lines are the phone checks you walk at `Review.` **Size it as a milestone, not a baby step:** a whole batch or more, as far as code can go before I must test or decide. Group phone checks so each covers several things (4-6 is fine).
+**Sizing check, before every NEXT (the hole we keep falling in):** a review's fix-ups are never a whole NEXT on their
+own. Before writing, list everything Code could do **now without me**: the fixes and notes from this review, the
+roadmap items ahead, fast-lane queue items, parked pitches that are cheap and useful, and groundwork for the next
+phase (options memo, a throwaway spike in `spike/`, tests for pure logic) so my hard-to-undo call is ready one step
+before it blocks. Take all of it that fits one Code session (about 150k context). When the next roadmap item is mine
+(real sessions, a wipe test), Code's session runs alongside it, it doesn't wait. Aim for 4-6 lettered goals; fewer
+needs a reason on the `Size:` line. Order goals by what matters most for my next phone use, so a session cut short
+still ships the important part. Groundwork for the next phase is spike and memo only: no app code until I choose.
 **Every goal NEXT carries `## The bar`** (between Goal and Done when): board first if the test says so; failure modes listed before building and turned into tests or screenshot checks; tests first; control rules (instant press, 44 pt, no swallowed tap, no layout shift); screenshots of every changed screen with the screenshot command; a hostile self-review of the whole diff before `/wrap`; two failed fixes on a goal = write it up and move on, don't stop the session; for milestones with new screens or risky logic, one fresh-eyes review (a subagent with only NEXT, LESSONS, the diff and screenshots) after the self-review, its catches listed in REPORT. Drop it if REPORT shows it catching nothing twice in a row.
 Recipe format keeps the old shape: `## Parts` a, b, c, a **Stop line**, then `## Phone check`.
 Code's `/wrap` doesn't print phone checks; it states the phone update (none / publish / full rebuild) and marks each

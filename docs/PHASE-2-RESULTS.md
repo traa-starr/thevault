@@ -40,3 +40,13 @@ My phone results, one line each (written by chat). Measured results stay in REPO
 3. Shuffle taps cycle Mine / Unsorted / off on the right, no box, blue on; readable with tag words at once: **pass**
 4. Tag re-tap cancels (amber X, nothing saved, music keeps playing); double-tap keeps the field open: **pass**
 - Bug: Tag and its X feel laggy: after a cancel, Tag reopens only eventually, and I can't tell if a tap registered and is lagging or didn't register at all. Two fast taps on the icon don't work; the Cancel button works fine. The icon should answer as fast as Cancel.
+
+## Phase 2 code-complete (2026-11-08, real app, OTA publish)
+1. Tag double tap opens then closes as fast as Cancel, reopens on next tap; knob drag lands where released, no snap: **pass**
+2. Hold a Tags row: Change words / Move to now / Delete + Undo, in place, rows never jump: **pass**
+3. Tagging session: counter, 30% start, no repeats in ten, Not mine + Undo without stopping, Close back to Library: **pass**
+- Note: start point too late; start ~15 s in, not 30%.
+- Bug: on Next the song plays from 0 for a beat or two, then lags and jumps in. Sort cards do not do this. Owner asks: does the session use the same player as Sort cards, or a different one? (REPORT had listed "a 30%-in load with no intro blip" as Not taken, saying Cards have the same; owner says they do not.)
+- Cause (chat read the code): the session and Sort cards use the same player; both wait for the song length, then jump to 30%. Call (owner): session cards start at 15 s, Sort cards at 30 s, both fixed times so the song starts there with no blip.
+4. Library Shuffle cycles Mine / Unsorted / off with no box; offline: two edits, a delete and an Undo reach the laptop (`tags` command shows the second words and both tags): **pass**
+- Result: 4 of 4 pass, 1 bug note (card start blip).

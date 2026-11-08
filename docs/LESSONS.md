@@ -11,3 +11,5 @@ The bar in `CHAT-INSTRUCTIONS.md` once they're standard.
 | 2026-11-08 | Dragging the knob snapped to ticks | Seek test: a drag lands where it's released |
 | 2026-11-08 | Shuffle pop-up box broke the flow; Shuffle text covered tag words | Screenshot with two notices on screen at once; no dialogs inside the player |
 | 2026-11-08 | Eye button crash (screen state vs file on disk) | Test toggles repeatedly, and after a restart |
+| 2026-11-08 | Session cards played a beat from 0:00, then jumped in (wait for length, then seek) | Start point handed to the player at load; a test that no audio plays before it. Screenshots can't hear: list sound-timing failure modes too |
+| 2026-11-08 | REPORT dismissed a fresh-eyes catch ("Cards have the same") without checking | A catch is only "not taken" with a reason checked on the real path, written in REPORT |

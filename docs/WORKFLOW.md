@@ -32,7 +32,7 @@ Full chat duties: `CHAT-INSTRUCTIONS.md` ("Files you manage").
 
 ## The loop
 1. **Code:** `/next` does the task, then wraps: REPORT, STATUS, DECISIONS, a one-line commit message, and a clear
-   **Phone update** line: none, publish (exact line), or full rebuild. It counts the phone checks but doesn't print them.
+   **Phone update** line: none, published (Code ran publish and any server restart itself), or full rebuild (mine). Its last message is three lines: goals met, phone update, commit message.
 2. **Me:** VS Code buttons: commit, push. Do the phone update if there is one.
 3. **Chat:** new chat in the Project, type `Review.` Chat reads the laptop folder and walks me through the phone
    checks one at a time, writing each result down as I give it.

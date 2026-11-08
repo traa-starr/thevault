@@ -1,45 +1,41 @@
-# NEXT: Phase 2 code-complete (fixes, change tags, tagging session, restore, Code's eyes)
+# NEXT: Session polish, laptop upkeep, search groundwork
 Format: goal
 Written by chat, 2026-11-08.
-Log: player polish checks 4 of 4 pass (results `PHASE-2-RESULTS.md` "Player polish"); bug: Tag icon guard (1 s, reset by every ignored tap) makes it laggy, two fast taps fail while Cancel works; the guard goes, the icon answers every tap like Cancel (owner); dragging the knob must not snap to a tick, jump only on tick tap or Tags row (owner); re-tap cancels even with words typed and the amber X stay as built (chat); steps become ambitious milestones, not small batches: batch 2 (a, b, c), batch 3a, Library Shuffle and a screenshot tool merged into this one step (owner); goal trial task 3 of 3 (chat) (logged by chat)
-Queue after this: my real tagging sessions + restore check, then Phase 2 closes. Then laptop-only phone-copy refresh (loop change, see STATUS queue).
-Read: `docs/LESSONS.md` (turn every line into a check in your plan), `docs/PHASE-2-RESULTS.md` (all), DECISIONS rows dated 2026-11-07 and 2026-11-08, `docs/BLUEPRINT.md` "Phase 2: tagging", `docs/BATCH-PLAN.md` batches 2-3, `docs/BOARD.md`, `spike/mockups/tagging-card.html`, the app files you touch.
+Log: Phase 2 code-complete checks 4 of 4 pass, 2.2/2.4/2.5 ticked (results `PHASE-2-RESULTS.md`); bug: on every session Next a beat plays from 0:00, then it jumps in; session cards start at 15 s, Sort cards at 30 s, fixed times (owner); session has no Shuffle (fine) but its other player buttons are no longer centred (owner); session survives an app kill, Code's pitch promoted (chat); goal format kept after its 3-task trial (owner); double Next and Undo-after-Next stay as built (owner); NEXT sized by the new sizing check in CHAT-INSTRUCTIONS (owner); Phase 3 groundwork is spike and memo only, no app code (chat) (logged by chat)
+Size: (Read: also `docs/BATCH-PLAN.md` "My requests".) My real tagging sessions and wipe check (2.7) are mine and run alongside this. Everything Code can do without me: the review's 3 fixes, the laptop queue item, cheap parked pitches, and Phase 3's hard-to-undo question (search on phone or laptop) made ready for me to choose at review.
+Queue after this: Phase 2 closes after my sessions + wipe check; then Phase 3 build on the option I pick.
+Read: `docs/LESSONS.md` (every line a check in your plan), `docs/PHASE-2-RESULTS.md` "Phase 2 code-complete", the last 3 DECISIONS rows, `docs/BLUEPRINT.md` "Phase 2: tagging" (reading tags), `docs/ROADMAP.md` Phase 3, STATUS queue and parked list, the files you touch.
+
+## Part 0 (loop change, do first)
+Copy `docs/pending-skills/wrap-SKILL.md` over `.claude/skills/wrap/SKILL.md`, then delete the pending copy. From this `/wrap` on, you publish and restart the server yourself, and your last message is three lines. Use it at the end of this session.
 
 ## Goal
-Everything left in Phase 2 that code can do, built and proven in one session, so after this only my real sessions and the restore check stand between us and closing Phase 2 (ROADMAP 2.2, 2.4, 2.5, 2.7).
-A. **Code's eyes, first.** A laptop command that renders the app's screens at iPhone size with fake data and saves screenshots, so you check layout yourself before I ever see it. Expo web plus a headless browser is the obvious path; audio and gestures can be faked. Add its line to `COMMANDS.md`. Use it for every screen below.
-B. **Fixes.** The Tag icon answers every tap as fast as Cancel (the 1 s guard goes; at most a ~250 ms bounce filter, and an ignored tap never extends it). Dragging the knob lands where I let go; only a tick tap or a Tags row jumps.
-C. **Change tags (2.4).** Hold a row in the Tags list: Change words · Move to now · Delete, each with "· Undo" for 6 s in the reserved line. Rows never reorder while playing.
-D. **Tagging session (2.2, 2.5).** BATCH-PLAN batch 2 b and c as written: "Tag songs" in the Library header and Sort tab, "N of M tagged", pool rules, cards start ~30% in, Next saves an open draft to its own song, Not mine with Undo, Mine filter holds everywhere.
-E. **Library Shuffle** cycles like the player's. No Shuffle pop-up anywhere in the app.
-F. **Restore, Code side (2.7).** A laptop command that lists tags per song (for my compare), and a test that a wiped phone with one unsent tag restores every tag: same words, same second, deleted ones stay gone.
+My real tagging sessions feel right from the first card, the laptop needs less babysitting, and Phase 3's big call is ready for me.
+A. **Clean starts (2.2, Sort cards).** Session cards start at 0:15, Sort cards at 0:30. The start time goes to the player when the song loads, so the first thing I hear is that spot, never a beat from 0:00. A song shorter than its start point starts at 0:00. An undone Sort card still carries on from where it was.
+B. **Session layout.** The session has no Shuffle, and that's fine, but the player buttons left behind must sit centred, not lopsided. Same 44 pt targets, no shift when the session opens or closes.
+C. **Session survives an app kill.** Save "in a session" with its lap, counter and place. After a kill and reopen, or lock-screen Nexts while the app slept, the player still shows the session look and the same lap.
+D. **Laptop upkeep (BATCH-PLAN "My requests" 2026-11-07 + parked).** I sort on the phone between builds, and the laptop never catches up on its own: 465 Mine, only 314 with phone copies. The server makes phone copies by itself: on start, and in the background soon after a song is marked Mine (never slowing playback; safe if it's stopped mid-copy). After a sort session, Library songs play without me running `import`. `/next` also prints "phone copies made now: N" as a backstop. Doctor warns about Mine songs without phone copies. The server stops printing harmless "connection reset" tracebacks. Update `COMMANDS.md` for anything I run.
+E. **Search groundwork (Phase 3, spike only).** In `spike/search/`: the ranking ladder (3.1-3.3: exact phrase > words in order with gaps > all words > rare words; common words down-weighted; slang endings like drip/drippin) as pure functions with tests, run on fake tags at my library's size (1,395 songs, ~20 tags each, slang and misspellings). Measure speed and size both ways: on the phone vs on the laptop, plus one option I didn't ask about. Write `docs/SEARCH-OPTIONS.md`: 2-3 options, numbers, what a senior engineer would pick and why. No app code; I choose at review.
 
 ## The bar (how to work)
-- One board meeting first (flow, screen, logic seats) for the whole step; notes in `docs/board/phase-2-complete.md`. Advisory.
-- Plan in STATUS "In progress", one line per goal. Before building each goal, list how it could break on my phone (lost or late tap, layout jump, keyboard covering things, offline, app killed mid-action, song change mid-action, empty list, 30+ tags, long text and emoji) and turn each into a test or a screenshot check.
-- Rules get tests first, in the style of `playOrder.test.mjs`.
-- Every control: instant pressed look, at least 44 pt to tap, no tap swallowed, nothing on screen shifts when it appears. BLUEPRINT taste holds: small text-like controls, fixed-height rows, no haptics.
-- Screenshot every changed screen: empty, 1 tag, 30 tags, long words, field open. Look at them and fix what's off before `/wrap`. The session screen matches the approved mockup.
-- Before `/wrap`, a hostile review: re-read your whole diff against every Done when line, DECISIONS and BLUEPRINT as if hunting for my next fail. Fix what you find, then `/verify`.
-- **Fresh-eyes review, once, after your own review** (this NEXT asks for it, so the no-subagents rule allows it): one subagent that never saw the build gets only NEXT, `LESSONS.md`, the relevant DECISIONS and BLUEPRINT rows, the diff and the screenshots. Its job: find what would fail my phone checks or look amateur. It returns a ranked list. You fix what's real. No second run. In REPORT: what it caught that you missed (one line each), so we can judge if it's worth the tokens.
-- Don't stop at the first problem. Two failed fixes on one goal: write it up in REPORT and move to the next goal. Keep the STATUS plan current so a cut-off resumes; past ~150k context, finish the current goal and `/wrap`.
+- Board test from `BOARD.md` (B touches a screen; E is a hard-to-undo call). Say in REPORT whether it met.
+- Plan in STATUS "In progress", one line per goal. Before building each, list how it could break (fast Next taps, Next while loading, lock-screen Next, a short song, app killed mid-load, offline, Undo right after Next; for D, server already stopped or import failing) and turn each into a test or screenshot check.
+- Tests first. Screenshots can't hear: for A, a test proves the start time reaches the player at load and no seek follows.
+- Screenshot every changed screen, incl. the session look after a simulated restore. Hostile self-review of the whole diff before `/wrap`. One fresh-eyes review (new screens + risky logic). Anything you don't fix: say why, checked on the real path.
+- Two failed fixes on a goal: write it up, move to the next goal. Don't stop the session.
 
 ## Done when
-Code proves:
-1. Screenshot command runs in one line and saves every screen listed above; REPORT names what you fixed after looking.
-2. Tests: two taps 300 ms apart open then cancel, a third reopens; a drag released 1 s from a tick lands where released, a tick tap jumps.
-3. Tests: Change words, Move to now, Delete each go through the phone-first journal and outbox (whole-tag lines, BLUEPRINT), Undo restores exactly, a deleted tag stays gone after sync.
-4. Tests: session pool (Mine and playable only, untagged 3x, no repeats until the pool runs out), counter, Next saves a draft to its own song, Not mine + Undo.
-5. Restore test passes with one unsent tag; tags-per-song command prints for a real song.
-6. `/verify` all PASS, including the music guard test.
+Code proves: a server test where marking a song Mine makes its phone copy with no command, and a stop mid-copy leaves no broken file; start-time tests (session 15 s, Sort 30 s, short song 0, undone card resumes); session-restore test (same lap, counter, place after a reload); session screenshots show the controls centred; `/next`'s refresh prints the count on the real library; doctor shows the warning line; the spike's tests pass and `SEARCH-OPTIONS.md` has measured numbers for each option; `/verify` all PASS.
 I prove:
-7. Tag twice fast: opens then cancels as quick as Cancel; once more: opens. Drag to just past a tick: stays where I let go.
-8. Hold a row: Change words shows the new words in the list and when play passes the tick; Delete then Undo brings it back; Move to now moves the tick; nothing jumps.
-9. Session: ten cards, counter moves on a song's first tag, no song twice, Not mine then Undo puts it back, Close returns with the same song playing.
-10. Library Shuffle cycles with no pop-up. Offline: change one tag twice, delete another, Undo the delete; back online the laptop shows the second words and both tags.
+1. Tag songs: the controls sit centred. Tap the big Next 5 times fast, then slowly. Pass: each song's first sound is about 0:15, never a beat from the start.
+2. Sort cards: mark 3 new songs Mine, then find them in Library and play them (no laptop command in between). Swipe through 5 cards. Pass: each starts about 0:30 with no blip. Undo one: it carries on where it was.
+3. In a session, swipe the app away, reopen. Pass: still in the session, same "N of M tagged", same order. Lock the phone, Next twice from the lock screen, unlock. Pass: session look, counter right.
+4. Read `SEARCH-OPTIONS.md` with chat at review and pick one.
+
+## Stretch (only if every goal is met and budget is left)
+Parked pitches in this order: song length stored at scan time; `/verify` under 1 min; Hidden count on the Hidden link. Say in REPORT which you took.
 
 ## Limits
-- Don't touch music folders, the guard or check_repo. Screenshots use fake data only and live in `spike/output/` (gitignored).
-- The screenshot tool's packages are laptop-only: they must not change what ships to the phone. If Expo web can't render a screen, fake that part; if the tool itself fails twice, write it up and build the rest anyway.
-- Laptop changes are fine where a goal needs them (F, `POST /changes` if needed); say why in REPORT. Old server never meets a new kind (BLUEPRINT).
-- Not in this step: phone-copy refresh, Phase 3 search, Move to now beyond the list.
+- Order matters: A, B, C first (my sessions need them), then D, then E. If it runs long, E waits, not A-C.
+- E stays in `spike/` and docs: no `app/` or `server/` search code until I choose.
+- No change to tags, sync, Library or Shuffle behaviour. Music read-only, no git, public-repo rules as always.

@@ -43,8 +43,8 @@ b. Small fixes from my real sessions ride along.
 2. Real sessions done (my call), then Phase 2 closes.
 
 ## My requests (2026-11-07; placed by chat in STATUS queue)
-- 465 songs are Mine but only 314 have phone copies: `import` makes the rest. I'd like sessions to refresh this by themselves.
-- A plain tour of the laptop commands: what each one is for and when to run it.
+- 465 songs are Mine but only 314 have phone copies: `import` makes the rest. I'd like sessions to refresh this by themselves. *(in NEXT 2026-11-08: the server makes copies on its own)*
+- A plain tour of the laptop commands: what each one is for and when to run it. *(done by chat in review chat 2026-11-08)*
 
 ## Still parked
 `/status` count-only answer · A-Z jump strip · doctor's fail line naming changed files · `/verify` under 1 min.
