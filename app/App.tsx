@@ -8,6 +8,7 @@ import Library from './Library';
 import { setHome } from './nav';
 import { offline } from './offline';
 import { flush, startOutbox } from './outbox';
+import { tagStore } from './tagStore';
 import { NowPlayingBar, PlayerSheet, UndoToast } from './Player';
 import { player } from './playerStore';
 import Sort from './Sort';
@@ -99,6 +100,7 @@ export default function App() {
     if (address) startOutbox(serverUrl(address));
     if (address) offline.start(serverUrl(address));
     if (address) phoneBackup.start(serverUrl(address));
+    if (address) tagStore.start(serverUrl(address));
     check();
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') {
@@ -110,6 +112,7 @@ export default function App() {
       flush();
       if (address) offline.start(serverUrl(address));
       if (address) phoneBackup.start(serverUrl(address));
+      if (address) tagStore.start(serverUrl(address));
       check();
     });
     return () => sub.remove();

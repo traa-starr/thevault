@@ -135,13 +135,21 @@ export type FamilyChange = {
     restore_mine?: string[];
   };
 };
-export type Change = MineChange | FamilyChange;
+/** A whole tag, as the laptop keeps it (BLUEPRINT "Phase 2: tagging"). `version_id` is filled in by the laptop. */
+export type Tag = { id: string; song_id: string; version_id?: string | null; text: string; at_sec: number; made_at: string };
+export type TagLine = { tag_id: string; song_id: string; text: string; at_sec: number; made_at: string };
+export type TagChange =
+  | { id: string; kind: 'tag_add'; data: TagLine }
+  | { id: string; kind: 'tag_remove'; data: { tag_id: string; song_id: string } };
+export type Change = MineChange | FamilyChange | TagChange;
 
 /** The Mine side of what's waiting: a versions change carries its own Mine marks and restores. */
 const mineOnly = (pending: Change[]): MineChange[] =>
   pending.flatMap((change): MineChange[] =>
-    change.kind !== 'family_set'
+    change.kind === 'mine_set' || change.kind === 'mine_restore'
       ? [change]
+      : change.kind !== 'family_set'
+      ? []
       : [
           ...(change.data.mine ?? []).map((id): MineChange => ({ id: change.id, kind: 'mine_set', data: { song_id: id, value: 'mine' } })),
           ...(change.data.restore_mine ?? []).map((id): MineChange => ({ id: change.id, kind: 'mine_restore', data: { song_id: id } })),
@@ -179,6 +187,24 @@ export function withPending<S extends { id: string; mine: string; sorted: boolea
     if (!value) return [song];
     return value === 'not mine' ? [] : [{ ...song, mine: value, sorted: true }];
   });
+}
+
+/** A tag shown on the phone: the laptop's copy with what's waiting laid on top. `onPhone` until the laptop has it. */
+export type ShownTag = Tag & { onPhone: boolean };
+
+/** Tags as they'll be once the laptop has these changes, in time order (ties: oldest made first). Only `songId`'s if given. */
+export function tagsWithPending(copy: Tag[], pending: Change[], songId?: string): ShownTag[] {
+  const tags = new Map<string, ShownTag>(copy.map((tag) => [tag.id, { ...tag, onPhone: false }]));
+  for (const change of pending) {
+    if (change.kind === 'tag_add') {
+      const { tag_id, ...rest } = change.data;
+      const was = tags.get(tag_id);
+      tags.set(tag_id, { ...was, id: tag_id, ...rest, made_at: was?.made_at ?? rest.made_at, onPhone: true });
+    } else if (change.kind === 'tag_remove') tags.delete(change.data.tag_id);
+  }
+  return [...tags.values()]
+    .filter((tag) => !songId || tag.song_id === songId)
+    .sort((a, b) => a.at_sec - b.at_sec || a.made_at.localeCompare(b.made_at) || a.id.localeCompare(b.id));
 }
 
 /** Compare's wheel: where a flick from row `from` that landed on row `landed` should rest. A flick travels: it rests

@@ -4,7 +4,7 @@ Music is read-only by construction: a music file is only ever opened in `_open_a
 attributes say it's on the laptop. A song the import copied plays from the library's own copy instead. Every read route uses the database in SQLite's read-only mode. `POST /changes` is the
 one route that changes my choices, and it writes only to the journal and database, through `apply_changes`. `POST
 /phone-backup` keeps one copy of what lives only on the phone, as one file in the library folder, outside the journal: it
-records no choice. `GET /update` hands the phone new app code that `publish` made (updates.py). Listens on the laptop itself and its Tailscale address only.
+records no choice. `GET /tags` lists every live tag. `GET /update` hands the phone new app code that `publish` made (updates.py). Listens on the laptop itself and its Tailscale address only.
 """
 import ipaddress
 import json
@@ -28,6 +28,7 @@ from .library import DB_NAME, MARKER_NAME, LibraryMissing, LibraryRefused, open_
 from .scanner import is_cloud_only
 from .songs import restore_mine, set_mine
 from .store import LOCK_NAME, SCHEMA_VERSION, Busy, write_lock
+from .tags import add_tag, all_tags, remove_tag
 from .updates import update_answer, update_file
 
 PORT = 8787
@@ -44,8 +45,8 @@ CLIENT_HEADER = "X-Vault-Client"  # a web page can't send this to another site w
 MAX_BODY = 1024 * 1024
 # What this code can do for the app, as one number. Raise it when the app starts needing a new route or answer, and
 # raise NEEDS_SERVER in app/phoneBackup.ts with it: a laptop still running older code then says "out of date".
-# 1: phone backup (6.2). 2: this number in /health (6.3). 3: app updates at /update (6.5).
-SERVER_LEVEL = 3
+# 1: phone backup (6.2). 2: this number in /health (6.3). 3: app updates at /update (6.5). 4: tags (GET /tags, tag_add/tag_remove).
+SERVER_LEVEL = 4
 PHONE_BACKUP_NAME = "phone-backup.json"  # in the library folder; not the record, so the journal never sees it
 MINE_VALUES = ("mine", "not mine")
 MIN_FOLDER_SET = 2
@@ -222,6 +223,10 @@ def apply_one(store, change):
         done = restore_mine(store, data["song_id"], change["id"])
     elif change.get("kind") == "family_set":
         done = set_family(store, data, change["id"])
+    elif change.get("kind") == "tag_add":
+        done = add_tag(store, data, change["id"])
+    elif change.get("kind") == "tag_remove":
+        done = remove_tag(store, data, change["id"])
     else:
         raise ValueError("That kind of change isn't allowed.")
     return "saved" if done else "nothing to do"
@@ -403,6 +408,12 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
                     finally:
                         conn.close()
                     return self._json(200, {"songs": songs, "total_bytes": sum(s["size"] for s in songs), "no_copy": no_copy})
+                if route == "/tags":
+                    conn = connect_readonly(root)
+                    try:
+                        return self._json(200, {"tags": all_tags(conn)})
+                    finally:
+                        conn.close()
                 if route == "/songs":
                     hidden = parse_qs(urlsplit(self.path).query).get("hidden") == ["1"]
                     conn = connect_readonly(root)

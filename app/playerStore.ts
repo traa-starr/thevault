@@ -185,6 +185,7 @@ const newTrackStarted = () => {
 };
 
 let soundPlaying = false;
+let timeStampedAt = 0;
 
 function onSound(sound: Sound) {
   // the lock screen reads playing again on every change, so its button never lags a press behind (6.5: two presses).
@@ -197,6 +198,7 @@ function onSound(sound: Sound) {
   if (state.comparing) return; // paused and waiting: nothing it says counts
   if (sound.loaded) everLoaded = true;
   const changes: Partial<State> = { time: sound.time, duration: sound.duration };
+  timeStampedAt = Date.now();
   if (sound.time !== lastTime) {
     if (lastTime >= 0 && sound.playing) {
       badInARow = 0;
@@ -771,6 +773,9 @@ export const player = {
   /** The queue's player for Compare's wait, untouched: it keeps its own buttons until the dial shows. */
   voice: (): Voice | null => (engine && !state.sorting ? engine.voice() : null),
   position: () => ({ time: state.time, wanted: state.wanted }),
+  /** The second playing right now: the last report plus the time since, while it plays (reports come in steps). */
+  positionNow: () =>
+    soundPlaying && state.duration ? Math.min(state.time + (Date.now() - timeStampedAt) / 1000, state.duration) : state.time,
 
   /** Compare names the version sounding on the lock screen while it borrows this player. */
   compareTitle(title: string) {

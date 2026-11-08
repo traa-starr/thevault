@@ -2,7 +2,7 @@
 import { File, Paths } from 'expo-file-system';
 import { useSyncExternalStore } from 'react';
 import type { FamilyEdit } from './family';
-import type { Change, MineChange } from './playOrder';
+import type { Change, MineChange, TagChange, TagLine } from './playOrder';
 
 const TIMEOUT_MS = 10000;
 const RETRY_MS = 10000;
@@ -27,6 +27,7 @@ let sending: Promise<void> | null = null;
 let inFlight: Change[] = [];
 let retry: ReturnType<typeof setTimeout> | undefined;
 const listeners = new Set<() => void>();
+const sentListeners = new Set<(accepted: Change[]) => void>();
 
 const update = (next: OutboxState) => {
   state = next;
@@ -59,6 +60,8 @@ async function send() {
     const data: { results: { status: string }[] } = await r.json();
     const pending = state.pending.filter((change) => !batch.includes(change));
     save(pending);
+    const accepted = batch.filter((_, i) => data.results[i]?.status !== 'refused');
+    sentListeners.forEach((listener) => listener(accepted)); // before the outbox drops them, so nothing blinks
     update({ pending, refused: state.refused + data.results.filter((result) => result.status === 'refused').length });
     return true;
   } catch {
@@ -143,6 +146,26 @@ export function takeBack(changes: Change[]): boolean {
   update({ ...state, pending });
   return true;
 }
+
+/** A tag's whole line, or its delete. Saved on the phone at once and sent like any change. */
+export function addTagChange(change: { kind: 'tag_add'; data: TagLine } | { kind: 'tag_remove'; data: { tag_id: string; song_id: string } }): TagChange {
+  const made = { id: newId(), ...change } as TagChange;
+  const pending = [...state.pending, made];
+  save(pending);
+  update({ ...state, pending });
+  flush();
+  return made;
+}
+
+export { newId };
+
+/** Calls back with the changes the laptop just took (refused ones left out), before they leave the outbox. */
+export const onSent = (listener: (accepted: Change[]) => void) => {
+  sentListeners.add(listener);
+  return () => {
+    sentListeners.delete(listener);
+  };
+};
 
 export const addChange = (kind: MineChange['kind'], songId: string, value?: MineChange['data']['value']) =>
   addChanges([{ kind, songId, value }]);

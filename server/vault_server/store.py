@@ -301,14 +301,28 @@ class Store:
                 self._apply(entry)
         return True
 
-    def manual_mine_line(self, song_id):
-        """The data of the journal line that set this song's current manual mine value, or None. Each restore cancels
-        the latest line not yet cancelled, so restores unwind in order. Follows songs that were merged into this one."""
+    def _journal_entries(self):
         size = os.path.getsize(self.journal_path)
         if not self._entries or self._entries[0] != size:  # another program wrote to it
             self._entries = (size, list(self._read_journal()))
+        return self._entries[1]
+
+    def survivor(self, song_id):
+        """The song this id is now: itself, or the song it was merged into (following a chain). None if unknown."""
+        if self.conn.execute("SELECT 1 FROM songs WHERE id=?", (song_id,)).fetchone():
+            return song_id
+        into = {e["data"]["from_id"]: e["data"]["into_id"] for e in self._journal_entries() if e["kind"] == "song_merge"}
+        seen = {song_id}
+        while song_id in into and into[song_id] not in seen:
+            song_id = into[song_id]
+            seen.add(song_id)
+        return song_id if self.conn.execute("SELECT 1 FROM songs WHERE id=?", (song_id,)).fetchone() else None
+
+    def manual_mine_line(self, song_id):
+        """The data of the journal line that set this song's current manual mine value, or None. Each restore cancels
+        the latest line not yet cancelled, so restores unwind in order. Follows songs that were merged into this one."""
         ids, cancelled = {song_id}, 0
-        for entry in reversed(self._entries[1]):
+        for entry in reversed(self._journal_entries()):
             kind, d = entry["kind"], entry["data"]
             if kind == "song_merge" and d["into_id"] in ids:
                 ids.add(d["from_id"])
@@ -419,7 +433,7 @@ class Store:
                           (d["song_id"], d["field"], d["value"], d["origin"], d.get("basis"), ts))
         elif kind == "tag_add":
             c.execute("INSERT OR REPLACE INTO tags VALUES (?,?,?,?,?,?)",
-                      (d["tag_id"], d["song_id"], d.get("version_id"), d["text"], d.get("at_sec"), ts))
+                      (d["tag_id"], d["song_id"], d.get("version_id"), d["text"], d.get("at_sec"), d.get("made_at") or ts))
         elif kind == "tag_remove":
             c.execute("DELETE FROM tags WHERE id=?", (d["tag_id"],))
         elif kind == "verdict":

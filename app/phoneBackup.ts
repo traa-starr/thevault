@@ -15,7 +15,7 @@ const EVERY_MS = 5 * 60 * 1000;
 const LAST_PLAY = 'last-play.json';
 const PLAYER_FILES = [LAST_PLAY, 'time-left.txt', 'buttons-hidden.txt'];
 // The laptop server's code this app needs (server.py SERVER_LEVEL). Raise both together.
-export const NEEDS_SERVER = 3;
+export const NEEDS_SERVER = 4;
 
 type Backup = {
   stamp: string;

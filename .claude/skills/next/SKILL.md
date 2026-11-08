@@ -10,7 +10,7 @@ Arguments: `$ARGUMENTS`
 
 ## 1. Work out the task
 - **A brief from chat:** overwrite `docs/NEXT.md` with it. Append its `Log:` lines to `docs/DECISIONS.md` and its queue to STATUS.
-- **`pass`:** read the STATUS queue. If the next item is marked `fast-lane OK`, log the pass in `docs/DECISIONS.md`, write
+- **`pass`:** (only for a step with no phone checks, or checks I already passed in chat) read the STATUS queue. If the next item is marked `fast-lane OK`, log the pass in `docs/DECISIONS.md`, write
   that item out as `docs/NEXT.md`, and go on. If not, stop and tell me: "This one needs chat: type `Review.` there."
 - **Nothing:** use `docs/NEXT.md` as it stands. Chat normally logs its `Log:` lines itself and ends them with
   `(logged by chat)`. If that marker is missing and the lines aren't in DECISIONS, append them.
@@ -33,4 +33,5 @@ Read `docs/STATUS.md`, `docs/NEXT.md`, and only what NEXT's `Read:` line names.
 - If a part needs my hands now (phone, sign-in), give me numbered steps, one small batch at a time, and wait for the result.
 
 ## 4. Close
-Run `/wrap`. Its last message must print every phone check still open, in full: I shouldn't have to open REPORT for them.
+Run `/wrap`. Its last message says whether the phone needs an update (none / publish / full rebuild) and only counts
+the phone checks: chat walks me through them one at a time at `Review.`

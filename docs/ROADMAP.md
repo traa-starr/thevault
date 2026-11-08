@@ -52,10 +52,10 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 ## Phase 2: Tagging (Checkpoint 2). "My songs start having memory"
 - [x] 2.1 Prototype: tagging card, tappable with fake data *(phone-verified 2026-11-07: 8/8, `PHASE-2-RESULTS.md`)*
 - [ ] 2.2 Tagging session: flashcards, random songs favoring untagged, progress counter, normal player controls
-- [ ] 2.3 Tap at a moment, type or dictate a line; it saves as a timestamped tag
-- [ ] 2.4 Tap a tag to jump to that moment; edit and delete tags
+- [ ] 2.3 Tap at a moment, type or dictate a line; it saves as a timestamped tag (built 2026-11-07, batch 1; unproven)
+- [ ] 2.4 Tap a tag to jump to that moment; edit and delete tags (jump built 2026-11-07; edit/delete in batch 2)
 - [ ] 2.5 "Not mine" stays one tap on the tagging card and the Mine filter works everywhere; the main sorting is done in 1.21
-- [ ] 2.6 Tags save on the phone first, sync to the laptop when reachable, show sync state
+- [ ] 2.6 Tags save on the phone first, sync to the laptop when reachable, show sync state (built 2026-11-07, batch 1; unproven)
 - [ ] 2.7 Restore test: wipe the phone's copy, get all tags back from the laptop
 
 **Done when:** I've done real sessions, and a restore test loses nothing.

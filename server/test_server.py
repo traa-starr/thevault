@@ -116,7 +116,7 @@ def write_path(tmp):
     for bad in (b"not json", b"[]", b'{"changes": "x"}', b'{"other": []}', b"[" * 100000):
         check(f"bad body refused: {bad[:12]!r}", post(bad)[0] == 400)
     check("bad kind refused", send(change("song_merge", guessed)) == ["refused"])
-    check("a tag kind isn't allowed yet", send(change("tag_add", guessed)) == ["refused"])
+    check("a tag with no tag id or second refused", send(change("tag_add", guessed)) == ["refused"])
     check("bad value refused", send(change("mine_set", guessed, "maybe")) == ["refused"])
     check("unknown song refused", send(change("mine_set", str(uuid.uuid4()), "mine")) == ["refused"])
     check("unknown song restore refused", send(change("mine_restore", str(uuid.uuid4()))) == ["refused"])
@@ -260,6 +260,92 @@ def write_path(tmp):
     took = time.perf_counter() - start
     print(f"      one write with a 7,200-line journal: {took * 1000:.0f} ms")
     check("a write stays quick with a real-sized journal", results[0]["status"] == "saved" and took < 2, f"{took:.2f}s")
+
+
+def tag_path(tmp):
+    """POST /changes tag_add and tag_remove, GET /tags, merges, and rebuilding from the journal."""
+    music, root = tmp / "tmusic", tmp / "tlib"
+    lib = init_library(root)
+    song = add_song(lib, music / "song.mp3", b"a")
+    away = add_song(lib, music / "away.mp3", b"b")
+    stays = add_song(lib, music / "stays.mp3", b"c")
+    vid = lib.store.conn.execute("SELECT id FROM versions WHERE song_id=?", (song,)).fetchone()[0]
+    other_vid = lib.store.conn.execute("SELECT id FROM versions WHERE song_id=?", (stays,)).fetchone()[0]
+    lib.store.record("song_merge", {"from_id": away, "into_id": stays})
+    # an old-style line written before made_at existed must still replay
+    lib.store.record("tag_add", {"tag_id": "old-style", "song_id": song, "text": "from before", "at_sec": 3.5})
+    lib.close()
+    journal = root / JOURNAL_NAME
+    lines = lambda: journal.read_text(encoding="utf-8").count("\n")
+    servers = server.start_servers(root, [server.LOOPBACK], 0)
+    port = servers[0].server_port
+
+    def send(*changes):
+        data = json.dumps({"changes": list(changes)}).encode()
+        c = http.client.HTTPConnection(server.LOOPBACK, port, timeout=30)
+        c.request("POST", "/changes", data, {server.CLIENT_HEADER: "app", "Content-Length": str(len(data))})
+        reply = json.loads(c.getresponse().read())
+        c.close()
+        return [x["status"] for x in reply["results"]]
+
+    def tags():
+        c = http.client.HTTPConnection(server.LOOPBACK, port, timeout=10)
+        c.request("GET", "/tags")
+        r = c.getresponse()
+        out = {t["id"]: t for t in json.loads(r.read())["tags"]} if r.status == 200 else r.status
+        c.close()
+        return out
+
+    def tag(tag_id, song_id=song, text="hook here", at=102.3456, change_id=None, **more):
+        return {"id": change_id or str(uuid.uuid4()), "kind": "tag_add",
+                "data": {"tag_id": tag_id, "song_id": song_id, "text": text, "at_sec": at, **more}}
+
+    def untag(tag_id, song_id=song):
+        return {"id": str(uuid.uuid4()), "kind": "tag_remove", "data": {"tag_id": tag_id, "song_id": song_id}}
+
+    try:
+        check("GET /tags lists the old-style tag, made_at from its line", tags()["old-style"]["made_at"] is not None)
+        first = tag("t1", text="  hook here  ", version_id=vid, made_at="2026-11-07T10:00:00.000Z")
+        check("a tag is saved", send(first) == ["saved"])
+        t = tags()["t1"]
+        check("words trimmed, second kept to 3 decimals, version and made_at kept",
+              (t["text"], t["at_sec"], t["version_id"], t["made_at"], t["song_id"]) == ("hook here", 102.346, vid, "2026-11-07T10:00:00.000Z", song))
+        n = lines()
+        check("a resend does nothing", send(first) == ["nothing to do"] and lines() == n)
+        check("the same values under a new change id do nothing", send(tag("t1", version_id=vid, made_at="x")) == ["nothing to do"] and lines() == n)
+        check("an edit is saved", send(tag("t1", text="new words", at=50, version_id=vid, made_at="2030-01-01T00:00:00.000Z")) == ["saved"])
+        t = tags()["t1"]
+        check("an edit keeps made_at from the first line", (t["text"], t["at_sec"], t["made_at"]) == ("new words", 50.0, "2026-11-07T10:00:00.000Z"))
+        check("no version sent: the song's current version is filled in", send(tag("nov")) == ["saved"] and tags()["nov"]["version_id"] == vid)
+        check("its resend under a new change id does nothing", send(tag("nov")) == ["nothing to do"])
+        check("long words capped at 500", send(tag("long", text="x" * 600)) == ["saved"] and len(tags()["long"]["text"]) == 500)
+        check("empty words allowed (a mark)", send(tag("mark", text="")) == ["saved"] and tags()["mark"]["text"] == "")
+        check("emoji and other languages kept", send(tag("emoji", text="🔥 ここ")) == ["saved"] and tags()["emoji"]["text"] == "🔥 ここ")
+        check("a new tag with no made_at gets one", tags()["mark"]["made_at"])
+        n = lines()
+        for name, bad in (("unknown song", tag("u", song_id=str(uuid.uuid4()))), ("no second", tag("u", at=None)),
+                          ("negative second", tag("u", at=-1)), ("words not text", tag("u", text=5)),
+                          ("another song's version", tag("u", version_id=other_vid)), ("no tag id", tag(None)),
+                          ("second as true", tag("u", at=True))):
+            check(f"refused: {name}", send(bad) == ["refused"])
+        check("refused tags reach no journal line", lines() == n and "u" not in tags())
+        check("a tag on a merged-away song follows the merge", send(tag("m", song_id=away)) == ["saved"] and tags()["m"]["song_id"] == stays)
+        check("a delete is saved", send(untag("mark")) == ["saved"] and "mark" not in tags())
+        n = lines()
+        check("deleting a gone tag does nothing", send(untag("mark")) == ["nothing to do"] and lines() == n)
+        check("an undo puts the old tag back", send(tag("mark", text="", made_at="anything")) == ["saved"] and "mark" in tags())
+    finally:
+        server.stop_servers(servers)
+
+    lib = open_library(root)
+    before = lib.store.snapshot()
+    lib.close()
+    (root / DB_NAME).unlink()
+    lib = open_library(root)
+    after = lib.store.snapshot()
+    lib.close()
+    check("tags rebuild from the journal row for row, old-style line included",
+          after["tags"] == before["tags"] and len(before["tags"]) == 7, str(len(before["tags"])))
 
 
 def sorting_path(tmp):
@@ -617,6 +703,7 @@ def main():
     except LibraryMissing:
         check("missing library stops the server, creates nothing", not ghost.exists())
     write_path(tmp)
+    tag_path(tmp)
     sorting_path(tmp)
     family_path(tmp)
     phone_backup_path(tmp)

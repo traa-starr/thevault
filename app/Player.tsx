@@ -15,6 +15,9 @@ import { CompareDial, WHEEL_WIDTH } from './Compare';
 import { compare, useCompare } from './compareStore';
 import { openLibrarySelect, HomeButton } from './nav';
 import { player, usePlayer, type Pool } from './playerStore';
+import type { ShownTag } from './playOrder';
+import { jumpToTag, ReservedLine, TagHere, TagList } from './Tagging';
+import { tagLine, useTagLine, useTags } from './tagStore';
 import { VersionsChip, VersionsToast } from './Versions';
 import * as versions from './versionStore';
 
@@ -39,13 +42,42 @@ const clock = (seconds: number) => {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 };
 
-type SeekBarProps = { value: number; max: number; onDrag: (value: number) => void; onDrop: (value: number) => void };
+type SeekBarProps = {
+  value: number;
+  max: number;
+  onDrag: (value: number) => void;
+  onDrop: (value: number) => void;
+  /** Tag ticks: a tap within half a finger of one calls onTick with it instead of seeking to the spot. */
+  ticks?: ShownTag[];
+  onTick?: (tag: ShownTag) => void;
+};
+const TICK_REACH = 22;
+const TAP_SLOP = 6;
+const TICK_MERGE = 0.025; // ticks closer than this share of the bar draw as one wider tick
 
-export function SeekBar({ value, max, onDrag, onDrop }: SeekBarProps) {
+export function SeekBar({ value, max, onDrag, onDrop, ticks = [], onTick }: SeekBarProps) {
   const width = useRef(1);
   const grabbedAt = useRef(0);
-  const latest = useRef({ max, onDrag, onDrop });
-  latest.current = { max, onDrag, onDrop };
+  const latest = useRef({ max, onDrag, onDrop, ticks, onTick });
+  latest.current = { max, onDrag, onDrop, ticks, onTick };
+
+  /** The tick nearest a tap at x, if within reach. */
+  const tickAt = (x: number) => {
+    const { max: m, ticks: all } = latest.current;
+    if (!m) return null;
+    let best: ShownTag | null = null;
+    let bestGap = TICK_REACH;
+    for (const tag of all) {
+      const gap = Math.abs((tag.at_sec / m) * width.current - x);
+      if (gap <= bestGap) [best, bestGap] = [tag, gap];
+    }
+    return best;
+  };
+  const release = (dx: number) => {
+    const tag = Math.abs(dx) < TAP_SLOP && latest.current.onTick ? tickAt(grabbedAt.current) : null;
+    if (tag) latest.current.onTick!(tag);
+    else latest.current.onDrop(valueAt(grabbedAt.current + dx));
+  };
 
   const valueAt = (x: number) => (Math.min(Math.max(x, 0), width.current) / width.current) * latest.current.max;
 
@@ -59,17 +91,28 @@ export function SeekBar({ value, max, onDrag, onDrop }: SeekBarProps) {
         latest.current.onDrag(valueAt(grabbedAt.current));
       },
       onPanResponderMove: (_, g) => latest.current.onDrag(valueAt(grabbedAt.current + g.dx)),
-      onPanResponderRelease: (_, g) => latest.current.onDrop(valueAt(grabbedAt.current + g.dx)),
+      onPanResponderRelease: (_, g) => release(g.dx),
       onPanResponderTerminate: (_, g) => latest.current.onDrop(valueAt(grabbedAt.current + g.dx)),
     }),
   ).current;
 
   const percent = `${max > 0 ? (value / max) * 100 : 0}%` as const;
+  const marks: { at: number; wide: boolean }[] = [];
+  if (max > 0)
+    for (const tag of ticks) {
+      const at = Math.min(tag.at_sec / max, 1);
+      const last = marks[marks.length - 1];
+      if (last && at - last.at < TICK_MERGE) last.wide = true;
+      else marks.push({ at, wide: false });
+    }
   return (
     <View style={s.seek} onLayout={(e) => (width.current = e.nativeEvent.layout.width || 1)} {...pan.panHandlers}>
       <View style={s.track} pointerEvents="none">
         <View style={[s.filled, { width: percent }]} />
       </View>
+      {marks.map((mark, i) => (
+        <View key={i} style={[s.tick, mark.wide && s.tickWide, { left: `${mark.at * 100}%` }]} pointerEvents="none" />
+      ))}
       <View style={[s.knob, { left: percent }]} pointerEvents="none" />
     </View>
   );
@@ -212,6 +255,14 @@ function FullPlayer() {
     Animated.timing(hidden, { toValue: buttonsHidden ? 1 : 0, duration: HIDE_MS, useNativeDriver: true }).start();
   }, [buttonsHidden, hidden]);
 
+  // Next or another song while typing: the draft is saved to the song it was tapped on
+  const { draft } = useTagLine();
+  const lastSong = useRef(song?.id);
+  useEffect(() => {
+    if (draft && lastSong.current === draft.songId && song?.id !== draft.songId) tagLine.finish(song?.id);
+    lastSong.current = song?.id;
+  }, [song?.id]);
+
   const drop = async (value: number) => {
     setDragAt(null);
     if (!duration) return;
@@ -221,26 +272,27 @@ function FullPlayer() {
   };
 
   const shown = Math.min(dragAt ?? seekingTo ?? time, duration || 0);
+  const tags = useTags(shownId);
   const isMine = player.isMine();
   return (
     <View style={s.page}>
       <View style={s.topRow}>
         <HomeButton />
       </View>
-      <View style={s.spacer} />
       <View style={s.pageTop}>
         {/* two lines' height always, so a longer version name never moves the bar */}
         <View style={s.titleBox}>
           <Text style={s.title} numberOfLines={2}>{comparing ? versions.songTitle(shownId ?? '') : song?.title}</Text>
         </View>
-        <Text style={s.note} numberOfLines={1}>{trouble || note || ' '}</Text>
-        <SeekBar value={shown} max={duration} onDrag={setDragAt} onDrop={drop} />
+        <SeekBar value={shown} max={duration} onDrag={setDragAt} onDrop={drop} ticks={tags} onTick={comparing ? undefined : (tag) => (setDragAt(null), jumpToTag(tag))} />
         <View style={s.times}>
           <Text style={s.time}>{clock(shown)}</Text>
           <Pressable style={s.timeTap} onPress={player.toggleTimeLeft}>
             <Text style={s.time}>{timeLeft ? `-${clock(Math.max(duration - shown, 0))}` : clock(duration)}</Text>
           </Pressable>
         </View>
+        {/* also the player's own note when nothing about tags is showing */}
+        <ReservedLine songId={song?.id} duration={duration} fallback={trouble || note} />
         {/* the same buttons in Compare: Play/Pause works the version heard, the rest end Compare first */}
         <View style={s.slot}>
           <View style={s.controls}>
@@ -293,8 +345,12 @@ function FullPlayer() {
           <Text style={s.link}>{comparing ? 'Done' : 'Back'}</Text>
         </Pressable>
       </View>
-      {/* All the blank space down to the buttons: a swipe up opens Queue, a tap does nothing. */}
-      <View style={s.swipeZone} {...(comparing ? {} : swipe)} />
+      {/* the song's tags fill the space down to the buttons */}
+      <View style={s.tagZone}>
+        <TagList songId={shownId} time={shown} />
+        {/* The blank space under the tags: a swipe up opens Queue, a tap does nothing. */}
+        <View style={s.swipeZone} {...(comparing ? {} : swipe)} />
+      </View>
       {/* Keeps its height with the buttons hidden or gone, so nothing above it jumps. */}
       <View style={s.dock}>
         {sorting ? null : (
@@ -325,6 +381,11 @@ function FullPlayer() {
           )}
         </Animated.View>
       </View>
+      {comparing || !song ? null : (
+        <View style={s.tagHereSpot}>
+          <TagHere songId={song.id} title={song.title} />
+        </View>
+      )}
       <UndoToast aboveButtons />
       <VersionsToast />
     </View>
@@ -495,12 +556,13 @@ const s = StyleSheet.create({
   grabArea: { height: 44, alignItems: 'center', justifyContent: 'center' },
   grabMark: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#555' },
   page: { flex: 1, backgroundColor: '#111' },
-  spacer: { flex: 1 },
   // beside the grab mark, only as wide as Home, so the rest of the grab area still pulls the sheet down
   topRow: { alignSelf: 'flex-end', marginTop: -44, height: 44, justifyContent: 'center', paddingRight: 8 },
   versionRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: -8 },
   pageTop: { paddingHorizontal: 24, gap: 12 },
-  swipeZone: { flex: 1, minHeight: 64 },
+  tagZone: { flex: 1, marginTop: 8, paddingHorizontal: 24 },
+  swipeZone: { flex: 1, minHeight: 24 },
+  tagHereSpot: { position: 'absolute', right: 24, bottom: 104 }, // the eye's row, on the right: the thumb zone
   dock: { height: 160, justifyContent: 'flex-end', paddingHorizontal: 24, paddingBottom: 40 },
   hideTap: { height: 44, justifyContent: 'center', alignSelf: 'flex-start', paddingRight: 24, marginBottom: 8 },
   eye: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
@@ -514,10 +576,11 @@ const s = StyleSheet.create({
   verdictText: { color: '#fff', fontSize: 17, fontWeight: '600' },
   titleBox: { height: 72, justifyContent: 'flex-end' },
   title: { color: '#fff', fontSize: 30, lineHeight: 36, fontWeight: '700', textAlign: 'center' },
-  note: { color: '#888', fontSize: 14, textAlign: 'center', marginBottom: 8 },
   seek: { height: 44, justifyContent: 'center' },
   track: { height: 6, borderRadius: 3, backgroundColor: '#444', overflow: 'hidden' },
   filled: { height: 6, backgroundColor: '#8ab4f8' },
+  tick: { position: 'absolute', top: 12, width: 2, height: 10, marginLeft: -1, borderRadius: 1, backgroundColor: '#f5b041' },
+  tickWide: { width: 4, marginLeft: -2 },
   knob: { position: 'absolute', width: 18, height: 18, borderRadius: 9, marginLeft: -9, backgroundColor: '#fff' },
   times: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: -12 },
   time: { color: '#ddd', fontSize: 14, fontVariant: ['tabular-nums'] },

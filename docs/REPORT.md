@@ -1,25 +1,28 @@
-**Step:** Phase 2 plan session (tagging), 2026-11-07.
+**Step:** Phase 2 batch 1 (tag from the player), 2026-11-07.
 
-**Verified by running:** the mockup was driven in headless Chrome at iPhone size (390×844) by a throwaway script: play, Tag here, a double tap (one draft only), 2 s of typing (the second stayed frozen at the tap, music kept playing), Return, sync word "On laptop", jump from a row, hold → Delete → Undo, a draft surviving a reload, Not mine → Undo (counter 3 of 11 → 4 of 12), Next ×12 (all 12 songs, no repeats), Player mode. Console errors: none. Page width 390, nothing spills sideways.
+**Verified by running:** `/verify` 11/11 PASS (server tests incl. 30 new tag checks, playOrder test incl. 3 new tag-overlay checks, typecheck, music guard, check_repo). Repo check: clean.
 
-**Needs the phone:** at review chat publishes the mockup as a private page. Tap through it:
-1. Tap play, tap **Tag here**, type a line, wait 30 s, tap Return. Pass: the row shows the second you tapped, not when you saved.
-2. Tap **Tag here** twice fast. Pass: one field only.
-3. Tap a row, then a tick on the seek bar. Pass: both jump to that second.
-4. Hold a row: Change words, Move to now, Delete, then **Undo**. Pass: each works, nothing on screen jumps.
-5. Tap **Not mine**, then **Undo**. Pass: the counter goes down and back, the music never stopped.
-6. Footer: **Laptop off**, tag something. Pass: "Saved on phone · 1 waiting" and a grey "on phone" on the row; **Laptop on** turns it "On laptop".
-7. Start typing a tag, close the tab, reopen. Pass: the half-typed line is back.
-8. Footer **Player**: same screen with no counter, Not mine or Next. Tell chat what feels wrong.
+**Phone update:** publish, server restart. Restart the server FIRST (the app now needs laptop level 4; an old server makes it say "out of date"), then run the publish line, then close and reopen the app.
 
-**Changed:** `docs/BATCH-PLAN.md` (Phase 2 batches, Phase 1 folded), `docs/BLUEPRINT.md` (Phase 2 section), `docs/DECISIONS.md`, `docs/ROADMAP.md` (2.1 and 6.1 notes), `docs/STATUS.md`, `docs/REPORT.md`, new `docs/board/phase-2-tagging.md`, new `spike/mockups/tagging-card.html`.
+**Needs the phone:**
+1. Playing a kept song, open the player, tap **Tag here** (right of the eye), wait 30 s typing, tap Return. Pass: the row shows the tap's second (the field showed it as "1:42.3"); tapping the row later jumps there; an amber tick sits on the seek bar.
+2. Airplane mode: tag, then start a second tag and kill the app mid-typing; reopen and open the player. Pass: the half-typed line is back in the field; both rows say "Saved on phone".
+3. Airplane off at home: Pass: both rows turn "On laptop" within a minute.
+4. Taste: does the player still fit your screen? The tag list sits between Back and the Mine/Not mine buttons. Tell chat what's cramped.
 
-**Differed from NEXT.md:** naming `Untitled`/date-only songs moved out of Phase 2 to the release system (your answer); added to ROADMAP 6.1. No dictation (you type), so the mockup has no mic. Controls follow the newer DESIGN-NOTES note (small, text-like), not "big controls" from the brief. Accent colour amber is a placeholder. ROADMAP 2.1 noted as built, not ticked: its proof is your tap-through.
+**Changed:** `app/App.tsx`, `app/Player.tsx`, `app/outbox.ts`, `app/phoneBackup.ts`, `app/playOrder.ts`, `app/playOrder.test.mjs`, `app/playerStore.ts`, `app/sortData.ts`, new `app/Tagging.tsx`, new `app/tagStore.ts`, `server/vault_server/server.py`, `server/vault_server/store.py`, new `server/vault_server/tags.py`, `server/test_server.py`, `.claude/skills/next/SKILL.md`, `.claude/skills/wrap/SKILL.md`, `docs/pending-skills/` deleted, `docs/DECISIONS.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/REPORT.md`.
 
-**Not done:** nothing.
+**Differed from NEXT.md:**
+- The real player had no spare height for a tag list (about one row on a 6.1" iPhone). So: the grey status line ("not on laptop yet" etc.) now shows in the reserved line when no tag is being typed, the empty space above the title is gone, and swipe-up to Queue is the blank space under the tags. Reversible; check 4 asks about it.
+- "Tag here" sits right of the eye, in the bottom row, not on its own line (no room).
+- The phone doesn't know version ids, so the laptop fills in the song's current version.
+- Tapping a tick: a tap within half a finger of one jumps to its exact second and shows its words; a drag still seeks.
+- A song change mid-typing saves the draft to the song it was tapped on (seen while the player is open). If the player was closed, the field comes back next time and Return saves it to its own song ("Tagged at 1:42 on <title>").
 
-**Decisions needed:** none open. Batch 1 is blocked only by your mockup tap-through.
+**Not done:** nothing in batch 1. Hold-a-row actions (Change words, Move to now, Delete) are batch 2.
 
-**Proposed next step:** chat review, publish the mockup, I tap through it; then batch 1 from `BATCH-PLAN.md`.
+**Decisions needed:** none. Build calls logged in DECISIONS (reversible).
 
-**Pitch:** a `/refresh` step at the start of each build session (stop server, `import`, start server) so songs marked Mine between sessions get phone copies (465 Mine, 314 copies today; your request).
+**Proposed next step:** chat walks the 4 checks; then Phase 2 batch 2 (change tags, tagging session).
+
+**Pitch:** a `/tags` count in doctor (tags, songs tagged, any on a missing song) so the restore test (2.7) has a number to compare.

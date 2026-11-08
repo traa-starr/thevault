@@ -1,6 +1,6 @@
 // Self-test for the play order: node --experimental-strip-types app/playOrder.test.mjs
 import assert from 'node:assert/strict';
-import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere, dialTarget } from './playOrder.ts';
+import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere, dialTarget, tagsWithPending } from './playOrder.ts';
 import { applyEdit, applyPicks, groupEdit, groupLead, linkEdit, makeMainEdit, membersOf, removeEdit, reverse, settle } from './family.ts';
 
 const fams = (pairs) => new Map(Object.entries(pairs));
@@ -333,6 +333,26 @@ const tests = {
     const start = fams({ a: 'a', b: 'a', x: 'x', y: 'x' });
     const e = groupEdit(start, ['a', 'x', 'q']);
     assert.deepEqual([...applyEdit(applyEdit(start, e), reverse(e))].sort(), [...start].sort());
+  },
+  'tags: the laptop copy shows On laptop, waiting ones Saved on phone, in time order': () => {
+    const copy = [{ id: 't1', song_id: 's', text: 'late', at_sec: 90, made_at: '1' }, { id: 't2', song_id: 'x', text: 'other', at_sec: 1, made_at: '1' }];
+    const pending = [{ id: 'c1', kind: 'tag_add', data: { tag_id: 't3', song_id: 's', text: 'early', at_sec: 10, made_at: '2' } }];
+    const shown = tagsWithPending(copy, pending, 's');
+    assert.deepEqual(shown.map((t) => [t.id, t.onPhone]), [['t3', true], ['t1', false]]);
+  },
+  'tags: an edit waiting replaces the words, keeps made_at; a delete waiting hides it; mine changes are ignored': () => {
+    const copy = [{ id: 't1', song_id: 's', text: 'old', at_sec: 5, made_at: 'first' }, { id: 't2', song_id: 's', text: 'gone', at_sec: 6, made_at: '1' }];
+    const pending = [
+      { id: 'm', kind: 'mine_set', data: { song_id: 's', value: 'mine' } },
+      { id: 'c1', kind: 'tag_add', data: { tag_id: 't1', song_id: 's', text: 'new', at_sec: 7, made_at: 'later' } },
+      { id: 'c2', kind: 'tag_remove', data: { tag_id: 't2', song_id: 's' } },
+    ];
+    const shown = tagsWithPending(copy, pending, 's');
+    assert.deepEqual(shown.map((t) => [t.id, t.text, t.at_sec, t.made_at, t.onPhone]), [['t1', 'new', 7, 'first', true]]);
+  },
+  'tags: the same second keeps the order they were made in': () => {
+    const copy = [{ id: 'b', song_id: 's', text: '2', at_sec: 3, made_at: '2' }, { id: 'a', song_id: 's', text: '1', at_sec: 3, made_at: '1' }];
+    assert.deepEqual(tagsWithPending(copy, []).map((t) => t.id), ['a', 'b']);
   },
 };
 
