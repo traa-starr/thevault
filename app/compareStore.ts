@@ -5,6 +5,7 @@ import { useSyncExternalStore } from 'react';
 import { compareWindow, createCompareEngine, dialReady, WAIT_CAP_MS, type CompareEngine, type CompareSound, type Voice } from './compareEngine';
 import { offline } from './offline';
 import { onPlayerChange, player } from './playerStore';
+import { note } from './pressLog';
 import { members, songInfo, songTitle } from './versionStore';
 
 const PROBE_TIMEOUT_MS = 5000;
@@ -141,6 +142,7 @@ function begin(serverUrl: string, ids: string[], startId: string, at: number, pl
     onEnd: () => (state.preparing ? cancel() : engine?.rewind()),
     makePlayer,
     lockScreen: voice ? (id) => state.open && player.compareTitle(songTitle(id)) : undefined,
+    log: note,
   });
   ids.forEach((id) =>
     probe(id).then((answer) => {

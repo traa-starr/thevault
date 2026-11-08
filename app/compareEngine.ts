@@ -84,6 +84,8 @@ type Handlers = {
   makePlayer: MakePlayer;
   /** Set when a borrowed player holds the lock screen: Compare only names the version sounding. */
   lockScreen?: (id: string) => void;
+  /** The hidden lock-screen log (pressLog.ts), passed in so this file loads on its own in the tests. */
+  log?: (line: string) => void;
 };
 
 const ownVoice = (p: AudioPlayer): Voice => ({
@@ -113,13 +115,22 @@ const ownVoice = (p: AudioPlayer): Voice => ({
   seekTo: (seconds: number) => p.seekTo(seconds, 0, 0),
 });
 
-export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }: Handlers) {
+export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen, log }: Handlers) {
+  const note = (line: string) => log?.(line);
   const loaded = new Map<string, One>();
   const borrowed = new Set<Voice>(); // every queue player lent to Compare: full volume again when Compare lets go
   let sounding = '';
   let pending: string | null = null;
   let wanted = false;
   let wantedAt = 0;
+  // the lock screen's player has done what we last asked (or what we last adopted): any change after that came from
+  // outside, so it counts at once (6.6: a lock-screen play soon after a pause was undone, as if it were our own lag)
+  let settled = false;
+  const want = (play: boolean) => {
+    wanted = play;
+    wantedAt = Date.now();
+    settled = false;
+  };
   let title = (id: string) => id;
   let seekingTo: number | null = null;
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -237,16 +248,18 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
     if (!main) return;
     // the wait: the queue's buttons play and pause the borrowed player; the silent versions follow it at once
     if (following && !main.own && isReady(main) && main.v.playing !== wanted) {
-      wanted = main.v.playing;
-      wantedAt = Date.now();
+      want(main.v.playing);
     }
     // the player the lock screen drives paused or started without us: a lock-screen tap or a call. Everything follows
     // it. From the player that is the queue's player, silent or not (6.4 check 5: a lock-screen pause on another
     // version was undone at once); from Library, the sounding version.
     const control = remote() ?? main;
-    if (!handedOff && Date.now() - wantedAt > ADOPT_MS && seekingTo === null && isReady(control) && !control.syncing && control.v.playing !== wanted && !control.finished) {
-      wanted = control.v.playing;
-      wantedAt = Date.now();
+    if (control.v.playing === wanted) settled = true;
+    const outside = settled || Date.now() - wantedAt > ADOPT_MS; // not our own command still on its way
+    if (!handedOff && outside && seekingTo === null && isReady(control) && !control.syncing && control.v.playing !== wanted && !control.finished) {
+      want(control.v.playing);
+      settled = true;
+      note(`Compare follows the lock screen: ${wanted ? 'play' : 'pause'}${control === main ? '' : ' (silent queue player)'}`);
     }
     // a borrowed player loops its song while Compare has it: a jump from the end back to the start is the song's end
     const t = now();
@@ -263,7 +276,8 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
       if (following && !one.own) return; // never play or pause the queue's player for it while it has its buttons
       // the lock screen's player out of step for longer than our own command takes: a lock-screen press caught mid-seek
       // or mid-load, adopted above once it settles. Never undo it here (6.5: every press needed a second one)
-      if (one === control && one.v.playing !== wanted && Date.now() - wantedAt > ADOPT_MS) return;
+      if (one === control && one.v.playing !== wanted && outside) return;
+      if (one === control && one.v.playing !== wanted) note(`Compare ${wanted ? 'plays' : 'pauses'} the lock screen's player (its own command)`);
       if (wanted && !one.v.playing && one.v.isLoaded) one.v.play();
       if (!wanted && one.v.playing) one.v.pause();
       if (one.id === sounding || seekingTo !== null) return;
@@ -316,8 +330,7 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
       title = titleOf;
       sounding = id;
       pending = null;
-      wanted = play;
-      wantedAt = Date.now();
+      want(play);
       lastNow = 0;
       stopped = false;
       if (voice) {
@@ -422,20 +435,20 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
     },
 
     play() {
+      note('Compare: Play (player button)');
       loaded.forEach((one) => {
         if (one.finished) {
           one.finished = false;
           one.v.seekTo(0).catch(() => {});
         }
       });
-      wanted = true;
-      wantedAt = Date.now();
+      want(true);
       tick();
     },
 
     pause() {
-      wanted = false;
-      wantedAt = Date.now();
+      note('Compare: Pause (player button)');
+      want(false);
       loaded.forEach((one) => one.v.pause());
       report();
     },
@@ -455,8 +468,7 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
 
     /** Song end: everything back to 0:00, paused. */
     rewind() {
-      wanted = false;
-      wantedAt = Date.now();
+      want(false);
       loaded.forEach((one) => one.v.pause());
       engine.seek(0);
     },

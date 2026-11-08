@@ -8,6 +8,7 @@ import { createEngine, type Engine, type Sound } from './engine';
 import type { FamilyEdit } from './family';
 import { offline } from './offline';
 import { addChange, addChanges } from './outbox';
+import { note } from './pressLog';
 import { currentId, jumpTo, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
 import { isVersion, members, removeEditFor, sendEdit, showToast, songTitle, undo as undoVersions, type Sent } from './versionStore';
 
@@ -186,13 +187,15 @@ const newTrackStarted = () => {
 let soundPlaying = false;
 
 function onSound(sound: Sound) {
-  if (state.comparing) return; // paused and waiting: nothing it says counts
-  if (sound.loaded) everLoaded = true;
-  // the lock screen reads playing again on every change, so its button never lags a press behind (6.5: two presses)
+  // the lock screen reads playing again on every change, so its button never lags a press behind (6.5: two presses).
+  // In Compare too: it borrows this player, and the lock screen drives it (6.7)
   if (sound.playing !== soundPlaying) {
     soundPlaying = sound.playing;
+    note(`Queue player: ${sound.playing ? 'playing' : 'paused'}${state.comparing ? ' (in Compare)' : ''}`);
     engine?.refreshLockScreen();
   }
+  if (state.comparing) return; // paused and waiting: nothing it says counts
+  if (sound.loaded) everLoaded = true;
   const changes: Partial<State> = { time: sound.time, duration: sound.duration };
   if (sound.time !== lastTime) {
     if (lastTime >= 0 && sound.playing) {
@@ -205,7 +208,10 @@ function onSound(sound: Sound) {
   }
   // The bar follows what is really playing, so a call, Siri or the lock screen can't leave it showing the wrong thing.
   if (sound.playing && !state.wanted) {
-    if (Date.now() < holdPausedUntil) engine?.pause();
+    if (Date.now() < holdPausedUntil) {
+      note('Player pauses it again (a song brought back paused)');
+      engine?.pause();
+    }
     else changes.wanted = true;
   }
   else if (!sound.playing && !sound.buffering && sound.loaded && state.wanted && Date.now() > settleUntil) changes.wanted = false;
@@ -407,6 +413,7 @@ export const player = {
   },
 
   toggle() {
+    note(`Player: ${state.wanted ? 'Pause' : 'Play'} tap`);
     settleHandOff();
     if (!state.order || state.comparing) return;
     if (cantReach(currentId(state.order))) return update({ trouble: NOT_HERE });

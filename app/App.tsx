@@ -2,7 +2,7 @@
 import { File, Paths } from 'expo-file-system';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, AppState, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import buildInfo from './build-info.json';
 import Library from './Library';
 import { setHome } from './nav';
@@ -16,6 +16,7 @@ import { RestoreNotice, WaitingLine } from './Notices';
 import { phoneBackup, survivalStamp, usePhoneBackup } from './phoneBackup';
 import { compare } from './compareStore';
 import { pointUpdatesAt, updateLine, useReloadOnUpdate } from './updates';
+import { logText } from './pressLog';
 
 const PORT = 8787;
 // Stamped by the GitHub build; "dev" when run from the laptop.
@@ -195,9 +196,22 @@ export default function App() {
         </>
       ) : null}
       <Text style={s.stamp}>Data since {stamp}</Text>
-      <Text style={s.build}>{updateLine(buildLine)}</Text>
+      {/* hidden: a long press shows the lock-screen log (6.7) */}
+      <Pressable style={s.build} onLongPress={showPressLog}>
+        <Text style={s.buildText}>{updateLine(buildLine)}</Text>
+      </Pressable>
     </View>,
   );
+}
+
+/** The lock-screen log: the last lines here, all of it through the share sheet (Copy is there). */
+function showPressLog() {
+  const text = logText();
+  const tail = text.split('\n').slice(-20).join('\n');
+  Alert.alert('Lock-screen log', tail, [
+    { text: 'Close', style: 'cancel' },
+    { text: 'Copy all', onPress: () => Share.share({ message: text }).catch(() => {}) },
+  ]);
 }
 
 const s = StyleSheet.create({
@@ -209,5 +223,6 @@ const s = StyleSheet.create({
   input: { alignSelf: 'stretch', color: '#fff', fontSize: 16, borderColor: '#555', borderWidth: 1, borderRadius: 8, padding: 12 },
   link: { color: '#8ab4f8', fontSize: 15, padding: 8 },
   stamp: { color: '#666', fontSize: 12, position: 'absolute', bottom: 40 },
-  build: { color: '#666', fontSize: 12, position: 'absolute', bottom: 20 },
+  build: { position: 'absolute', bottom: 20 },
+  buildText: { color: '#666', fontSize: 12 },
 });

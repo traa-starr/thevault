@@ -449,5 +449,39 @@ assert.equal(e.playing(), true, 'Compare follows the play');
 assert.deepEqual(audible().map((f) => f.name), ['B'], 'B sounds again');
 e.stop();
 
+// ---- Batch 6.7: a quick pause-then-play from the lock screen works the first time ----
+// 27. Compare follows a lock-screen pause; a play pressed under 1.5 s later must not be undone. Before 6.7 Compare
+// held off for 1.5 s after any change and paused it again: the lock screen flipped to playing, then paused itself.
+e = fresh();
+e.start('a', uris, 30, true, ['b'], (id) => id, queue);
+await pass(1500);
+e.flipTo('b');
+await pass(2000);
+assert.equal(e.sounding(), 'b');
+for (let round = 0; round < 3; round++) {
+  queue.pause(); // the lock screen's pause
+  await pass(300);
+  assert.equal(e.playing(), false, `round ${round + 1}: Compare follows the pause`);
+  assert.equal(audible().length, 0, `round ${round + 1}: nothing sounds`);
+  queue.play(); // the lock screen's play, soon after
+  await pass(300);
+  assert.ok(queue.playing, `round ${round + 1}: the lock-screen play is not undone`);
+  assert.equal(e.playing(), true, `round ${round + 1}: Compare follows the play`);
+  assert.deepEqual(audible().map((f) => f.name), ['B'], `round ${round + 1}: B sounds again`);
+}
+// 28. Compare's own Play still waits for a slow-starting player: it is not mistaken for a lock-screen pause
+e.pause();
+await pass(300);
+const slowPlay = queue.play;
+queue.play = () => { queue.plays++; queue.starting = true; };
+e.play();
+await pass(100);
+assert.equal(e.playing(), true, 'a slow start is not read as a pause');
+await pass(500);
+assert.equal(e.playing(), true);
+assert.deepEqual(audible().map((f) => f.name), ['B']);
+queue.play = slowPlay;
+e.stop();
+
 mock.timers.reset();
 console.log('compareEngine: all rules pass');

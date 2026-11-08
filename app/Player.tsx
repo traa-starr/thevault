@@ -524,7 +524,7 @@ const s = StyleSheet.create({
   timeTap: { paddingVertical: 14, paddingLeft: 32 },
   slot: { height: SLOT_HEIGHT, marginTop: 16, gap: 12 },
   controls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12 },
-  compareSlot: { width: WHEEL_WIDTH, height: 46, justifyContent: 'center', alignItems: 'flex-start' },
+  compareSlot: { width: WHEEL_WIDTH, height: 46, justifyContent: 'center', alignItems: 'flex-end' }, // the closed word ends where the pill does (6.7)
   button: { paddingVertical: 14, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, borderColor: '#555' },
   buttonText: { color: '#fff', fontSize: 16 },
   play: { minWidth: 92, alignItems: 'center', backgroundColor: '#fff', borderColor: '#fff' },
