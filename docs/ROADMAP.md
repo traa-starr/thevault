@@ -61,12 +61,12 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 **Done when:** I've done real sessions, and a restore test loses nothing.
 
 ## Phase 3: Search (Checkpoint 3). "Rap a line, find the song"
-- [ ] 3.1 Ranking ladder: exact phrase > words in order with gaps > all words > some words by rarity; never excludes
-- [ ] 3.2 Common words down-weighted, not banned, so "has to" works
-- [ ] 3.3 Slang word endings (`drip`/`drippin`), which the standard tool misses
+- [x] 3.1 Ranking ladder: exact phrase > words in order with gaps > all words > some words by rarity; never excludes
+- [x] 3.2 Common words down-weighted, not banned, so "has to" works
+- [x] 3.3 Slang word endings (`drip`/`drippin`), which the standard tool misses
 - [ ] 3.4 Misspelling tolerance and a learned slang spelling table
 - [ ] 3.5 Boost the result I pick for that search
-- [ ] 3.6 Results show the matched tag and timestamp; tap to jump there
+- [x] 3.6 Results show the matched tag and timestamp; tap to jump there
 - [ ] 3.7 Acceptance test: at ~50 tags I write 20 searches with known answers; a script re-runs them after every search change
 
 **Done when:** the 20 searches pass and I find a song from a half-remembered line.

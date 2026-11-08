@@ -11,6 +11,15 @@ const titles = ['Midnight Run', 'Cold Brew Freestyle', 'Lights Out (demo)', 'No 
 const songs = titles.map((title, i) => ({ id: `s${i + 1}`, title, mine: i % 3 !== 1 ? 'mine' : 'unknown', sorted: i % 3 !== 2, where: 'laptop', date: `2025-0${(i % 9) + 1}-1${i % 9}`, folder: 'x', size: 4e6 }));
 const MINE = songs.filter((one) => one.mine === 'mine').map((one) => one.id);
 const LAP = [...MINE].reverse();
+const SEARCH_TAGS = tagFile([
+  { ...at(12, "drippin' on the beat, double it", 0), song_id: 's3' },
+  { ...at(47, 'the beat drops here', 1), song_id: 's5' },
+  { ...at(95, 'too much drip in the mix', 2), song_id: 's8' },
+  { ...at(130, 'beat switch', 3), song_id: 's3' },
+  { ...at(20, 'hook comes in', 4), song_id: 's1' },
+]);
+const MANY = Array.from({ length: 120 }, (_, i) => ({ id: `m${i}`, title: `${titles[i % titles.length]} ${Math.floor(i / titles.length) + 1}`, mine: 'mine', sorted: true, where: 'laptop', date: '2025-01-01', folder: 'x', size: 4e6 }));
+const MANY_TAGS = tagFile(MANY.map((one, i) => ({ ...at(10 + i, `${words[i % words.length]} hook take ${i}`, i), id: `h${i}`, song_id: one.id })));
 const player = (fix, steps) => ({ fix: { screen: 'player', ...fix }, steps });
 
 export const fixtures = [
@@ -39,5 +48,17 @@ export const fixtures = [
   { name: 'session-long-words', ...player({ player: playing({ song: { ...song, title: 'A very long working title for a song that goes on (final final v7) 🔥' } }), songs, files: tagFile([at(12, LONG, 0)]) }, ["app.session.start('http://laptop')", "app.tagLine.toggleList('s1')", "app.tagLine.hold('t0')"]) },
   { name: 'library', fix: { screen: 'library', songs } },
   { name: 'library-shuffle-unsorted', fix: { screen: 'library', songs, player: playing({ order: { shuffle: true }, pool: 'unsorted' }) } },
+  // Previous / Play / Next centred from every place the player opens (2026-11-08 review)
+  { name: 'centre-library', ...player({ player: playing(), files: tagFile(tags(2)) }) },
+  { name: 'centre-sort-card', ...player({ player: playing({ sorting: true, song: { ...song, mine: 'unknown', sorted: false } }), files: tagFile([]) }) },
+  { name: 'centre-session', ...player({ player: playing(), songs, files: tagFile(tags(2)) }, ["app.session.start('http://laptop')"]) },
+  { name: 'centre-restored', ...player({ player: playing({ sheet: 'none', order: { shuffle: false, list: LAP } }), songs, files: { ...tagFile(tags(2)), 'session.json': JSON.stringify({ v: 1, pool: MINE, out: [], lap: LAP }) } }, ['app.session.restore()']) },
+  { name: 'centre-finding-start', ...player({ player: playing({ time: 15, duration: 0 }), songs, files: tagFile([]) }, ["app.session.start('http://laptop')"]) },
+  // search on the phone: empty field, a match, no match, many results, keyboard up
+  { name: 'search-empty', fix: { screen: 'library', songs, files: SEARCH_TAGS } },
+  { name: 'search-match', fix: { screen: 'library', songs, files: SEARCH_TAGS }, steps: ["app.type('drip on the beat')"] },
+  { name: 'search-no-match', fix: { screen: 'library', songs, files: SEARCH_TAGS }, steps: ["app.type('zzqx')"] },
+  { name: 'search-emoji', fix: { screen: 'library', songs, files: SEARCH_TAGS }, steps: ["app.type('😀😀')"] },
+  { name: 'search-many-keyboard', fix: { screen: 'library', songs: MANY, files: MANY_TAGS }, steps: ["app.type('hook')", 'app.keyboard()'] },
   { name: 'sort', fix: { screen: 'sort', routes: { '/sorting': { total: 40, songs: songs.map((s) => ({ ...s, mine: 'unknown', sorted: false })), sets: [] } } } },
 ];

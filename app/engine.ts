@@ -8,11 +8,11 @@ export type { Engine, Sound } from './playlistCore';
 
 const UPDATE_MS = 500;
 
-function singleEngine({ onSound }: Handlers): Engine {
+function singleEngine({ onSound, onStarted }: Handlers): Engine {
   const player = createAudioPlayer(null, { updateInterval: UPDATE_MS });
   let locked = false;
   let shownTitle = '';
-  const gate = startGate(player);
+  const gate = startGate(player, onStarted);
   const claim = () => {
     player.setActiveForLockScreen(true, { title: shownTitle });
     locked = true;
@@ -48,6 +48,7 @@ function singleEngine({ onSound }: Handlers): Engine {
     index: () => 0,
     next: () => {},
     previous: () => {},
+    skip: () => {}, // never asked: it isn't windowed
     play: () => {
       const waiting = gate.now();
       if (waiting) waiting.play = true;

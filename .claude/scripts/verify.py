@@ -13,6 +13,8 @@ checks += [
     ("playOrder test", NODE + ["app/playOrder.test.mjs"], ROOT),
     ("compareEngine test", NODE + ["app/compareEngine.test.mjs"], ROOT),
     ("playlistCore test", NODE + ["app/playlistCore.test.mjs"], ROOT),
+    ("nextTiming test", NODE + ["app/nextTiming.test.mjs"], ROOT),
+    ("search test", NODE + ["app/search.test.mjs"], ROOT),
     ("typecheck (tsc)", ["npx", "--no-install", "tsc", "--noEmit"], ROOT / "app"),
     ("music guard test", [PY, ".claude/hooks/test_guard_music.py"], ROOT),
     ("check_repo", [PY, ".claude/scripts/check_repo.py"], ROOT),

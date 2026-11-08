@@ -19,6 +19,7 @@ import { phoneBackup, survivalStamp, usePhoneBackup } from './phoneBackup';
 import { compare } from './compareStore';
 import { pointUpdatesAt, updateLine, useReloadOnUpdate } from './updates';
 import { logText } from './pressLog';
+import { timing } from './timings';
 
 const PORT = 8787;
 // Stamped by the GitHub build; "dev" when run from the laptop.
@@ -107,11 +108,13 @@ export default function App() {
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') {
         player.saveNow();
+        if (address) timing.send(serverUrl(address)); // best effort: numbers only, never blocks anything
         offline.pause();
         phoneBackup.pause();
         return;
       }
       flush();
+      if (address) timing.send(serverUrl(address));
       if (address) offline.start(serverUrl(address));
       if (address) phoneBackup.start(serverUrl(address));
       if (address) tagStore.start(serverUrl(address));

@@ -1,8 +1,8 @@
-// The song list from the laptop: scroll, sort, filter by title, tap to play. Songs on the phone play from there; with the
+// The song list from the laptop: scroll, sort, search titles and tags, tap to play. Songs on the phone play from there; with the
 // laptop off, the last list shows and only those play.
 // Choices the laptop hasn't confirmed yet already show here. Hold a row for select mode: tick songs, then group them as
 // versions, or call them Mine or Not mine, all at once with one Undo.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Hidden from './Hidden';
 import { HomeButton, takeSeed, useSeed } from './nav';
@@ -11,8 +11,11 @@ import { flush, useOutbox } from './outbox';
 import { LaptopLine, RestoreNotice, WaitingLine } from './Notices';
 import { NOT_HERE, player, usePlayer, type Pool } from './playerStore';
 import { session } from './sessionStore';
+import { indexFor, pieces, queryStems, searchSongs, stems, type SongHit } from './search';
+import { clock, useAllTags } from './tagStore';
 import { tint } from './Tagging';
-import { libraryShuffleTap, shuffleWords, withPending } from './playOrder';
+import { timing } from './timings';
+import { libraryShuffleTap, shuffleWords, withPending, type ShownTag } from './playOrder';
 import { setLibrary, useVersions, type LibSong } from './versionStore';
 import { VersionsChip } from './Versions';
 import * as versions from './versionStore';
@@ -23,7 +26,7 @@ type Sort = 'title' | 'date';
 type Filter = 'all' | 'mine' | 'unsorted' | 'grouped';
 const FILTER_WORD: Record<Filter, string> = { all: 'songs', mine: 'Mine', unsorted: 'unsorted', grouped: 'version groups' };
 const FILTER_EMPTY: Record<Filter, string> = {
-  all: 'No titles match',
+  all: 'No songs yet',
   mine: 'No Mine songs yet',
   unsorted: 'Nothing left unsorted',
   grouped: 'No version groups yet',
@@ -46,6 +49,18 @@ function SavedLine() {
   else if (o.full === 'limit') text = `8 GB limit reached: ${number(o.left)} Mine songs not on this phone`;
   else if (o.full === 'phone') text = `Phone storage full: ${number(o.left)} Mine songs not on this phone`;
   return <Text style={s.saved}>{text}</Text>;
+}
+
+/** A search result's second line: the matched tag, its matching words bold, and how many more of its tags match. */
+function HitLine({ hit, stems }: { hit: SongHit<ShownTag>; stems: string[] }) {
+  return (
+    <Text style={s.rowDetail} numberOfLines={1}>
+      {pieces(hit.tag.text, stems).map((piece, i) => (
+        <Text key={i} style={piece.hit ? s.hitWord : undefined}>{piece.text}</Text>
+      ))}
+      {hit.more ? <Text>{`  +${hit.more}`}</Text> : null}
+    </Text>
+  );
 }
 
 export default function Library({ url, onBack }: { url: string; onBack: () => void }) {
@@ -125,6 +140,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     return byTitle.sort((a, b) => ((a.date ?? '') < (b.date ?? '') ? 1 : (a.date ?? '') > (b.date ?? '') ? -1 : 0));
   }, [songs, sort]);
 
+  const byId = useMemo(() => new Map((songs ?? []).map((song) => [song.id, song])), [songs]);
   const base = useMemo(() => {
     if (only === 'mine') return sorted.filter((song) => song.mine === 'mine');
     if (only === 'unsorted') return sorted.filter((song) => song.mine !== 'mine' && !song.sorted);
@@ -132,20 +148,72 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     return sorted;
   }, [sorted, only, families]);
 
-  const shown = useMemo(() => {
-    const wanted = filter.trim().toLowerCase();
-    return wanted ? base.filter((song) => song.title.toLowerCase().includes(wanted)) : base;
-  }, [base, filter]);
+  // Search (Phase 3, on the phone): titles that hold the words first, as before, then every song with a tag sharing a
+  // word, best tag first (search.ts). Never hides a song that shares a word; the chips (Mine, Unsorted...) still narrow.
+  // The latest keystroke wins: typing never waits for a search. The index is the phone's tag copy, so it works offline.
+  const allTags = useAllTags();
+  const query = useDeferredValue(filter);
+  const searching = query.trim().length > 0;
+  const found = useMemo(() => {
+    if (!searching) return null;
+    const started = performance.now();
+    const asked = queryStems(query);
+    const words = new Set(asked);
+    const inBase = new Set(base.map((song) => song.id));
+    const index = indexFor(allTags);
+    const { rows: hits, total } = searchSongs(index, query, undefined, (id) => inBase.has(id), (id) => families.get(id) ?? id);
+    const hitOf = new Map(hits.map((hit) => [hit.songId, hit]));
+    // titles by word, the same stems as tags: every word in the title (or the text as typed) first, then tag matches,
+    // then titles sharing only some words, so a song sharing a word is never hidden
+    const wanted = query.trim().toLowerCase();
+    const titleWords = (song: Song) => new Set(stems(song.title));
+    const share = base.map((song) => {
+      const own = titleWords(song);
+      const hit = asked.filter((w) => own.has(w)).length;
+      return { song, all: song.title.toLowerCase().includes(wanted) || (asked.length > 0 && words.size > 0 && [...words].every((w) => own.has(w))), some: hit > 0 };
+    });
+    const byTitle = share.filter((one) => one.all).map((one) => one.song);
+    const listed = new Set(byTitle.map((song) => song.id));
+    const byTag = hits.filter((hit) => !listed.has(hit.songId)).map((hit) => byId.get(hit.songId)!).filter(Boolean);
+    byTag.forEach((song) => listed.add(song.id));
+    const someTitle = share.filter((one) => one.some && !listed.has(one.song.id)).map((one) => one.song);
+    const list = [...byTitle, ...byTag, ...someTitle];
+    return { list, hitOf, more: Math.max(0, total - hits.length), stems: asked, ms: performance.now() - started, tags: allTags.length };
+  }, [searching, query, base, allTags, families]);
+  // the phone's own search time, sent to the laptop with the other timings (numbers only)
+  useEffect(() => {
+    if (found) timing.search(found.ms, found.tags);
+  }, [found]);
+  const shown = found ? found.list : base;
 
   const { reachable, stored } = useOffline();
   const laptopOff = reachable === false;
   const canPlay = (song: Song) => offline.has(song.id) || (!laptopOff && song.where === 'laptop');
-  const playable = useMemo(() => shown.filter(canPlay), [shown, laptopOff, stored]);
+  // what plays: the Library list as it stands (chips and sort), never the search results, which change as I type
+  const playable = useMemo(() => base.filter(canPlay), [base, laptopOff, stored]);
 
-  const open = (start: Song, shuffle: boolean, pool: Pool = mineOnly ? 'mine' : 'unsorted') => {
+  /** `at`: a search result's tag second, so it plays from that moment. */
+  const open = (start: Song, shuffle: boolean, pool: Pool = mineOnly ? 'mine' : 'unsorted', at?: number) => {
     Keyboard.dismiss();
     if (!canPlay(start)) return player.showMessage(NOT_HERE);
-    player.playList(url, playable, start.id, shuffle, pool);
+    const now = player.now();
+    if (at !== undefined && (now.comparing || now.sorting)) return; // Compare or Sort has the sound
+    player.playList(url, playable, start.id, shuffle, pool, at);
+    player.open('player');
+  };
+
+  /** A search result: the song its tag is on, from the tag's second. A version's tag plays that version (its row is
+   * the family's Main), in the Library list's place of its Main. */
+  const openHit = (row: Song, hit: SongHit<ShownTag>) => {
+    const id = hit.tag.song_id;
+    if (id === row.id) return open(row, false, undefined, hit.tag.at_sec);
+    Keyboard.dismiss();
+    const now = player.now();
+    if (now.comparing || now.sorting) return;
+    if (!offline.has(id) && laptopOff) return player.showMessage(NOT_HERE);
+    const version = { id, title: versions.songTitle(id), mine: 'mine', sorted: true };
+    const list = playable.flatMap((song) => (song.id === row.id ? [version] : [song]));
+    player.playList(url, list.some((song) => song.id === id) ? list : [...list, version], id, false, mineOnly ? 'mine' : 'unsorted', hit.tag.at_sec);
     player.open('player');
   };
 
@@ -197,7 +265,6 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     if (at >= 0) setTimeout(() => rows.current?.scrollToIndex({ index: at, viewPosition: 0.3, animated: false }), 0);
   }, [seed, songs]);
 
-  const byId = useMemo(() => new Map((songs ?? []).map((song) => [song.id, song])), [songs]);
   const tickedSongs = ticked.map((id) => byId.get(id)).filter((song): song is Song => !!song);
   const isMineNow = (song: Song) => player.markOf(song).mine === 'mine';
   // the Main the ticked rows would get: my pick if one has it, else the newest
@@ -289,14 +356,15 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
             onChangeText={setFilter}
             autoCapitalize="none"
             autoCorrect={false}
-            returnKeyType="done"
-            placeholder="Filter by title"
+            returnKeyType="search"
+            maxLength={200}
+            placeholder="Search songs and tags"
             placeholderTextColor="#888"
             clearButtonMode="while-editing"
           />
           <View style={s.bar}>
             <Text style={s.count}>
-              {filter.trim() ? `${number(shown.length)} of ${number(base.length)}` : `${number(base.length)} ${FILTER_WORD[only]}`}
+              {found ? `${number(shown.length)}${found.more ? '+' : ''} found` : `${number(base.length)} ${FILTER_WORD[only]}`}
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.sortScroll} contentContainerStyle={s.sorts}>
               {playable.length ? (
@@ -329,16 +397,27 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
             key={sort}
             onScrollToIndexFailed={() => {}}
             data={shown}
+            extraData={found}
             keyExtractor={(song) => song.id}
             getItemLayout={(_, index) => ({ length: ROW_HEIGHT, offset: ROW_HEIGHT * index, index })}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={<Text style={s.empty}>{filter.trim() ? 'No titles match' : FILTER_EMPTY[only]}</Text>}
+            ListEmptyComponent={
+              <Text style={s.empty}>
+                {!found ? FILTER_EMPTY[only] : found.stems.length ? `No song or tag has “${query.trim().slice(0, 40)}”` : 'Type a word to search'}
+              </Text>
+            }
+            ListFooterComponent={found?.more ? <Text style={s.empty}>{number(found.more)} more songs match: type more words to narrow</Text> : undefined}
             renderItem={({ item }) => (
               <Pressable
                 style={[s.row, selecting && s.rowSelecting]}
                 disabled={!selecting && item.where !== 'laptop' && !offline.has(item.id)}
-                onPress={() => (selecting ? tick(item) : open(item, false))}
+                onPress={() => {
+                  const hit = found?.hitOf.get(item.id);
+                  if (selecting) tick(item);
+                  else if (hit) openHit(item, hit);
+                  else open(item, false);
+                }}
                 onLongPress={() => hold(item)}
                 delayLongPress={400}
               >
@@ -351,11 +430,16 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
                 <View style={s.rowTop}>
                   <Text style={[s.rowTitle, !canPlay(item) && s.rowOff]} numberOfLines={1}>{item.title}</Text>
                   <VersionsChip id={item.id} />
+                  {found?.hitOf.get(item.id) ? <Text style={s.hitTime}>{clock(found.hitOf.get(item.id)!.tag.at_sec)}</Text> : null}
                 </View>
-                <Text style={s.rowDetail} numberOfLines={1}>
-                  {groupMain === item.id ? 'Main · ' : ''}
-                  {detail(item)}
-                </Text>
+                {found?.hitOf.get(item.id) ? (
+                  <HitLine hit={found.hitOf.get(item.id)!} stems={found.stems} />
+                ) : (
+                  <Text style={s.rowDetail} numberOfLines={1}>
+                    {groupMain === item.id ? 'Main · ' : ''}
+                    {detail(item)}
+                  </Text>
+                )}
                 </View>
               </Pressable>
             )}
@@ -421,5 +505,7 @@ const s = StyleSheet.create({
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   rowTitle: { color: '#fff', fontSize: 16, flexShrink: 1 },
   rowOff: { color: '#777' },
+  hitTime: { marginLeft: 'auto', color: '#888', fontSize: 13, fontVariant: ['tabular-nums'] },
+  hitWord: { color: '#fff', fontWeight: '700' },
   rowDetail: { color: '#888', fontSize: 13, marginTop: 2 },
 });

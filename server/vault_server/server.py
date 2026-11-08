@@ -31,6 +31,7 @@ from .scanner import is_cloud_only
 from .songs import restore_mine, set_mine
 from .store import LOCK_NAME, SCHEMA_VERSION, Busy, write_lock
 from .tags import add_tag, all_tags, remove_tag
+from .timings import write_timings
 from .updates import update_answer, update_file
 
 PORT = 8787
@@ -509,7 +510,7 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR, on_mine=None):
             host = self.headers.get("Host", "").rsplit(":", 1)[0].lower().rstrip(".")
             if host not in allowed_hosts:
                 return self._error(403, "Unknown address.")
-            if self.path not in ("/changes", "/phone-backup"):
+            if self.path not in ("/changes", "/phone-backup", "/timings"):
                 return self._error(404, "Nothing here.")
             if not self.headers.get(CLIENT_HEADER):
                 return self._error(403, "Changes come from the app.")
@@ -518,6 +519,11 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR, on_mine=None):
                 return self._error(411, "Say how long the changes are.")
             if int(length) > MAX_BODY:
                 return self._error(413, "Too many changes at once.")
+            if self.path == "/timings":  # the phone's numbers only: its own file, never the journal
+                try:
+                    return self._json(200, {"kept": write_timings(root, json.loads(self.rfile.read(int(length))))})
+                except (ValueError, RecursionError):
+                    return self._error(400, "That isn't a timings report.")
             if self.path == "/phone-backup":
                 try:
                     return self._json(200, {"saved_at": write_phone_backup(root, json.loads(self.rfile.read(int(length))))})

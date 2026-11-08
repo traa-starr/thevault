@@ -16,8 +16,11 @@
     python server/vault_cli.py publish <library folder>                      send the app's newest code to the phone over the air (no GitHub build)
     python server/vault_cli.py pull-cloud <library folder> <music root> [n]  make cloud-only songs download, one at a time (only the first n if given); rerun any time
     python server/vault_cli.py tags <library folder> [title words]          every tag per song, second to 3 decimals (to compare with the phone); read-only
+    python server/vault_cli.py timings <library folder>                      the phone's search and Next timings (typical, slow end); read-only
+    python server/vault_cli.py search-data <library folder>                  every tag with its song title as JSON (for tools/search/accept.mjs); read-only
 """
 import shutil
+import json
 import sys
 from pathlib import Path
 
@@ -39,6 +42,7 @@ from vault_server.songs import FfprobeMissing, fill_details, fill_mine, link_son
 from vault_server.store import Busy  # noqa: E402
 from vault_server.tags import tags_by_song  # noqa: E402
 from vault_server.updates import publish  # noqa: E402
+from vault_server.timings import timings_report  # noqa: E402
 
 
 def print_result(result):
@@ -50,7 +54,7 @@ def main(argv):
     for stream in (sys.stdout, sys.stderr):  # a song name with an emoji mustn't stop a command halfway
         stream.reconfigure(errors="replace")
     if len(argv) < 3 or argv[1] not in ("init", "check", "import-sorting", "scan", "apply-sorting", "songs", "mains", "import", "fingerprint", "serve", "doctor",
-                                        "backup", "pull-cloud", "publish", "tags", "copies"):
+                                        "backup", "pull-cloud", "publish", "tags", "copies", "timings", "search-data"):
         print(__doc__)
         return 1
     cmd, folder = argv[1], argv[2]
@@ -109,6 +113,20 @@ def main(argv):
                 print("Phone copies:")
                 print_result(make_phone_copies(lib))
             print(size_report(lib))
+        elif cmd == "search-data":
+            # every live tag with its song's title, as JSON, for the search acceptance runner (tools/search/accept.mjs)
+            from vault_server.server import list_songs
+            from vault_server.tags import all_tags
+            lib = open_library(folder)
+            titles = {s["id"]: s["title"] for s in list_songs(lib.store.conn)}
+            tags = [{**t, "title": titles.get(t["song_id"], "")} for t in all_tags(lib.store.conn)]
+            print(json.dumps({"tags": tags}, ensure_ascii=False))
+            return 0
+        elif cmd == "timings":
+            # the phone's own search and Next timings (it sends them when it goes to the background); reads one small file
+            open_library(folder).close()  # stops here if the marker is missing
+            print("\n".join(timings_report(Path(folder).resolve())))
+            return 0
         elif cmd == "copies":
             # the same add-only run the server makes by itself; safe while the server runs (one writer at a time)
             open_library(folder).close()  # stops here if the marker is missing

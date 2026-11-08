@@ -725,9 +725,10 @@ for (const [name, test] of Object.entries(tests)) {
   assert.equal(startSpot(undefined, 0), 0, 'Library songs start at 0:00');
   assert.equal(startSpot(72.5, SORT_START_SEC), 72.5, 'an undone card carries on where it was');
   assert.equal(startSpot(0, SORT_START_SEC), 0, 'an explicit 0:00 stays 0:00');
-  // with a start point, Next and Previous load the song with its spot; the queued song would start at 0:00 first
-  assert.equal(moveBy(SESSION_START_SEC, true), 'load');
-  assert.equal(moveBy(SORT_START_SEC, true), 'load');
+  // with a start point too, Next and Previous take the queued (already loaded) song; it finds its spot silently
+  assert.equal(moveBy(SESSION_START_SEC, true), 'queue');
+  assert.equal(moveBy(SORT_START_SEC, true), 'queue');
+  assert.equal(moveBy(SESSION_START_SEC, false), 'load', 'a song the queue does not hold is a fresh load');
   assert.equal(moveBy(0, true), 'queue', 'Library keeps the gapless move');
   assert.equal(moveBy(0, false), 'load');
 }

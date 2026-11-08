@@ -1,0 +1,9 @@
+{"tags": [
+  {"id": "e1", "song_id": "a", "title": "Midnight Run", "text": "drippin' on the beat, double it", "at_sec": 12.4},
+  {"id": "e2", "song_id": "a", "title": "Midnight Run", "text": "beat switch", "at_sec": 130},
+  {"id": "e3", "song_id": "b", "title": "Window Seat", "text": "too much drip in the mix", "at_sec": 95},
+  {"id": "e4", "song_id": "c", "title": "Paper Planes idea", "text": "it has to go now, rewrite the hook", "at_sec": 47.2},
+  {"id": "e5", "song_id": "d", "title": "Cold Brew Freestyle", "text": "ballin since the first verse", "at_sec": 33},
+  {"id": "e6", "song_id": "e", "title": "Static", "text": "the hook comes in late", "at_sec": 61},
+  {"id": "e7", "song_id": "f", "title": "Late Checkout", "text": "flexin on the outro", "at_sec": 180}
+]}

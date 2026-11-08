@@ -452,6 +452,54 @@ def phone_backup_path(tmp):
     server.stop_servers(servers)
 
 
+def timings_path(tmp):
+    """POST /timings: the phone's numbers in their own file, never the journal; the timings command reads them."""
+    from vault_server.timings import TIMINGS_NAME, timings_report
+    root = tmp / "tlib"
+    init_library(root).close()
+    journal_before = (root / JOURNAL_NAME).read_bytes()
+    check("timings: none yet says so", "No timings" in timings_report(root)[0])
+    servers = server.start_servers(root, [server.LOOPBACK], 0)
+    port = servers[0].server_port
+
+    def post(body, headers=None):
+        c = http.client.HTTPConnection(server.LOOPBACK, port, timeout=10)
+        data = body if isinstance(body, bytes) else json.dumps(body).encode()
+        c.putrequest("POST", "/timings")
+        for k, v in {**({server.CLIENT_HEADER: "app"} if headers is None else headers), "Content-Length": str(len(data))}.items():
+            c.putheader(k, v)
+        c.endheaders()
+        c.send(data)
+        r = c.getresponse()
+        out = json.loads(r.read())
+        c.close()
+        return r.status, out
+
+    report = {"version": "test", "samples": [
+        {"kind": "search", "ms": 9.4, "tags": 27000}, {"kind": "search", "ms": 31, "tags": 27000},
+        {"kind": "next", "ms": 420, "path": "session"}, {"kind": "next", "ms": 1300, "path": "session"},
+        {"kind": "next", "ms": 250, "path": "sort"},
+        {"kind": "search", "ms": 5, "tags": 3, "text": "my secret lyric"},  # kept, but its text never is
+        {"kind": "next", "ms": 5, "path": "elsewhere"}, {"kind": "x"}, "junk", {"kind": "search", "ms": True, "tags": 1},
+    ]}
+    check("timings: a fake phone report is taken", post(report) == (200, {"kept": 6}))
+    saved = (root / TIMINGS_NAME).read_text(encoding="utf-8")
+    check("timings: numbers only, never text", "secret" not in saved and saved.count(chr(10)) == 6)
+    check("timings: refused without the app header", post(report, headers={})[0] == 403)
+    for bad in (b"not json", b"[]", json.dumps({"samples": "x"}).encode()):
+        check(f"timings: bad body refused: {bad[:12]!r}", post(bad)[0] == 400)
+    lines = timings_report(root)
+    print("      " + (chr(10) + "      ").join(lines))
+    check("timings: command prints search typical and slow end", lines[0].startswith("Search: typical") and "27,000 tags" in lines[0] or "3 tags" in lines[0])
+    check("timings: command prints Next per path, with how many went over 1 s",
+          any(line.startswith("Next to first sound, session") and "over 1 s: 1" in line for line in lines)
+          and any("sort" in line for line in lines))
+    (root / TIMINGS_NAME).write_text(saved + "broken line" + chr(10), encoding="utf-8")
+    check("timings: a broken line is skipped", len(timings_report(root)) == len(lines))
+    check("timings: the journal never sees them", (root / JOURNAL_NAME).read_bytes() == journal_before)
+    server.stop_servers(servers)
+
+
 def family_path(tmp):
     """Versions: link, Make main, Remove, Undo, and every refusal. The laptop is the guard against a phone that's wrong."""
     music, root = tmp / "fmusic", tmp / "flib"
@@ -727,6 +775,7 @@ def main():
     sorting_path(tmp)
     family_path(tmp)
     phone_backup_path(tmp)
+    timings_path(tmp)
     family_pick_path(tmp)
     hand_pick_history_path(tmp)
     date_year_path()

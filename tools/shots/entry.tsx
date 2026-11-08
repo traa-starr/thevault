@@ -33,6 +33,20 @@ function Screen() {
 }
 
 (globalThis as any).app = { ...tagStore, ...Tagging, player, session };
+// type into the first text field, as a thumb would (react-native-web draws it as an <input>)
+(globalThis as any).app.type = (text: string) => {
+  const input = document.querySelector('input') as HTMLInputElement;
+  const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+  set.call(input, text);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+};
+// the iPhone keyboard's height drawn over the bottom of the screen, to see what it covers
+(globalThis as any).app.keyboard = () => {
+  const k = document.createElement('div');
+  k.style.cssText = 'position:fixed;left:0;right:0;bottom:0;height:336px;background:#3a3a3c;color:#999;font:15px sans-serif;display:flex;align-items:center;justify-content:center;z-index:99';
+  k.textContent = 'keyboard';
+  document.body.appendChild(k);
+};
 createRoot(document.getElementById('root')!).render(
   <View style={{ height: '100vh' as any, backgroundColor: '#111' }}>
     <Screen />

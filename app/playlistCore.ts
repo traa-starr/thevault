@@ -3,7 +3,8 @@
 import type { Voice } from './compareEngine';
 
 export type Sound = { time: number; duration: number; playing: boolean; buffering: boolean; loaded: boolean; finished: boolean };
-export type Handlers = { onSound: (sound: Sound) => void; onTrack: (index: number) => void };
+/** `onStarted`: sound is coming out now, at the spot asked for (the moment a timing stops; status reports lag up to 0.5 s). */
+export type Handlers = { onSound: (sound: Sound) => void; onTrack: (index: number) => void; onStarted?: () => void };
 
 export type Engine = {
   /** True if it holds a list and moves through it by itself, while locked too. False: it holds one song at a time. */
@@ -22,6 +23,9 @@ export type Engine = {
   index: () => number;
   next: () => void;
   previous: () => void;
+  /** Next (1) or Previous (-1) through the player's own queue, where the next song is already loaded. With `at` above 0
+   * it goes silent first, moves, finds `at`, then plays and gives the volume back: nothing is heard before the spot. */
+  skip: (step: 1 | -1, at: number) => void;
   play: () => void;
   pause: () => void;
   seek: (seconds: number) => Promise<void>;
@@ -106,7 +110,7 @@ export const voiceOf = (raw: Raw, waiting: () => Waiting | null, engine: Pick<En
 
 /** Seeking before a song has loaded can be lost, so a start spot waits until the player says it's loaded, then seeks,
  * and only then plays. Past a short song's end it starts at 0:00 instead. Shared by both players. */
-export function startGate(raw: Pick<Raw, 'isLoaded' | 'duration' | 'volume' | 'currentTime'> & { seekTo(s: number): Promise<void>; play(): void }) {
+export function startGate(raw: Pick<Raw, 'isLoaded' | 'duration' | 'volume' | 'currentTime'> & { seekTo(s: number): Promise<void>; play(): void }, onStarted?: () => void) {
   let waiting: Waiting | null = null;
   const settle = () => {
     const held = waiting;
@@ -123,7 +127,10 @@ export function startGate(raw: Pick<Raw, 'isLoaded' | 'duration' | 'volume' | 'c
       }
       waiting = null;
       if (held.muted !== null) raw.volume = held.muted;
-      if (held.play) raw.play();
+      if (held.play) {
+        raw.play();
+        onStarted?.();
+      }
     });
   };
   return {
@@ -145,11 +152,11 @@ export function startGate(raw: Pick<Raw, 'isLoaded' | 'duration' | 'volume' | 'c
   };
 }
 
-export function playlistEngine(list: List, { onSound, onTrack }: Handlers): Engine {
+export function playlistEngine(list: List, { onSound, onTrack, onStarted }: Handlers): Engine {
   let locked = false;
   let shownTitle = '';
   let skips = LOCK_SCREEN;
-  const gate = startGate(list);
+  const gate = startGate(list, onStarted);
   // Always the full call, never updateLockScreenMetadata: that one blanks the lock screen before refilling it, and does
   // nothing at all once another player took the lock screen (Compare from Library) while we still think we hold it.
   const claim = () => {
@@ -202,6 +209,23 @@ export function playlistEngine(list: List, { onSound, onTrack }: Handlers): Engi
     index: () => list.currentIndex,
     next: () => list.next(),
     previous: () => list.previous(),
+    skip: (step, at) => {
+      if (at <= 0) {
+        gate.drop();
+        if (step > 0) list.next();
+        else list.previous();
+        list.play();
+        if (step > 0) onStarted?.(); // the next song is loaded; Previous makes a fresh one (its first report times it)
+        return;
+      }
+      // a mute still pending from a fast earlier tap keeps its volume to give back, never the silence (hold does that)
+      const volume = list.volume;
+      list.volume = 0;
+      list.pause();
+      if (step > 0) list.next();
+      else list.previous();
+      gate.hold(at, true, volume);
+    },
     play: () => {
       const waiting = gate.now();
       if (waiting) waiting.play = true;

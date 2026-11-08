@@ -270,7 +270,8 @@ export function FullPlayer() {
     setSeekingTo(null);
   };
 
-  const shown = Math.min(dragAt ?? seekingTo ?? time, duration || 0);
+  // length not known yet (a song finding its start spot): the spot it's heading for, never 0:00 first
+  const shown = duration ? Math.min(dragAt ?? seekingTo ?? time, duration) : time;
   const tags = useTags(shownId);
   const isMine = player.isMine();
   const shuffleOn = !!order?.shuffle;
@@ -299,7 +300,7 @@ export function FullPlayer() {
         <View style={s.times}>
           <Text style={s.time}>{clock(shown)}</Text>
           <Pressable style={s.timeTap} onPress={player.toggleTimeLeft}>
-            <Text style={s.time}>{timeLeft ? `-${clock(Math.max(duration - shown, 0))}` : clock(duration)}</Text>
+            <Text style={s.time}>{!duration ? '–:––' : timeLeft ? `-${clock(Math.max(duration - shown, 0))}` : clock(duration)}</Text>
           </Pressable>
         </View>
         {/* also the player's own note when nothing about tags is showing */}
@@ -307,18 +308,21 @@ export function FullPlayer() {
         {/* the same buttons in Compare: Play/Pause works the version heard, the rest end Compare first */}
         <View style={s.slot}>
           <View style={s.controls}>
-            <Pressable style={(p) => [s.button, tint(p)]} onPress={leavingCompare(player.previous)}>
+            {/* a slot as wide as Shuffle's on the other side: Previous / Play / Next sit dead centre wherever the player opens
+                (Library, a Sort card, a session, after a restore), and never move between them (2026-11-08 review) */}
+            <View style={s.shuffle} />
+            <Pressable style={(p) => [s.button, s.side, tint(p)]} onPress={leavingCompare(player.previous)}>
               <Text style={s.buttonText}>Previous</Text>
             </Pressable>
             <Pressable style={(p) => [s.button, s.play, p.pressed && s.nextPressed]} onPress={comparing ? compare.toggle : player.toggle}>
               <Text style={[s.buttonText, s.playText]}>{wanted ? 'Pause' : 'Play'}</Text>
             </Pressable>
-            <Pressable style={(p) => [s.button, tint(p)]} onPress={leavingCompare(player.next)}>
+            <Pressable style={(p) => [s.button, s.side, tint(p)]} onPress={leavingCompare(player.next)}>
               <Text style={s.buttonText}>Next</Text>
             </Pressable>
-            {/* each tap: Off > Mine > Unsorted > Off, no box. On: filled, like Mine. Hidden while sorting, its width kept so the row
-                never shifts. A session has no Shuffle at all: no empty slot, so its three buttons sit centred */}
-            {inSession ? null : sorting ? (
+            {/* each tap: Off > Mine > Unsorted > Off, no box. On: filled, like Mine. Hidden while sorting and in a session, its
+                width kept so the row never shifts */}
+            {inSession || sorting ? (
               <View style={s.shuffle} />
             ) : (
               <Pressable
@@ -649,8 +653,10 @@ const s = StyleSheet.create({
   time: { color: '#ddd', fontSize: 14, fontVariant: ['tabular-nums'] },
   timeTap: { paddingVertical: 14, paddingLeft: 32 },
   slot: { height: SLOT_HEIGHT, marginTop: 8, justifyContent: 'center' },
-  controls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 },
-  shuffle: { width: 48, alignItems: 'center' },
+  controls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 },
+  shuffle: { width: 44, alignItems: 'center' },
+  // Previous and Next the same width, so Play sits on the centre line
+  side: { width: 80, paddingHorizontal: 0, alignItems: 'center' },
   shuffleOn: { backgroundColor: '#8ab4f8', borderColor: '#8ab4f8' },
   shuffleIcon: { width: 20, height: 22, justifyContent: 'center', gap: 5 },
   arrowRow: { flexDirection: 'row', alignItems: 'center' },
@@ -660,7 +666,7 @@ const s = StyleSheet.create({
   compareSlot: { width: WHEEL_WIDTH, height: 46, justifyContent: 'center', alignItems: 'flex-end' }, // the closed word ends where the pill does (6.7)
   button: { paddingVertical: 14, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#555' },
   buttonText: { color: '#fff', fontSize: 16 },
-  play: { minWidth: 92, alignItems: 'center', backgroundColor: '#fff', borderColor: '#fff' },
+  play: { minWidth: 88, alignItems: 'center', backgroundColor: '#fff', borderColor: '#fff' },
   playText: { color: '#111', fontWeight: '700' },
   mineOn: { backgroundColor: '#8ab4f8', borderColor: '#8ab4f8' },
   toast: { position: 'absolute', left: 16, right: 16, bottom: 40, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 8, backgroundColor: '#333' },

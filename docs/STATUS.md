@@ -1,11 +1,12 @@
 # Status
 
-**Phase 2 (tagging): last item is mine (2.7); Phase 3 (search, on the phone) builds alongside.** Updated 2026-11-08 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 2 (tagging): last item is mine (2.7); Phase 3 (search, on the phone) builds alongside.** Updated 2026-11-08 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 **In progress:** nothing.
-**Next up:** me: commit and push, new Code session, `/next`. Alongside: real tagging sessions + wipe check (2.7).
+**Next up:** me: commit, close and reopen the app, then `Review.` in chat. Alongside: real tagging sessions + wipe check (2.7).
 **Current task:** Fast session Next, centred player everywhere, search on the phone (`NEXT.md`).
 
 ## Done
+- Fast Next, centred player, search built 2026-11-08: session Next via the loaded queue (model 300 ms vs 1,100), Play centred everywhere, search in Library (3.1-3.3, 3.6), phone timings + `timings`, acceptance runner. E waits for the owner. Board `board/phase-3-search.md`. Details REPORT.
 - Session polish reviewed 2026-11-08: checks 3 of 3 pass; notes: 3-5 s silent hold on session Next, Sort-card player not centred. Search: A, on the phone. Results `PHASE-2-RESULTS.md`.
 - Session polish built 2026-11-08: clean starts (0:15 / 0:30 at load), session centred and kept after a kill, server makes phone copies by itself (308 made on the real library, 0 Mine left without), doctor line, quiet hang-ups, `SEARCH-OPTIONS.md` measured. Details REPORT.
 - Phase 2 code-complete reviewed 2026-11-08: checks 4 of 4 pass, 2.2/2.4/2.5 ticked. Bug note: a beat from 0:00 on each session Next. Session starts at 15 s, Sort at 30 s. Results `PHASE-2-RESULTS.md`.
@@ -27,4 +28,4 @@
 - `SAVE ME` (mine?), 26 date-only names, `Untitled...` files: display names wait for the release system (ROADMAP 6.1).
 
 ## Checks pending
-- None.
+- 4 phone checks (REPORT), then the `timings` numbers to chat.

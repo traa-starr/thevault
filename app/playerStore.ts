@@ -9,6 +9,7 @@ import type { FamilyEdit } from './family';
 import { offline } from './offline';
 import { addChange, addChanges } from './outbox';
 import { note } from './pressLog';
+import { timing } from './timings';
 import { currentId, jumpTo, moveBy, SORT_START_SEC, startSpot, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setFlag, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
 import { isVersion, members, removeEditFor, sendEdit, showToast, songTitle, undo as undoVersions, type Sent } from './versionStore';
 
@@ -110,6 +111,12 @@ let undoTimer: ReturnType<typeof setTimeout> | undefined;
 let stallTimer: ReturnType<typeof setInterval> | undefined;
 let loadTicket = 0; // each loadOrder's number: only the newest one reaches the sound
 let startPoint = 0; // where a fresh song starts, in seconds: set by Sort and the tagging session
+// Next/Previous taps sent through the queue with the start spot: the player's report of that move must not seek again
+// The songs those taps went to, oldest first: a report naming one of them is ours (a lock-screen Next names another).
+let ownMoves: string[] = [];
+// Where the taps have taken the queue before the player reports it: a second fast tap moves on from there, not from the
+// song the first tap left (fresh-eyes review 2026-11-08: two fast Nexts moved once, then reloaded slowly)
+let ahead: Order | null = null;
 let handOff: (() => void) | null = null; // Compare is handing the sound back: any tap finishes that first
 const listeners = new Set<() => void>();
 
@@ -199,6 +206,8 @@ function onSound(sound: Sound) {
   }
   if (state.comparing) return; // paused and waiting: nothing it says counts
   if (sound.loaded) everLoaded = true;
+  if (sound.playing && !sound.buffering && sound.loaded) timing.heard(timedPath()); // a start with no spot to find
+  if (timing.ready()) timing.send(url);
   const changes: Partial<State> = { time: sound.time, duration: sound.duration };
   timeStampedAt = Date.now();
   if (sound.time !== lastTime) {
@@ -244,9 +253,15 @@ function onTrack(index: number) {
   if (currentId(order) === currentId(state.order) && order.at === state.order.at && !stale) return;
   // a song that failed without ever loading moves the player on by itself: several in a row means stop, never loop
   if (!everLoaded && Date.now() - trackStarted < FAILED_QUICKLY_MS) badInARow++;
+  const at = ownMoves.indexOf(entry.id);
+  const own = at >= 0;
+  ownMoves = own ? ownMoves.slice(at + 1) : [];
+  if (!own || !ownMoves.length) ahead = null;
+  let restarted = false; // adding a song in front restarts this one from 0:00: it finds its spot again
   newTrackStarted();
   settleUntil = Date.now() + SETTLE_MS;
-  update({ order, song: songNow(order), time: 0, duration: 0, note: '', trouble: '' });
+  // the start spot shows at once, never 0:00 first (the player is finding it)
+  update({ order, song: songNow(order), time: startPoint, duration: 0, note: '', trouble: '' });
   if (!state.sorting) heard(entry.id);
   saveSpot(true);
   engine?.setTitle(titleOf(entry.id));
@@ -258,10 +273,12 @@ function onTrack(index: number) {
     if (behind) {
       engine?.addInFront(audioUrl(currentId(behind)));
       track = [{ id: currentId(behind), order: behind }, ...track];
+      restarted = true;
     }
   }
-  // the lock screen or a song's end moved on: the player began it at 0:00, so it goes silent and finds its start point
-  if (startPoint > 0) engine?.startHere(startPoint);
+  // the lock screen or a song's end moved on: the player began it at 0:00, so it goes silent and finds its start point.
+  // A Next or Previous tap already did that on its way (skip), so its own report never seeks twice.
+  if (startPoint > 0 && (!own || restarted)) engine?.startHere(startPoint);
   if (badInARow >= MAX_BAD_IN_A_ROW) stopForBadSongs();
 }
 
@@ -296,7 +313,8 @@ function stopForBadSongs() {
   badInARow = 0;
 }
 
-const ensureEngine = () => (engine ??= createEngine(ENGINE, { onSound, onTrack }));
+const timedPath = () => (state.sorting ? 'sort' : startPoint > 0 ? 'session' : 'library');
+const ensureEngine = () => (engine ??= createEngine(ENGINE, { onSound, onTrack, onStarted: () => timing.heard(timedPath()) }));
 const ensureMode = () =>
   (modeSet ??= setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'doNotMix' }).catch(() => {}));
 
@@ -318,6 +336,8 @@ function loadOrder(order: Order, asked: number | undefined, play: boolean) {
     return;
   }
   newTrackStarted();
+  ownMoves = []; // a fresh list: no move of the old one is still on its way
+  ahead = null;
   settleUntil = play ? Date.now() + SETTLE_MS : 0;
   holdPausedUntil = play ? 0 : Date.now() + HOLD_PAUSED_MS;
   const id = currentId(order);
@@ -409,7 +429,23 @@ const wakeIfQuiet = () => {
   wake();
 };
 
-const canUseWindow = (index: number) => !!engine?.windowed && index >= 0 && index < track.length;
+/** The queue holds this exact song one step away (a Not mine, a drag or a shuffle change can leave it holding another). */
+const queueHolds = (step: 1 | -1, moved: Order) => {
+  if (!engine?.windowed) return false;
+  const index = engine.index() + step;
+  return index >= 0 && index < track.length && track[index].id === currentId(moved);
+};
+
+/** One step through the player's own queue, where the song is already loaded: the fast path for Next, Previous and the
+ * next Sort card. With a start point it stays silent until it gets there; the seek bar shows the spot at once. */
+function stepQueue(step: 1 | -1, moved: Order) {
+  settleUntil = Date.now() + SETTLE_MS;
+  holdPausedUntil = 0;
+  ownMoves.push(currentId(moved));
+  ahead = moved;
+  engine!.skip(step, startPoint);
+  update({ wanted: true, time: startPoint, duration: 0 });
+}
 
 export const player = {
   /** A tap on a song in a list. During Sort it replaces the saved library spot, so the sort song keeps playing. */
@@ -451,18 +487,15 @@ export const player = {
   next() {
     settleHandOff();
     if (!state.order || state.comparing) return;
-    const moved = nextInOrder(state.order, avoid());
+    const moved = nextInOrder(ahead ?? state.order, avoid());
     if (!moved) {
       update({ note: 'Played every song in this list' });
       return;
     }
     badInARow = 0;
-    if (engine?.windowed && moveBy(startPoint, canUseWindow(engine.index() + 1)) === 'queue') {
-      settleUntil = Date.now() + SETTLE_MS;
-      holdPausedUntil = 0;
-      engine.next();
-      engine.play();
-      update({ wanted: true });
+    timing.tap();
+    if (moveBy(startPoint, queueHolds(1, moved)) === 'queue') {
+      stepQueue(1, moved);
     } else {
       loadOrder(moved, undefined, true);
     }
@@ -471,18 +504,17 @@ export const player = {
   previous() {
     settleHandOff();
     if (!state.order || state.comparing) return;
-    const moved = previousInOrder(state.order);
+    const moved = previousInOrder(ahead ?? state.order);
     if (!moved) {
       engine?.seek(0).catch(() => {});
       return;
     }
     badInARow = 0;
-    if (engine?.windowed && moveBy(startPoint, canUseWindow(engine.index() - 1)) === 'queue') {
-      settleUntil = Date.now() + SETTLE_MS;
-      holdPausedUntil = 0;
-      engine.previous();
-      engine.play();
-      update({ wanted: true });
+    timing.tap();
+    // landing on the queue's first song makes the player add one in front, which restarts it: a fresh load instead
+    const landsFirst = !!engine?.windowed && engine.index() - 1 === 0 && !!previousInOrder(moved);
+    if (!landsFirst && moveBy(startPoint, queueHolds(-1, moved)) === 'queue') {
+      stepQueue(-1, moved);
     } else {
       loadOrder(moved, undefined, true);
     }
@@ -503,7 +535,14 @@ export const player = {
   jump(id: string, at?: number) {
     if (!state.order) return;
     badInARow = 0;
-    loadOrder(jumpTo(state.order, id), at, true);
+    const moved = jumpTo(ahead ?? state.order, id);
+    if (at === undefined) timing.tap(); // a fresh card or song: timed to first sound
+    // the next Sort card is usually the queued song: the same fast path as Next
+    if (at === undefined && !state.comparing && queueHolds(1, moved)) {
+      settleHandOff();
+      return stepQueue(1, moved);
+    }
+    loadOrder(moved, at, true);
   },
 
   /** The tagging session's Not mine: the song leaves the order (Next and Previous skip it) but plays on; Undo puts it back. */

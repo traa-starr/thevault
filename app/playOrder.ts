@@ -363,9 +363,10 @@ export const SESSION_START_SEC = 15;
 export const SORT_START_SEC = 30;
 /** A spot asked for (an Undo, a saved place) wins; a fresh song gets the mode's start point. */
 export const startSpot = (asked: number | undefined, startPoint: number) => asked ?? startPoint;
-/** Next and Previous: with a start point, a fresh load that carries it (the queued song would start at 0:00 first);
- * without one, the player's own queue, which moves with no gap. */
-export const moveBy = (startPoint: number, queueHasIt: boolean): 'queue' | 'load' => (startPoint === 0 && queueHasIt ? 'queue' : 'load');
+/** Next and Previous: the player's own queue whenever it holds the song, where it is already loaded (fast; a start
+ * point goes silent and finds its spot on the way, engine skip). Only a song the queue doesn't hold is a fresh load.
+ * 2026-11-08 review: the fresh load for every session Next held 3-5 s of silence. */
+export const moveBy = (_startPoint: number, queueHasIt: boolean): 'queue' | 'load' => (queueHasIt ? 'queue' : 'load');
 
 // The tagging session survives an app kill (2026-11-08 review): its pool, its Not mine songs and the lap it plays are
 // saved to the phone. The player saves its own place (last-play.json); the session comes back only if the player came
