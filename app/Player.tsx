@@ -16,8 +16,8 @@ import { compare, useCompare } from './compareStore';
 import { openLibrarySelect, HomeButton } from './nav';
 import { player, usePlayer, type Pool } from './playerStore';
 import type { ShownTag } from './playOrder';
-import { jumpToTag, ReservedLine, TagHere, TagList } from './Tagging';
-import { tagLine, useTagLine, useTags } from './tagStore';
+import { jumpToTag, ReservedLine, TagButton, TagList, TagsButton } from './Tagging';
+import { say, tagLine, useTagLine, useTags } from './tagStore';
 import { VersionsChip, VersionsToast } from './Versions';
 import * as versions from './versionStore';
 
@@ -35,7 +35,7 @@ const HIDE_MS = 250;
 const EYE_DROP = 64; // the verdict row's height plus the gap above it, so the hidden eye sits where the buttons were
 const VERDICT_DROP = 120; // far enough to leave the bottom of the screen
 const PULSE_MS = 600;
-const SLOT_HEIGHT = 124; // the controls and the Shuffle line: a fixed height, so nothing below moves
+const SLOT_HEIGHT = 52; // the controls row: a fixed height, so nothing below moves
 
 const clock = (seconds: number) => {
   const whole = Math.floor(seconds);
@@ -170,6 +170,22 @@ function EyeIcon({ crossed }: { crossed: boolean }) {
   );
 }
 
+/** Two arrows, one each way. Drawn, like the eye. */
+function ShuffleIcon({ color }: { color: string }) {
+  return (
+    <View style={s.shuffleIcon}>
+      <View style={s.arrowRow}>
+        <View style={[s.arrowBar, { backgroundColor: color }]} />
+        <View style={[s.arrowHeadRight, { borderLeftColor: color }]} />
+      </View>
+      <View style={s.arrowRow}>
+        <View style={[s.arrowHeadLeft, { borderRightColor: color }]} />
+        <View style={[s.arrowBar, { backgroundColor: color }]} />
+      </View>
+    </View>
+  );
+}
+
 /** The 5-second Undo. Sits above the bar and survives changing screens, because it belongs to the player. */
 export function UndoToast({ aboveButtons = false }: { aboveButtons?: boolean }) {
   const { undo, message } = usePlayer();
@@ -274,6 +290,7 @@ function FullPlayer() {
   const shown = Math.min(dragAt ?? seekingTo ?? time, duration || 0);
   const tags = useTags(shownId);
   const isMine = player.isMine();
+  const shuffleOn = !!order?.shuffle;
   return (
     <View style={s.page}>
       <View style={s.topRow}>
@@ -305,49 +322,68 @@ function FullPlayer() {
             <Pressable style={s.button} onPress={leavingCompare(player.next)}>
               <Text style={s.buttonText}>Next</Text>
             </Pressable>
-          </View>
-          {sorting ? null : (
-            <Pressable onPress={leavingCompare(() => (order?.shuffle ? player.setShuffleOn(false) : askShuffle((picked) => player.setShuffleOn(true, picked))))}>
-              <Text style={[s.link, order?.shuffle && s.linkOn]}>
-                {order?.shuffle ? `Shuffle: ${pool === 'mine' ? 'Mine' : 'unsorted'}` : 'Shuffle: off'}
-              </Text>
-            </Pressable>
-          )}
-        </View>
-        {!shownId || (!comparing && (sorting || player.isOut())) ? null : (
-          <View style={s.versionRow}>
-            {/* never a sheet over this sheet (iOS froze on that): the player closes first, then the next screen opens */}
-            {/* already in a group: hidden, its Versions chip and Compare do the work */}
-            {versions.members(shownId).length > 1 ? null : (
-              <Pressable onPress={() => player.closeThen(() => openLibrarySelect(shownId))}>
-                <Text style={s.link}>+ Version</Text>
+            {/* on: filled, like Mine. Hidden while sorting, its width kept so the row never shifts */}
+            {sorting ? (
+              <View style={s.shuffle} />
+            ) : (
+              <Pressable
+                style={[s.button, s.shuffle, shuffleOn && s.shuffleOn]}
+                onPress={leavingCompare(() =>
+                  shuffleOn
+                    ? (player.setShuffleOn(false), say({ text: 'Shuffle ', bold: 'off' }))
+                    : askShuffle((picked) => (player.setShuffleOn(true, picked), say({ text: 'Shuffle: ', bold: picked === 'mine' ? 'Mine' : 'unsorted' }))),
+                )}
+                accessibilityLabel={shuffleOn ? `Shuffle on, ${pool === 'mine' ? 'Mine' : 'unsorted'}` : 'Shuffle off'}
+              >
+                <ShuffleIcon color={shuffleOn ? '#111' : '#8e8e93'} />
               </Pressable>
             )}
-            <VersionsChip id={shownId} onPress={() => player.closeThen(() => versions.openVersions(shownId))} />
-            {/* one fixed-width slot: the Compare word, or in Compare the wheel in its place, so nothing beside it moves */}
-            {versions.members(shownId).length > 1 ? (
-              <View style={s.compareSlot}>
-                {comparing ? (
-                  <CompareDial />
-                ) : (
-                  <Animated.View style={{ opacity: pulse }}>
-                    <Pressable onPress={() => compare.openFromPlayer(player.url())}>
-                      <Text style={s.link}>Compare</Text>
-                    </Pressable>
-                  </Animated.View>
+          </View>
+        </View>
+        {!shownId ? null : (
+          <View style={s.versionRow}>
+            {!comparing && (sorting || player.isOut()) ? null : (
+              <>
+                {/* never a sheet over this sheet (iOS froze on that): the player closes first, then the next screen opens */}
+                {/* already in a group: hidden, its Versions chip and Compare do the work */}
+                {versions.members(shownId).length > 1 ? null : (
+                  <Pressable onPress={() => player.closeThen(() => openLibrarySelect(shownId))}>
+                    <Text style={s.link}>+ Version</Text>
+                  </Pressable>
                 )}
-              </View>
-            ) : null}
+                <VersionsChip id={shownId} onPress={() => player.closeThen(() => versions.openVersions(shownId))} />
+                {/* one fixed-width slot: the Compare word, or in Compare the wheel in its place, so nothing beside it moves */}
+                {versions.members(shownId).length > 1 ? (
+                  <View style={s.compareSlot}>
+                    {comparing ? (
+                      <CompareDial />
+                    ) : (
+                      <Animated.View style={{ opacity: pulse }}>
+                        <Pressable onPress={() => compare.openFromPlayer(player.url())}>
+                          <Text style={s.link}>Compare</Text>
+                        </Pressable>
+                      </Animated.View>
+                    )}
+                  </View>
+                ) : null}
+              </>
+            )}
+            {/* hidden in Compare: its ticks and rows would be another version's */}
+            {comparing ? null : <TagsButton songId={shownId} tags={tags} />}
           </View>
         )}
-        {/* while comparing, Back is Done: same spot, same size */}
-        <Pressable onPress={comparing ? compare.done : () => player.open('none')}>
-          <Text style={s.link}>{comparing ? 'Done' : 'Back'}</Text>
-        </Pressable>
+        <View style={s.backRow}>
+          {/* while comparing, Back is Done: same spot, same size */}
+          <Pressable onPress={comparing ? compare.done : () => player.open('none')}>
+            <Text style={s.link}>{comparing ? 'Done' : 'Back'}</Text>
+          </Pressable>
+          {/* the most-used button: full-size, the thumb's side. Its slot stays in Compare so Done never moves */}
+          {comparing || !song ? <View style={s.tagSlot} /> : <TagButton songId={song.id} title={song.title} />}
+        </View>
       </View>
-      {/* the song's tags fill the space down to the buttons */}
+      {/* the song's tags, while Tags · N has them open; the space under them is the swipe area */}
       <View style={s.tagZone}>
-        <TagList songId={shownId} time={shown} />
+        {comparing ? null : <TagList songId={shownId} tags={tags} time={shown} />}
         {/* The blank space under the tags: a swipe up opens Queue, a tap does nothing. */}
         <View style={s.swipeZone} {...(comparing ? {} : swipe)} />
       </View>
@@ -381,11 +417,6 @@ function FullPlayer() {
           )}
         </Animated.View>
       </View>
-      {comparing || !song ? null : (
-        <View style={s.tagHereSpot}>
-          <TagHere songId={song.id} title={song.title} />
-        </View>
-      )}
       <UndoToast aboveButtons />
       <VersionsToast />
     </View>
@@ -558,11 +589,12 @@ const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#111' },
   // beside the grab mark, only as wide as Home, so the rest of the grab area still pulls the sheet down
   topRow: { alignSelf: 'flex-end', marginTop: -44, height: 44, justifyContent: 'center', paddingRight: 8 },
-  versionRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: -8 },
+  versionRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, minHeight: 46, marginTop: -8 },
   pageTop: { paddingHorizontal: 24, gap: 12 },
   tagZone: { flex: 1, marginTop: 8, paddingHorizontal: 24 },
   swipeZone: { flex: 1, minHeight: 24 },
-  tagHereSpot: { position: 'absolute', right: 24, bottom: 104 }, // the eye's row, on the right: the thumb zone
+  backRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: -8 },
+  tagSlot: { width: 56, height: 48 },
   dock: { height: 160, justifyContent: 'flex-end', paddingHorizontal: 24, paddingBottom: 40 },
   hideTap: { height: 44, justifyContent: 'center', alignSelf: 'flex-start', paddingRight: 24, marginBottom: 8 },
   eye: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
@@ -585,10 +617,17 @@ const s = StyleSheet.create({
   times: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: -12 },
   time: { color: '#ddd', fontSize: 14, fontVariant: ['tabular-nums'] },
   timeTap: { paddingVertical: 14, paddingLeft: 32 },
-  slot: { height: SLOT_HEIGHT, marginTop: 16, gap: 12 },
-  controls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12 },
+  slot: { height: SLOT_HEIGHT, marginTop: 8, justifyContent: 'center' },
+  controls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 },
+  shuffle: { width: 48, alignItems: 'center' },
+  shuffleOn: { backgroundColor: '#8ab4f8', borderColor: '#8ab4f8' },
+  shuffleIcon: { width: 20, height: 22, justifyContent: 'center', gap: 5 },
+  arrowRow: { flexDirection: 'row', alignItems: 'center' },
+  arrowBar: { flex: 1, height: 2 },
+  arrowHeadRight: { width: 0, height: 0, borderTopWidth: 4, borderBottomWidth: 4, borderLeftWidth: 6, borderTopColor: 'transparent', borderBottomColor: 'transparent' },
+  arrowHeadLeft: { width: 0, height: 0, borderTopWidth: 4, borderBottomWidth: 4, borderRightWidth: 6, borderTopColor: 'transparent', borderBottomColor: 'transparent' },
   compareSlot: { width: WHEEL_WIDTH, height: 46, justifyContent: 'center', alignItems: 'flex-end' }, // the closed word ends where the pill does (6.7)
-  button: { paddingVertical: 14, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, borderColor: '#555' },
+  button: { paddingVertical: 14, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#555' },
   buttonText: { color: '#fff', fontSize: 16 },
   play: { minWidth: 92, alignItems: 'center', backgroundColor: '#fff', borderColor: '#fff' },
   playText: { color: '#111', fontWeight: '700' },
@@ -598,7 +637,6 @@ const s = StyleSheet.create({
   toastText: { flex: 1, color: '#fff', fontSize: 15 },
   toastUndo: { color: '#8ab4f8', fontSize: 16, fontWeight: '700' },
   link: { color: '#8ab4f8', fontSize: 15, paddingHorizontal: 8, paddingVertical: 13, textAlign: 'center' },
-  linkOn: { color: '#fff', fontWeight: '700' },
   queue: { flex: 1, backgroundColor: '#111', paddingHorizontal: 16 },
   queueHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   queueTitle: { color: '#fff', fontSize: 26, fontWeight: '700' },

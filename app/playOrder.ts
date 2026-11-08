@@ -216,3 +216,16 @@ export function dialTarget(from: number, landed: number, playable: boolean[]): n
   for (let i = landed; i >= 0 && i < playable.length; i += step) if (playable[i]) return i;
   return landed;
 }
+
+/** A setting kept as a file that exists or not (the eye, time left). */
+export type FlagFile = { readonly exists: boolean; create(): void; delete(): void };
+/** Sets it by what's on disk, not what the screen thought: the sorted-song eye rule changes the screen without the file. */
+export function setFlag(file: FlagFile, on: boolean) {
+  if (on && !file.exists) file.create();
+  else if (!on && file.exists) file.delete();
+}
+
+/** Tags · N tapped on a song: its list opens, or closes if it was the open one. The open one is kept as a song id, so a
+ *  song change closes it with no extra step. */
+export const listAfterTap = (openFor: string | null, songId: string) => (openFor === songId ? null : songId);
+export const listIsOpen = (openFor: string | null, songId: string | null | undefined) => !!songId && openFor === songId;

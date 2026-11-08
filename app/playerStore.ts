@@ -9,7 +9,7 @@ import type { FamilyEdit } from './family';
 import { offline } from './offline';
 import { addChange, addChanges } from './outbox';
 import { note } from './pressLog';
-import { currentId, jumpTo, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
+import { currentId, jumpTo, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setFlag, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
 import { isVersion, members, removeEditFor, sendEdit, showToast, songTitle, undo as undoVersions, type Sent } from './versionStore';
 
 export type PlayerSong = { id: string; title: string; mine: string; sorted: boolean };
@@ -679,17 +679,23 @@ export const player = {
   },
 
   toggleTimeLeft() {
-    const file = timeLeftFile();
-    if (state.timeLeft) file.delete();
-    else file.create();
-    update({ timeLeft: !state.timeLeft });
+    const on = !state.timeLeft;
+    try {
+      setFlag(timeLeftFile(), on);
+    } catch {
+      // the file is only for the next launch: the switch still flips
+    }
+    update({ timeLeft: on });
   },
 
   toggleButtonsHidden() {
-    const file = buttonsHiddenFile();
-    if (state.buttonsHidden) file.delete();
-    else file.create();
-    update({ buttonsHidden: !state.buttonsHidden });
+    const on = !state.buttonsHidden;
+    try {
+      setFlag(buttonsHiddenFile(), on);
+    } catch {
+      // the file is only for the next launch: the switch still flips
+    }
+    update({ buttonsHidden: on });
   },
 
   /** The two display settings, read again from their files (a restore after a reinstall just wrote them). */

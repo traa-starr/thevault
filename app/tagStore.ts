@@ -4,7 +4,7 @@
 import { File, Paths } from 'expo-file-system';
 import { useMemo, useSyncExternalStore } from 'react';
 import { addTagChange, newId, onOutbox, onSent, takeBack, useOutbox } from './outbox';
-import { tagsWithPending, type Change, type ShownTag, type Tag, type TagChange } from './playOrder';
+import { listAfterTap, tagsWithPending, type Change, type ShownTag, type Tag, type TagChange } from './playOrder';
 
 const TIMEOUT_MS = 10000;
 export const MAX_TEXT = 500;
@@ -105,8 +105,9 @@ function loadDraft(): Draft | null {
   }
 }
 
-type Line = { draft: Draft | null; note: Note | null };
-let line: Line = { draft: loadDraft(), note: null };
+// listFor: the song whose Tags list is open. One place, and a song change closes it by itself (the id no longer matches).
+type Line = { draft: Draft | null; note: Note | null; listFor: string | null };
+let line: Line = { draft: loadDraft(), note: null, listFor: null };
 let noteTimer: ReturnType<typeof setTimeout> | undefined;
 let lastTap = 0;
 const lineListeners = new Set<() => void>();
@@ -186,6 +187,11 @@ export const tagLine = {
     keepDraft(null);
     const where = playingId && playingId !== d.songId ? ` on ${d.songTitle}` : '';
     say({ text: 'Tagged at ', bold: clock(d.at) + where, undo: () => tagStore.undo(change, null) });
+  },
+
+  /** Tags · N: opens this song's list, or closes it. */
+  toggleList(songId: string) {
+    setLine({ listFor: listAfterTap(line.listFor, songId) });
   },
 
   /** Undo on the reserved line. */

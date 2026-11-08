@@ -1,6 +1,6 @@
 // Self-test for the play order: node --experimental-strip-types app/playOrder.test.mjs
 import assert from 'node:assert/strict';
-import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere, dialTarget, tagsWithPending } from './playOrder.ts';
+import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere, dialTarget, tagsWithPending, setFlag, listAfterTap, listIsOpen } from './playOrder.ts';
 import { applyEdit, applyPicks, groupEdit, groupLead, linkEdit, makeMainEdit, membersOf, removeEdit, reverse, settle } from './family.ts';
 
 const fams = (pairs) => new Map(Object.entries(pairs));
@@ -14,7 +14,34 @@ const walk = (order, avoid = []) => {
   for (let o = nextInOrder(order, avoid); o; o = nextInOrder(o, avoid)) seen.push(currentId(o));
   return seen;
 };
+// Like the phone's File: delete throws if it isn't there, create throws if it already is (expo-file-system, iOS).
+const fakeFile = (exists) => ({
+  exists,
+  create() { if (this.exists) throw new Error('file already exists'); this.exists = true; },
+  delete() { if (!this.exists) throw new Error('path does not exist'); this.exists = false; },
+});
 const tests = {
+  'tags list: a song with 0 tags counts 0 and still opens; a second tap closes; a song change closes it': () => {
+    const tags = tagsWithPending([{ id: 't1', song_id: 'other', text: 'x', at_sec: 3, made_at: '' }], [], 'empty');
+    assert.equal(tags.length, 0); // the button reads Tags · 0, from the same list the ticks use
+    let open = listAfterTap(null, 'empty');
+    assert.equal(listIsOpen(open, 'empty'), true); // opens (to "No tags yet")
+    assert.equal(listIsOpen(open, 'next song'), false); // Next: closed, with nothing to reset
+    open = listAfterTap(open, 'empty');
+    assert.equal(listIsOpen(open, 'empty'), false);
+    assert.equal(listIsOpen('empty', undefined), false);
+  },
+  'eye: unhiding a song the sorted rule hid (no file) does not throw, and 5 taps each way leave it right': () => {
+    const file = fakeFile(false); // a Mine song opens hidden by the rule; nothing wrote the file
+    setFlag(file, false); // the eye tapped: show the buttons
+    assert.equal(file.exists, false);
+    const shown = fakeFile(true); // an unsorted song shows them, but an older hide left the file
+    setFlag(shown, true);
+    assert.equal(shown.exists, true);
+    let on = true;
+    for (let i = 0; i < 10; i++) setFlag(file, (on = !on));
+    assert.equal(file.exists, on);
+  },
   'dial: a swipe over a row that cannot play lands on the next one that can, both ways': () => {
     const on = [true, true, false, true, true]; // the middle version is not on the phone
     assert.equal(dialTarget(1, 2, on), 3);

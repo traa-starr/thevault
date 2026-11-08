@@ -1,28 +1,34 @@
-**Step:** Phase 2 batch 1 (tag from the player), 2026-11-07.
+**Step:** Player fix-up (crash, layout, Tags button), 2026-11-08.
 
-**Verified by running:** `/verify` 11/11 PASS (server tests incl. 30 new tag checks, playOrder test incl. 3 new tag-overlay checks, typecheck, music guard, check_repo). Repo check: clean.
+**Verified by running:** `/verify` 11/11 PASS (incl. music guard test, check_repo). playOrder test: new eye test FAILED before the fix ("path does not exist"), passes after; new Tags list test passes. Typecheck clean.
 
-**Phone update:** publish, server restart. Restart the server FIRST (the app now needs laptop level 4; an old server makes it say "out of date"), then run the publish line, then close and reopen the app.
+**Phone update:** publish. Run `python server\vault_cli.py publish E:\VaultLibrary`, then close and reopen the app. No server change.
 
 **Needs the phone:**
-1. Playing a kept song, open the player, tap **Tag here** (right of the eye), wait 30 s typing, tap Return. Pass: the row shows the tap's second (the field showed it as "1:42.3"); tapping the row later jumps there; an amber tick sits on the seek bar.
-2. Airplane mode: tag, then start a second tag and kill the app mid-typing; reopen and open the player. Pass: the half-typed line is back in the field; both rows say "Saved on phone".
-3. Airplane off at home: Pass: both rows turn "On laptop" within a minute.
-4. Taste: does the player still fit your screen? The tag list sits between Back and the Mine/Not mine buttons. Tell chat what's cramped.
+1. On a song marked Mine (opens with buttons hidden), tap the eye 5 times. Close the app fully, reopen, open the player, 5 more. Pass: no crash, nothing on screen jumps.
+2. Player look: Shuffle is a box at the end of Previous / Play / Next. Off = grey arrows; on = filled blue. Turning it on still asks Unsorted / Mine, and the line under the times says "Shuffle: Mine" for 3 s. Pass: you can tell on from off.
+3. Amber tag shape at the right end of the Back row. Tap it: the field opens as before. Pass: easy to hit, and Back is not hit by mistake.
+4. No tag list until you tap **Tags · N** (after Compare / Versions). Tap: the list opens under Back; a row tap jumps and the list stays open; tap Tags · N again: it closes. On a song with no tags: "Tags · 0" opens to "No tags yet".
+5. Tag words still show above the controls while playing. With Mine/Not mine shown and hidden: nothing cramped or floating.
+6. (Done when 7) In a Code session with auto mode on, ask Code to write a test file into `E:\vault-dummy-protected`. Pass: the guard blocks it, the folder is unchanged.
 
-**Changed:** `app/App.tsx`, `app/Player.tsx`, `app/outbox.ts`, `app/phoneBackup.ts`, `app/playOrder.ts`, `app/playOrder.test.mjs`, `app/playerStore.ts`, `app/sortData.ts`, new `app/Tagging.tsx`, new `app/tagStore.ts`, `server/vault_server/server.py`, `server/vault_server/store.py`, new `server/vault_server/tags.py`, `server/test_server.py`, `.claude/skills/next/SKILL.md`, `.claude/skills/wrap/SKILL.md`, `docs/pending-skills/` deleted, `docs/DECISIONS.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/REPORT.md`.
+**Changed:** `.claude/skills/next/SKILL.md`, `.claude/skills/wrap/SKILL.md`, `app/Player.tsx`, `app/Tagging.tsx`, `app/playOrder.ts`, `app/playOrder.test.mjs`, `app/playerStore.ts`, `app/tagStore.ts`, `docs/pending-skills/` deleted, new `docs/board/player-fixup.md`, `docs/STATUS.md`, `docs/REPORT.md`, `docs/DECISIONS.md`.
 
-**Differed from NEXT.md:**
-- The real player had no spare height for a tag list (about one row on a 6.1" iPhone). So: the grey status line ("not on laptop yet" etc.) now shows in the reserved line when no tag is being typed, the empty space above the title is gone, and swipe-up to Queue is the blank space under the tags. Reversible; check 4 asks about it.
-- "Tag here" sits right of the eye, in the bottom row, not on its own line (no room).
-- The phone doesn't know version ids, so the laptop fills in the song's current version.
-- Tapping a tick: a tap within half a finger of one jumps to its exact second and shows its words; a drag still seeks.
-- A song change mid-typing saves the draft to the song it was tapped on (seen while the player is open). If the player was closed, the field comes back next time and Return saves it to its own song ("Tagged at 1:42 on <title>").
+**Done when:**
+1. Skills in `.claude/skills/`, `docs/pending-skills/` gone: pass.
+2. Test reproduces the eye crash, passes after: pass.
+3. `/verify` all PASS incl. music guard: pass (11/11).
+4. One place each (Shuffle: `order.shuffle`; count and ticks: one `useTags` list; open: `listFor` in the tag store), Tags · 0 opens empty: pass (test + typecheck; the screen itself is check 4).
+5-7. not run (for chat).
 
-**Not done:** nothing in batch 1. Hold-a-row actions (Change words, Move to now, Delete) are batch 2.
+**Plan I chose:** [x] 0 skills in. [x] 1 crash test then fix. [x] 2 board (flow + screen). [x] 3 layout. [x] 4 checks, wrap.
+- The crash: the eye rule from 6.5 hides the buttons on sorted songs without writing the setting file, so Unhide tried to delete a file that wasn't there and iOS threw. It likely surfaced in batch 1 because you were tapping Unhide on Mine songs while tagging. Fix: toggles check the file first (same fix for the time-left tap).
+- Board splits I settled (reversible, see `board/player-fixup.md`): Tag icon dims and ignores taps while typing; Shuffle pool shown on the reserved line, not on the icon; Tags · N last in its row; Tag icon and Tags hidden in Compare.
 
-**Decisions needed:** none. Build calls logged in DECISIONS (reversible).
+**Not done:** Tags list opens without animation (Limits allowed it). Tag editing is batch 2.
 
-**Proposed next step:** chat walks the 4 checks; then Phase 2 batch 2 (change tags, tagging session).
+**Decisions needed:** 3 taste calls, defaults built: Shuffle "on" blue (not amber); tag drawn as a tag shape (not "+" in a ring); Tag icon inert while typing (not "tap saves"). Change any at Review.
 
-**Pitch:** a `/tags` count in doctor (tags, songs tagged, any on a missing song) so the restore test (2.7) has a number to compare.
+**Proposed next step:** chat walks the checks; then Phase 2 batch 2, its row actions inside the Tags list.
+
+**Pitch:** a tiny app-side test runner for store logic (fake File), so crashes like this one are caught on the laptop.

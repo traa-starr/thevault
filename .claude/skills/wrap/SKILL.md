@@ -15,10 +15,13 @@ Do these in order. Say in REPORT if one was skipped, and why.
      from COMMANDS.md, then close and reopen the app) · `full rebuild` (app.json, package.json or native code changed:
      GitHub build plus SideStore). Decide from `git status --short` on `app/`, not memory. Add `server restart` if
      `server/` changed.
-   - **Needs the phone:** numbered exact taps, and what passing looks like. "None" if none. Chat walks me through these
-     at `Review.`, one at a time.
+   - **Needs the phone:** numbered exact taps, and what passing looks like, covering the "I prove" lines of Done when
+     (goal format). "None" if none. Chat walks me through these at `Review.`, one at a time.
    - **Changed:** files, taken from `git status --short`, not memory.
-   - **Differed from NEXT.md:** including anything guessed.
+   - **Done when** (goal format): every line of NEXT's Done when, each marked pass / fail / not run. "I prove" lines
+     are `not run (for chat)`; chat walks them at `Review.` with the phone checks.
+   - **Plan I chose** (goal format): the plan lines from STATUS, ticked or not, plus anything guessed.
+     Recipe format instead: **Differed from NEXT.md:** including anything guessed.
    - **Not done:** with why.
    - **Decisions needed:** each with a recommendation and a default. Hard-to-undo ones get no default.
    - **Proposed next step.**
