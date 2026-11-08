@@ -50,7 +50,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 **Done when:** I've sorted my catalogue from the phone without downloading it, then play a kept song at home and away with the screen locked and the laptop asleep, and app data survives a re-sign. **Passed 2026-11-07, Phase 1 closed** (away test: laptop asleep, off home Wi-Fi, lock screen first press, reconnects at home).
 
 ## Phase 2: Tagging (Checkpoint 2). "My songs start having memory"
-- [ ] 2.1 Prototype: tagging card, tappable with fake data *(built 2026-11-07: `spike/mockups/tagging-card.html`; waiting for my phone tap-through)*
+- [x] 2.1 Prototype: tagging card, tappable with fake data *(phone-verified 2026-11-07: 8/8, `PHASE-2-RESULTS.md`)*
 - [ ] 2.2 Tagging session: flashcards, random songs favoring untagged, progress counter, normal player controls
 - [ ] 2.3 Tap at a moment, type or dictate a line; it saves as a timestamped tag
 - [ ] 2.4 Tap a tag to jump to that moment; edit and delete tags

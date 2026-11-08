@@ -5,7 +5,7 @@ Each batch is one Code session with 2-3 phone checks. Chat writes each batch int
 
 **Phase 1: done** (batches 1-6 and 3d, 4b-4d, 6.x; closed 2026-11-07). Its batch list is in git history.
 
-**Blocks batch 1:** I tap through the mockup on the phone (chat publishes it as a private page). Anything I change there changes batch 1 first.
+**Mockup tap-through:** passed 8/8 on 2026-11-07 with no changes (`PHASE-2-RESULTS.md`). Batch 1 is clear.
 No other owner calls are open: the tag record, tag moment, where tagging lives, song picking, field and seek bar are in DECISIONS (2026-11-07).
 Board: batches 1 and 2 add screens, so the plan-session board covers them; chat calls a short one again only if the mockup changes much.
 
@@ -40,7 +40,7 @@ b. Small fixes from my real sessions ride along.
 1. Wipe with one unsent tag: every tag back, same words, jump lands on the same second, deleted ones stay gone.
 2. Real sessions done (my call), then Phase 2 closes.
 
-## My requests (2026-11-07, for chat to place)
+## My requests (2026-11-07; placed by chat in STATUS queue)
 - 465 songs are Mine but only 314 have phone copies: `import` makes the rest. I'd like sessions to refresh this by themselves.
 - A plain tour of the laptop commands: what each one is for and when to run it.
 
