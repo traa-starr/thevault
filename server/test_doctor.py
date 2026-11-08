@@ -13,6 +13,7 @@ sys.path.insert(0, str(HERE))
 from vault_server import backup, doctor, server  # noqa: E402
 from vault_server.library import DB_NAME, MARKER_NAME, init_library  # noqa: E402
 from vault_server.scanner import fingerprint  # noqa: E402
+from vault_server.songs import set_mine as songs_set_mine  # noqa: E402
 from vault_server.store import now  # noqa: E402
 
 failures = []
@@ -96,7 +97,7 @@ def main():
     servers = server.start_servers(root, [server.LOOPBACK], 0)
     code, out = run(root, port=servers[0].server_port)
     check("all good: every line passes", code == 0 and all(x.startswith("PASS") for x in out[:-1]) and out[-1].startswith("Overall: PASS"), str(out))
-    check("all eight checks plus the fingerprint are there", len(out) == 10, str(out))
+    check("all eight checks plus the fingerprint and phone copies are there", len(out) == 11, str(out))
     check("the server line shows the running version", f"version {server.SERVER_LEVEL}" in line(out, "Server"), str(out))
     doctor.SERVER_LEVEL = server.SERVER_LEVEL + 1  # this code is newer than what's running
     code, out = run(root, port=servers[0].server_port)
@@ -150,6 +151,18 @@ def main():
     later = datetime.now(timezone.utc) + timedelta(days=doctor.SCAN_OLD_DAYS + 1)
     check("an old scan warns", doctor.check_scan_age(conn, later)[0] == doctor.WARN)
     conn.close()
+
+    # Mine songs without a phone copy (the server makes them; doctor says how many are still missing)
+    lib = init_library(root)
+    sid = lib.store.conn.execute("SELECT id FROM songs LIMIT 1").fetchone()[0]
+    songs_set_mine(lib.store, sid, "mine")
+    check("a Mine song with no phone copy warns", doctor.check_phone_copies(lib.store.conn, root)[0] == doctor.WARN
+          and doctor.check_phone_copies(lib.store.conn, root)[1].startswith("1 Mine songs have no phone copy yet"))
+    code, out = run(root)
+    check("that shows as a warning line in the report", line(out, "Phone copies").startswith("WARN") and code == 0, str(out))
+    songs_set_mine(lib.store, sid, "not mine")
+    check("no Mine songs left without one: pass", doctor.check_phone_copies(lib.store.conn, root)[0] == doctor.PASS)
+    lib.close()
 
     # songs with no present place
     lib = init_library(root)

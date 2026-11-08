@@ -15,12 +15,14 @@ import socketserver
 import sqlite3
 import stat
 import subprocess
+import sys
 import threading
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
+from .autocopy import AutoCopy
 from .backup import BACKUP_DIR, last_backup_age
 from .family import in_family, set_family
 from .importer import kept, mine_without_copy, phone_copy
@@ -336,7 +338,15 @@ def write_phone_backup(root, backup):
     return backup["saved_at"]
 
 
-def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
+def asks_mine(changes):
+    """True if any of these changes can make a song Mine (a mark, an undo back to the folder's guess, a version link): the
+    server then catches its copies up soon after (autocopy). Tags never do. A run with nothing to do only reads folders."""
+    return any(isinstance(c, dict) and not str(c.get("kind", "")).startswith("tag_")
+               and not (c.get("kind") == "mine_set" and isinstance(c.get("data"), dict) and c["data"].get("value") == "not mine")
+               for c in changes)
+
+
+def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR, on_mine=None):
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
         server_version = "Vault"
@@ -522,7 +532,10 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
             if not isinstance(changes, list):
                 return self._error(400, "That isn't a list of changes.")
             try:
-                return self._json(200, {"results": apply_changes(root, changes)})
+                results = apply_changes(root, changes)
+                if on_mine and asks_mine(changes):
+                    on_mine()
+                return self._json(200, {"results": results})
             except Busy as e:
                 return self._error(503, f"busy: {e}")
             except (LibraryMissing, LibraryRefused, ValueError) as e:  # ValueError: the journal is damaged
@@ -548,6 +561,9 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR):
     return Handler
 
 
+HUNG_UP = (ConnectionResetError, ConnectionAbortedError, BrokenPipeError, TimeoutError)
+
+
 class Server(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = False  # on Windows it would let a second copy share the port silently
@@ -555,6 +571,13 @@ class Server(ThreadingHTTPServer):
     def server_bind(self):
         socketserver.TCPServer.server_bind(self)  # the standard one looks up the address's name, which can stall
         self.server_name, self.server_port = self.server_address[:2]
+
+    def handle_error(self, request, client_address):
+        """The phone hanging up mid-request (a skip, a seek, the app closing, Wi-Fi to cellular) is normal: no traceback.
+        Anything else still prints one."""
+        if isinstance(sys.exc_info()[1], HUNG_UP):
+            return
+        super().handle_error(request, client_address)
 
 
 def tailscale_info(run=subprocess.run):
@@ -578,10 +601,10 @@ def tailscale_info(run=subprocess.run):
     return None, []
 
 
-def start_servers(root, addresses, port, names=(), backup_dir=BACKUP_DIR):
-    """One listener per address, each on its own thread. Returns the listeners."""
+def start_servers(root, addresses, port, names=(), backup_dir=BACKUP_DIR, on_mine=None):
+    """One listener per address, each on its own thread. Returns the listeners. `on_mine`: called after the phone marks a song Mine."""
     allowed = {"localhost", LOOPBACK, *addresses, *names}
-    handler = make_handler(root, allowed, backup_dir)
+    handler = make_handler(root, allowed, backup_dir, on_mine)
     servers = []
     try:
         for address in addresses:
@@ -606,8 +629,9 @@ def run(root, port=PORT):
     connect_readonly(root).close()  # stop now, not on the first request, if the library isn't there
     open_library(root).close()  # adds any new table (versions) before the read-only routes look for it
     address, names = tailscale_info()
+    copies = AutoCopy(root)
     try:
-        servers = start_servers(root, [LOOPBACK] + ([address] if address else []), port, names)
+        servers = start_servers(root, [LOOPBACK] + ([address] if address else []), port, names, on_mine=copies.poke)
     except OSError:
         print(f"Stopped: port {port} is already in use. Is the server already running?")
         return 2
@@ -618,13 +642,15 @@ def run(root, port=PORT):
             print(f"If that doesn't open, use: http://{address}:{port}/")
     else:
         print("Tailscale isn't connected, so the phone can't reach this. Laptop only for now.")
-    print("Ctrl+C stops it.", flush=True)
+    print("Ctrl+C stops it. Phone copies are made in the background: now, and soon after you mark songs Mine.", flush=True)
+    copies.start()
     stop = threading.Event()
     try:
         while not stop.wait(0.5):  # short waits, or Ctrl+C isn't noticed on Windows
             pass
     except KeyboardInterrupt:
         pass
+    copies.stop()
     stop_servers(servers)
     print("Stopped.")
     return 0

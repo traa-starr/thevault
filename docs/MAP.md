@@ -8,6 +8,8 @@ From the interview and read-only scans, 2026-10-31. No Tailscale hostnames or IP
 | This repo | `E:\dev\thevault` | Remote: `github.com/traa-starr/thevault` (public) |
 | Decisions archive | `docs/decisions/phase-0-1.md` | Phase 0 and Phase 1 rows, word for word; summaries stay in `docs/DECISIONS.md` |
 | Screenshot tool (Code's eyes) | `tools/shots/` (own packages, laptop only) | Draws app screens with fake data via react-native-web + headless Edge; PNGs go to `spike/output/shots/` (gitignored). Added 2026-11-08 |
+| Search spike (Phase 3 groundwork) | `spike/search/` | Ranking ladder + tests + benchmark on fake tags; numbers land in `spike/output/search/` (gitignored). Memo: `docs/SEARCH-OPTIONS.md`. Added 2026-11-08 |
+| Phone's session file | `session.json` in the app's own documents folder (phone) | The tagging session's pool, Not mine songs and lap, so it survives an app kill. Gone when the session closes. Added 2026-11-08 |
 | iCloud Drive | `C:\Users\illus\iCloudDrive` | **Locked.** ~2,240 files |
 | My songs (mostly) | `iCloudDrive\Music` | 443 audio files, ~1.9 GB. FL bounces and BandLab exports land here together |
 | Mixed: mine + other artists | `iCloudDrive\Session Music` | 1,233 audio files, ~5.2 GB, in artist subfolders. Scanned: loose files + `#FREEMONEY THE MIXTAPE` only; other artist subfolders are not mine and excluded |

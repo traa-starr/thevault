@@ -5,7 +5,7 @@ None of these change, move or delete my music. Chat keeps this file up to date w
 
 | What I want | Paste this | What I should see |
 |---|---|---|
-| **Start the server** (phone needs this to play and sort) | `python server\vault_cli.py serve E:\VaultLibrary` | It keeps running. Leave the window open; Ctrl+C stops it |
+| **Start the server** (phone needs this to play and sort) | `python server\vault_cli.py serve E:\VaultLibrary` | It keeps running. Leave the window open; Ctrl+C stops it. It makes phone copies by itself: on start, and about 20 s after you mark songs Mine (a line "Phone copies: N made now" when it does) |
 | **Doctor**: health check before phone tests | `python server\vault_cli.py doctor E:\VaultLibrary` | PASS / WARN / FAIL lines. Fixes nothing, only reports |
 | **Verify**: every laptop check at once | `python .claude/scripts/verify.py` (or `/verify`) | One PASS/FAIL per check and a total. About 6 min (server test is slow). Read-only |
 | **Scan**: record what's in the music folders | `python server\vault_cli.py scan E:\VaultLibrary C:\Users\illus\iCloudDrive` | A count, then a "Music fingerprint" line. FAIL there means files changed during the scan: just run it again |
@@ -14,7 +14,8 @@ None of these change, move or delete my music. Chat keeps this file up to date w
 | **Turn on nightly backup** (once) | `powershell -File server\schedule_backup.ps1` | "Scheduled 'Vault nightly backup' daily at 3:00 AM" |
 | **Turn off nightly backup** | `Unregister-ScheduledTask -TaskName 'Vault nightly backup' -Confirm:$false` | Nothing printed |
 | **Quick count** of songs and mine | `python server\vault_cli.py check E:\VaultLibrary` | Files, songs, mine counts |
-| **Import**: copy Mine songs into the library and make phone copies (stop the server first) | `python server\vault_cli.py import E:\VaultLibrary` | First run about 15 min. Rerun: "copied now: 0" and "Mine songs" = "already in". Run after marking new songs Mine |
+| **Phone copies now** (rarely needed: the server does this by itself; `/next` runs it too) | `python server\vault_cli.py copies E:\VaultLibrary` | "phone copies made now: N", then how many Mine songs still have none (cloud-only or missing files). Adds only; safe with the server running |
+| **Import**: also takes out copies of songs no longer Mine (stop the server first) | `python server\vault_cli.py import E:\VaultLibrary` | First run about 15 min. Only needed after un-Mining songs, to free space |
 | **Refresh song dates** (after a scan, stop the server first) | `python server\vault_cli.py songs E:\VaultLibrary` | A count of dates refreshed |
 | **Reset group Mains to newest** (one-off; your hand picks stay) | `python server\vault_cli.py mains E:\VaultLibrary` | "Main changed to newest: N" |
 | **Tags per song**: compare with the phone (restore check) | `python server\vault_cli.py tags E:\VaultLibrary` (add title words to show one song) | Each song's title, then its tags as `1:42.300  words`, and a total. Read-only |

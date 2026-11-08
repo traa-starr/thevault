@@ -1,4 +1,4 @@
-// One card per unsorted song, with its sound about 30% in. Mine and Not mine by button or swipe; Not sure by the small
+// One card per unsorted song, its sound starting at 0:30 (the player's start point while sorting). Mine and Not mine by button or swipe; Not sure by the small
 // button or a swipe up. Built from the batch 2 prototype. The card shown is always the first song still open, so a song
 // judged anywhere else drops out at once, and Undo brings a song back to its own place.
 import { useEffect, useRef, useState } from 'react';
@@ -10,11 +10,10 @@ import { members, undo as undoLink, type Sent } from './versionStore';
 import type { SortSong, SortView } from './sortData';
 
 type Choice = 'mine' | 'not mine' | 'not sure';
-type Undo = { song: SortSong; choice: Choice; at: number; link?: Sent };
+type Undo = { song: SortSong; choice: Choice; at: number | undefined; link?: Sent };
 
 const SWIPE_PX = 110;
 const UNDO_MS = 5000;
-const START_AT = 0.3;
 const LIKELY: Record<string, string> = { mine: 'Mine by its folder', 'likely mine': 'Likely mine' };
 const SAID: Record<Choice, string> = { mine: 'Mine', 'not mine': 'Not mine', 'not sure': 'Not sure' };
 
@@ -36,7 +35,7 @@ export default function Cards({ url, view, scope, pile, notSure, onNotSure, onDo
   const [undo, setUndo] = useState<Undo | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const xy = useRef(new Animated.ValueXY()).current;
-  const { song: playing, duration, time } = usePlayer();
+  const { song: playing, time } = usePlayer();
   const inScope = useRef(scope && new Set(scope)).current;
   const queue = view.open.filter((one) =>
     (!inScope || inScope.has(one.id)) && notSure.has(one.id) === pile && !passed.has(one.id));
@@ -44,8 +43,7 @@ export default function Cards({ url, view, scope, pile, notSure, onNotSure, onDo
 
   // Cards borrow the player. The songs it can play are fixed now; Back always gives the library's song back.
   const audio = useRef<Set<string> | null>(null);
-  const resume = useRef<{ id: string; at: number } | null>(null);
-  const startedAt = useRef('');
+  const resume = useRef<{ id: string; at: number | undefined } | null>(null);
   // leaving Cards stops everything Cards started: its toast timer, and the player goes back to the library song, paused
   useEffect(() => () => {
     clearTimeout(timer.current);
@@ -64,16 +62,8 @@ export default function Cards({ url, view, scope, pile, notSure, onNotSure, onDo
     }
     const spot = resume.current?.id === song.id ? resume.current : null;
     resume.current = null;
-    if (spot) startedAt.current = song.id; // an undone song carries on from where it was
-    player.jump(song.id, spot?.at ?? 0);
+    player.jump(song.id, spot?.at); // an undone song carries on from where it was; a new one starts at 0:30
   }, [song?.id]);
-
-  // about 30% in, once the song says how long it is
-  useEffect(() => {
-    if (!playing || !duration || startedAt.current === playing.id) return;
-    startedAt.current = playing.id;
-    player.seek(duration * START_AT);
-  }, [playing?.id, duration]);
 
   // Next on the lock screen moves the card along with no verdict: the songs before it wait for another pass
   useEffect(() => {
@@ -89,7 +79,7 @@ export default function Cards({ url, view, scope, pile, notSure, onNotSure, onDo
     if (choice !== 'not sure') player.judge([song], choice);
     else if (pile) setPassed((old) => new Set([...old, song.id]));
     else onNotSure(new Set([...notSure, song.id]));
-    setUndo({ song, choice, at: playing?.id === song.id ? time : 0 });
+    setUndo({ song, choice, at: playing?.id === song.id ? time : undefined });
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setUndo(null), UNDO_MS);
     xy.setValue({ x: 0, y: 0 });

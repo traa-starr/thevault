@@ -1,36 +1,52 @@
 // The tagging session (BLUEPRINT "Phase 2: tagging", ROADMAP 2.2, 2.5): the full player in session mode. One lap of Mine
 // songs that can play now, untagged ones 3x as likely to come next, handed to the player as a plain list, so Next from the
-// button, the lock screen or a song's end all walk it. Cards start about 30% in. Not mine marks the song and the music
+// button, the lock screen or a song's end all walk it. Cards start at 0:15, handed to the player at load. Not mine marks the song and the music
 // plays on until Next. Close: the sheet closes onto the screen I came from, the same song still playing.
+import { File, Paths } from 'expo-file-system';
 import { useMemo, useSyncExternalStore } from 'react';
 import { loadSongList, offline } from './offline';
 import { addChange, pendingNow, takeBack } from './outbox';
 import { onPlayerChange, player, type PlayerSong } from './playerStore';
-import { sessionCount, sessionLap, sessionPool, withPending, type Change } from './playOrder';
+import { SESSION_START_SEC, sessionBack, sessionCount, sessionLap, sessionLine, sessionPool, withPending, type Change } from './playOrder';
 import { allTagsNow, say, useAllTags } from './tagStore';
 import { isVersion, members } from './versionStore';
-
-const START_AT = 0.3;
 
 type SessionSong = PlayerSong & { where: string };
 type Session = { on: boolean; pool: string[]; out: string[] };
 let state: Session = { on: false, pool: [], out: [] };
-let startedFor = ''; // the song already moved to 30%, so a later duration update doesn't move it again
 const listeners = new Set<() => void>();
+const sessionFile = () => new File(Paths.document, 'session.json');
+
+/** On the phone while a session is on, gone when it ends: an app kill brings it back (restore). */
+function save() {
+  try {
+    const file = sessionFile();
+    if (!state.on) {
+      if (file.exists) file.delete();
+      return;
+    }
+    const lap = player.now().order?.list ?? [];
+    if (!file.exists) file.create();
+    file.writeSync(JSON.stringify(sessionLine(state.pool, state.out, lap)));
+  } catch {
+    // a full phone: the session still runs, it just won't come back after a kill
+  }
+}
+
 const update = (next: Partial<Session>) => {
   state = { ...state, ...next };
+  save();
   listeners.forEach((listener) => listener());
 };
 
-// each new song in the session starts about 30% in, once it says how long it is; the sheet closing ends the session
+const end = () => {
+  player.setStartPoint(0);
+  update({ on: false });
+};
+
+// the sheet closing ends the session
 onPlayerChange(() => {
-  if (!state.on) return;
-  const p = player.now();
-  if (p.sheet === 'none') return update({ on: false });
-  if (p.song && p.duration > 0 && startedFor !== p.song.id) {
-    startedFor = p.song.id;
-    if (p.time < p.duration * START_AT) player.seek(p.duration * START_AT);
-  }
+  if (state.on && player.now().sheet === 'none') end();
 });
 
 const taggedSongs = () => new Set(allTagsNow().map((tag) => tag.song_id));
@@ -46,16 +62,39 @@ export const session = {
     if (!pool.length) return player.showMessage('No Mine songs can play right now.');
     const lap = sessionLap(pool, taggedSongs());
     const byId = new Map(songs.map((song) => [song.id, song]));
-    startedFor = '';
+    player.setStartPoint(SESSION_START_SEC);
     // the sheet opens first: a closed sheet ends the session, and the new list's first update would see it closed
     player.open('player');
     update({ on: true, pool, out: [] });
     player.playList(url, lap.map((id) => byId.get(id)!), lap[0], false, 'mine');
+    save(); // now the player holds the lap
+  },
+
+  /** On launch, after the player put its last song back: if that was this session's lap, the session look comes back
+   * with the same lap, counter and place (the player's own saved spot). */
+  restore() {
+    if (state.on) return;
+    let text: string | null = null;
+    try {
+      const file = sessionFile();
+      if (file.exists) text = file.textSync();
+    } catch {
+      // unreadable: no session
+    }
+    const back = sessionBack(text, player.now().order);
+    if (!back) {
+      if (text !== null) update({ on: false }); // stale: the file goes
+      return;
+    }
+    player.setStartPoint(SESSION_START_SEC);
+    back.out.forEach((id) => player.setOut(id, true)); // a Not mine just before the kill, not yet in the player's save
+    player.open('player');
+    update({ on: true, pool: back.pool, out: back.out });
   },
 
   /** Close: back to where I came from, the same song playing. */
   close() {
-    update({ on: false });
+    end();
     player.open('none');
   },
 

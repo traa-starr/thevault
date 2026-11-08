@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .backup import BACKUP_DIR, check_backup
+from .importer import mine_without_phone_copy
 from .library import MARKER_NAME, REPO_ROOT, LibraryMissing, LibraryRefused
 from .scanner import fingerprint, scan
 from .server import LOOPBACK, PORT, SERVER_LEVEL, connect_readonly, start_servers, stop_servers, tailscale_info
@@ -173,6 +174,15 @@ def check_fingerprint(root, conn):
     return level, words
 
 
+def check_phone_copies(conn, root):
+    """Mine songs the phone can't keep yet: no phone copy on the laptop. The server makes them by itself while it runs."""
+    missing = len(mine_without_phone_copy(conn, root))
+    if missing:
+        return WARN, (f"{missing} Mine songs have no phone copy yet. Start the server (it makes them in the background) or run "
+                      "copies. Still there after that: their files are cloud-only or missing.")
+    return PASS, "every Mine song has a phone copy."
+
+
 def run_doctor(root, port=PORT, tailscale=tailscale_info, runner=subprocess.run, guard=GUARD_TEST, library_test=LIBRARY_TEST, say=print,
                backup_dir=BACKUP_DIR):
     """Prints a line per check and one overall line. Returns the exit code: 2 if anything failed."""
@@ -199,6 +209,7 @@ def run_doctor(root, port=PORT, tailscale=tailscale_info, runner=subprocess.run,
                 line("Scan age", check_scan_age(conn))
                 line("Songs", check_no_place(conn))
                 line("Music fingerprint", check_fingerprint(root, conn))
+                line("Phone copies", check_phone_copies(conn, root))
             finally:
                 conn.close()
         except (LibraryMissing, LibraryRefused, sqlite3.Error) as e:

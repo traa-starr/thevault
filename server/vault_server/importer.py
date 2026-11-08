@@ -15,6 +15,7 @@ import json
 import os
 import shutil
 import subprocess
+import time
 import uuid
 from pathlib import Path
 
@@ -25,6 +26,9 @@ AS_IS_KBPS = 200  # a 192 kbps file reads as 192-196 depending on the encoder
 AS_IS_CODECS = {"mp3", "aac"}
 CHUNK = 1024 * 1024
 PART = ".part"
+STALE_PART_SECONDS = 3600  # an import part this old was left by a run that was stopped; a younger one may be another run's
+# the server's own background copies run below normal priority, so playback and the phone's requests come first
+BACKGROUND = getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
 
 
 class ToolMissing(Exception):
@@ -95,15 +99,32 @@ def _copy_checked(src, dest_part):
     return h.hexdigest(), size
 
 
-def import_mine(lib, log=print):
-    """Copies every Mine song that has no good copy yet. Returns the counts."""
+def _clear_stale(parts):
+    """Parts left by a run that was stopped mid-copy (the server closed, the laptop slept). Never a finished copy, and
+    never a young part: that may be another run still writing it."""
+    for part in parts:
+        try:
+            if time.time() - part.stat().st_mtime > STALE_PART_SECONDS:
+                part.unlink()
+        except OSError:
+            pass
+
+
+def _clear_stale_parts(root):
+    _clear_stale(Path(root, "audio").glob(f"incoming-*{PART}"))
+
+
+def import_mine(lib, log=print, drop=True, stop=None):
+    """Copies every Mine song that has no good copy yet. Returns the counts. `drop=False` (the server's background run)
+    only adds: taking out copies of songs no longer Mine stays with the import command. `stop`: an Event checked between songs."""
     store, conn, root = lib.store, lib.store.conn, lib.root
     out = {"Mine songs": 0, "copied now": 0, "already in": 0, "waiting (cloud only, run pull-cloud)": 0, "file missing": 0,
            "fingerprint mismatch (not copied)": 0, "taken out (no longer Mine)": 0}
+    _clear_stale_parts(root)
     mine = mine_ids(conn)
     out["Mine songs"] = len(mine)
     have = {r["song_id"]: r for r in conn.execute("SELECT * FROM imported")}
-    for song_id in sorted(set(have) - set(mine)):
+    for song_id in sorted(set(have) - set(mine)) if drop else []:
         row = have[song_id]
         store.record("imported", {"song_id": song_id, "dropped": True})
         if not conn.execute("SELECT 1 FROM imported WHERE code=?", (row["code"],)).fetchone():
@@ -111,6 +132,8 @@ def import_mine(lib, log=print):
             _remove_copy(root, "phone", row["code"])
         out["taken out (no longer Mine)"] += 1
     for n, song_id in enumerate(mine, 1):
+        if stop and stop.is_set():
+            break
         path, st, known = _source(conn, song_id)
         if path is None:
             out["waiting (cloud only, run pull-cloud)" if st == "cloud" else "file missing"] += 1
@@ -164,14 +187,18 @@ def _probe(path):
     return stream.get("codec_name"), int(rate) / 1000 if rate and str(rate).isdecimal() else None
 
 
-def make_phone_copies(lib, log=print):
-    """A phone copy for every imported song that has none. Returns the counts and the size report."""
+def make_phone_copies(lib, log=print, background=False, stop=None):
+    """A phone copy for every imported song that has none. Returns the counts. `background`: ffmpeg runs below normal
+    priority (the server's own runs). `stop`: an Event checked between songs. A run stopped mid-song leaves only a .part
+    file, never a broken copy under the real name, and the next run starts that song again."""
     if not (shutil.which("ffmpeg") and shutil.which("ffprobe")):
         raise ToolMissing("ffmpeg or ffprobe not found, so phone copies can't be made. Nothing changed.")
     conn, root = lib.store.conn, lib.root
     out = {"made now (AAC 192 kbps)": 0, "copied as is (already small)": 0, "already there": 0, "failed": 0}
     rows = conn.execute("""SELECT i.*, g.title FROM imported i JOIN songs g ON g.id=i.song_id ORDER BY g.title COLLATE NOCASE""").fetchall()
     for n, r in enumerate(rows, 1):
+        if stop and stop.is_set():
+            break
         if phone_copy(root, r["code"]):
             out["already there"] += 1
             continue
@@ -181,16 +208,18 @@ def make_phone_copies(lib, log=print):
         name = r["name"] if as_is else f"{os.path.splitext(r['name'])[0]}.m4a"
         dest = lib.phone_path(r["code"], name)
         dest.parent.mkdir(exist_ok=True)
-        part = dest.with_name(dest.name + PART)
-        if part.exists():
-            part.unlink()  # left by a run that was stopped
+        # its own name per run: the server's background run and the copies command can overlap, and neither may delete
+        # the other's file mid-write. Parts left by a stopped run are cleared once they're old.
+        part = dest.with_name(f"{dest.name}.{uuid.uuid4().hex[:8]}{PART}")
+        _clear_stale(dest.parent.glob(f"*{PART}"))
         try:
             if as_is:
                 shutil.copyfile(src, part)
             else:
                 p = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-i", str(src), "-map", "0:a:0", "-vn", "-c:a", "aac",
                                     "-b:a", f"{PHONE_KBPS}k", "-movflags", "+faststart", "-f", "mp4", str(part)],
-                                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
+                                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600,
+                                   creationflags=BACKGROUND if background else 0)
                 if p.returncode != 0 or not part.is_file() or part.stat().st_size == 0:
                     raise OSError((p.stderr or "ffmpeg made nothing").strip().splitlines()[-1])
             os.replace(part, dest)
@@ -237,6 +266,12 @@ def kept(conn, root):
             out.append({"id": r["song_id"], "title": r["title"], "date": r["date"], "main": r["main"], "size": st.st_size,
                         "type": copy.suffix.lstrip(".").lower(), "stamp": f"{st.st_size}-{st.st_mtime_ns}"})
     return out
+
+
+def mine_without_phone_copy(conn, root):
+    """Mine songs with no finished phone copy on the laptop: what the phone can't keep yet. Reads the folders only."""
+    copies = {r["song_id"]: r["code"] for r in conn.execute("SELECT song_id, code FROM imported")}
+    return [song_id for song_id in mine_ids(conn) if not (copies.get(song_id) and phone_copy(root, copies[song_id]))]
 
 
 def mine_without_copy(conn, root, listed):

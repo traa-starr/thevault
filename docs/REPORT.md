@@ -1,36 +1,34 @@
-**Step:** Phase 2 code-complete (fixes, change tags, tagging session, restore, Code's eyes), 2026-11-08.
+**Step:** Session polish, laptop upkeep, search groundwork, 2026-11-08.
 
-**Verified by running:** `/verify` 11/11 PASS on the final code (incl. playOrder, typecheck, music guard test, check_repo). playOrder tests all pass (9 new). Server test: 2 new tags-command checks pass. `npm --prefix tools/shots run shots`: 21 of 21 screens drawn without errors. `vault_cli.py tags E:\VaultLibrary` on the real library: "6 tags on 2 songs".
+**Verified by running:** `/verify` 12/12 PASS on the final code (new: playlistCore test). playlistCore 15 start-spot checks (fake player logs every moment sound comes out). playOrder ALL PASSED (start points, session restore). test_import: auto copies, burst = one run, stop mid-copy, overlapping runs. test_doctor, test_server (hang-up quiet) ALL PASSED. Shots 23/23. Spike: ladder 10/10; bench numbers in `SEARCH-OPTIONS.md`. Real library `copies`: "phone copies made now: 308", "Mine songs still without a phone copy: 0".
 
-**Phone update:** publish. Run `python server\vault_cli.py publish E:\VaultLibrary`, then close and reopen the app. Also `server restart` (new `tags` command only; the running server's routes didn't change).
+**Phone update:** published 20261108-182104 (18:21), server restarted. Close and reopen the app.
 
 **Needs the phone:**
-1. (Done when 7) In the player, tap Tag twice fast. Pass: the field opens then closes, as quick as Cancel. Tap once more: it opens. Cancel it. Drag the knob to just past a tick and let go. Pass: it stays where you let go.
-2. (8) Tags · N open, hold a row about half a second. Pass: the row turns into Change words · Move to · Cancel · Delete in place. Change words, type, Return. Pass: the row shows the new words, and they show when play passes that tick. Hold another row, Delete, then Undo. Pass: it's back in the same place. Hold a row, Move to now. Pass: its tick moves; no row moves.
-3. (9) Library, tap Tag songs. Pass: "N of M tagged" top right, the song starts about 30% in. Tag a song with no tags: N goes up by one. Play ten cards with the big Next: no song twice. On one, Not mine, then Undo. Pass: M goes down and back, the music never stops. Close. Pass: back in Library, the same song playing.
-4. (10) Library, tap Shuffle three times. Pass: "Shuffle: Mine", "Shuffle: Unsorted", "Shuffle", no box. Airplane mode: change one tag's words twice, delete another, Undo the delete. Airplane off, then on the laptop run the tags command for that song. Pass: the second words, and both tags.
+1. Library, Tag songs. Pass: Previous / Play / Next sit centred. Tap the big Next 5 times fast, then 3 times slowly. Pass: each song's first sound is about 0:15, never a beat from the start.
+2. Sort, Cards: mark 3 new songs Mine. Wait about a minute (the laptop copies them). Library: find them and play them. Pass: they play, no laptop command. Back in Cards, swipe 5 cards. Pass: each starts about 0:30, no blip. Swipe one, Undo. Pass: it carries on where it was.
+3. In a session, tap Not mine on one card, swipe the app away, reopen. Pass: the session look, same "N of M tagged", same song and second, same order. Lock the phone, Next twice on the lock screen, unlock. Pass: session look, counter right, and each lock-screen song starts about 0:15 (at most a tiny tick).
+4. Read `docs/SEARCH-OPTIONS.md` with chat and pick A, B or C.
 
-**Changed:** `app/Library.tsx`, `app/Player.tsx`, `app/Sort.tsx`, `app/Tagging.tsx`, `app/playOrder.ts`, `app/playOrder.test.mjs`, `app/playerStore.ts`, `app/tagStore.ts`, new `app/sessionStore.ts`; `server/vault_cli.py`, `server/vault_server/tags.py`, `server/test_server.py`; new `tools/shots/` (screenshot tool); `docs/COMMANDS.md`, `docs/MAP.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/DECISIONS.md`, `docs/REPORT.md`, new `docs/board/phase-2-complete.md`.
+**Changed:** `.claude/scripts/verify.py`, `.claude/skills/next/SKILL.md`, `.claude/skills/wrap/SKILL.md`, `app/App.tsx`, `app/Cards.tsx`, `app/Player.tsx`, `app/engine.ts`, `app/playOrder.ts`, `app/playOrder.test.mjs`, `app/playerStore.ts`, `app/sessionStore.ts`, new `app/playlistCore.ts` + `.test.mjs`; `server/vault_cli.py`, `server/vault_server/{doctor,importer,server}.py`, new `server/vault_server/autocopy.py`, `server/test_{doctor,import,server}.py`; `tools/shots/fixtures.mjs`; new `spike/search/`; `docs/{COMMANDS,DECISIONS,MAP,REPORT,STATUS}.md`, new `docs/SEARCH-OPTIONS.md`; deleted `docs/pending-skills/wrap-SKILL.md`.
 
 **Done when:**
-1. Screenshot command, every screen: pass. Fixed after looking: the field placeholder was cut off ("A line to remember" now); the session's Not mine / Next sat one button too high; Library's song count wrapped onto two lines.
-2. Tag taps (open, cancel, reopen; 180 ms double tap counts) and seek (a drag lands where released, a quick or careful tap on a tick jumps): pass.
-3. Change words, Move to now, Delete through the outbox as whole-tag lines, Undo exact sent or not, deleted stays gone: pass.
-4. Session pool, 3x weighting, no repeats in a lap, counter, a draft saved to its own song on Next, Not mine and Undo: pass.
-5. Restore test (an unsent add, two unsent edits, an unsent delete, a resend) and the tags command on a real song: pass.
-6. `/verify` all PASS incl. the music guard: pass (11/11).
-7-10. not run (for chat).
+- Server test: a Mine mark makes its phone copy with no command; a stop mid-copy leaves no broken file: pass.
+- Start-time tests (session 15 s, Sort 30 s, short song 0, undone card resumes): pass. Sound before the spot: none in the fake player.
+- Session-restore test (same lap, counter, place): pass. Session screenshots centred (also after a simulated restore): pass.
+- `/next`'s refresh count on the real library: pass (308 made). Doctor warning line: pass (test; real library has 0 missing, so PASS there).
+- Spike tests pass and `SEARCH-OPTIONS.md` has measured numbers for A, B, C: pass. `/verify` all PASS: pass (12/12).
+- I prove 1-4: not run (for chat).
 
-**Plan I chose:** all 8 STATUS plan lines ticked. Board settled 5 splits (`board/phase-2-complete.md`). The screenshot tool is esbuild + react-native-web + headless Edge, with fake stores, in its own folder with its own packages. Expo web would have pulled packages into `app/`.
+**Plan I chose:** Part 0 [x], A [x], B [x], C [x], D [x], E [x], review + wrap [x]. Guessed: the engine's playlist logic moved to `playlistCore.ts` so a fake player can test it. With a start point, Next reloads the song (no gapless move): a cost nobody hears in a session. A restored session reopens the player sheet. Session buttons sit 29 pt right of the normal player's row (which also has Shuffle); "no shift" read as no jump inside the session.
+**Board test:** A = a fix restoring an agreed call (no). B = a flagged fix whose exact shape you gave (centred), so no seats run; E's call is yours at review. Not met.
 
-**Fresh-eyes review caught (fixed):** Delete then Undo brought the row back at the bottom. Library Shuffle after a session would land on nothing. The 250 ms bounce could still drop a fast double tap (now 150 ms). A careful tick press over 300 ms seeked instead (now 600 ms). The session's big Next did nothing in Compare. Undo of Not mine read an old Mine mark. Change words erased the Undo of a tag just saved. **Not taken:** treating "laptop not checked yet" as offline (Library does the same today); a 30%-in load with no intro blip (Cards have the same); a centred row in the session (owner question 1); "Move here" wording; the lap end (the list wraps, checked by a test). I had missed all 7 fixes. Worth the tokens this time.
+**Fresh-eyes review caught (fixed, tests added):** a restored session with a Not mine song never loaded its sound (load guard now a ticket); lock-screen Next while paused started playing; Compare's volume could be undone by the mute; a song that never loads could leave the volume at 0; a seek sent the instant the song changed could be lost (retried once); `copies`/`import` overlapping the server's run (one copy run at a time now, `copies.lock`); a retry could push a Mine run back 5 min. **Not taken:** a lock-screen Pause pressed in the under-a-second wait for the seek still plays when the seek lands (rare; needs native pause events); hiding `TimeoutError` (review found it safe). I had missed all 7.
 
-**Not done:** a lap redrawn when the pool runs out (it replays; parked). Session state lives in memory: after an app kill the player plays on without the session look.
+**Not done:** Stretch (none taken: the review fixes used the room). Lock-screen moves still start from 0:00 for the few ms before the app mutes them: the true fix is native (a start time per queued song) and needs a full rebuild. Say if you hear a tick.
 
-**Decisions needed:**
-1. Next in the session shows twice (controls row and the big one). Keep both (default) or only the big one?
-2. Undo of Not mine after Next goes back to that song (default) or only puts it back in the pool?
+**Decisions needed:** search on the phone (A, Code's pick), the laptop (B) or SQLite full-text (C): `SEARCH-OPTIONS.md`. Hard to undo, no default.
 
-**Proposed next step:** my real tagging sessions and the restore check, then Phase 2 closes.
+**Proposed next step:** Phase 2 closes after your sessions + wipe check; Phase 3 starts with a real-phone timing of the chosen option.
 
-**Pitch:** the session's look survives an app kill (save "in a session" with the lap), so a lock-screen session never quietly turns back into the plain player.
+**Pitch:** store each song's length at scan time: short-song starts and the seek bar would know the length before the song loads.

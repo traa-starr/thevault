@@ -7,6 +7,7 @@
     python server/vault_cli.py apply-sorting <library folder> <music root>   turn my sorting file into per-file verdicts (once)
     python server/vault_cli.py songs <library folder>                        link duplicates into songs, fill title, date, source, mine
     python server/vault_cli.py import <library folder>                       copy every Mine song into the library, then make phone copies; rerun any time
+    python server/vault_cli.py copies <library folder>                       catch up phone copies now (the server also does it by itself); adds only, prints the count
     python server/vault_cli.py mains <library folder>                        version groups I never picked a Main for get their newest as Main
     python server/vault_cli.py fingerprint <music root>                      one line that changes if the music folders change
     python server/vault_cli.py serve <library folder>                        play songs by id, on the laptop and Tailscale only (Ctrl+C stops)
@@ -22,10 +23,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from vault_server.autocopy import copy_lock, run_once as run_autocopy_once  # noqa: E402
+
+COPY_WAIT = 1800  # the server's own copy run may be mid-way: wait for it (it says so) rather than copy the same files
 from vault_server.backup import run_backup  # noqa: E402
 from vault_server.doctor import FAIL, fingerprint_line, fingerprinted_scan, run_doctor  # noqa: E402
 from vault_server.family import newest_mains  # noqa: E402
-from vault_server.importer import ToolMissing, import_mine, make_phone_copies, size_report  # noqa: E402
+from vault_server.importer import ToolMissing, import_mine, make_phone_copies, mine_without_phone_copy, size_report  # noqa: E402
 from vault_server.library import (MARKER_NAME, SORTING_NAME, LibraryMissing, LibraryRefused,  # noqa: E402
                                   init_library, open_library)
 from vault_server.pull import run_pull  # noqa: E402
@@ -46,7 +50,7 @@ def main(argv):
     for stream in (sys.stdout, sys.stderr):  # a song name with an emoji mustn't stop a command halfway
         stream.reconfigure(errors="replace")
     if len(argv) < 3 or argv[1] not in ("init", "check", "import-sorting", "scan", "apply-sorting", "songs", "mains", "import", "fingerprint", "serve", "doctor",
-                                        "backup", "pull-cloud", "publish", "tags"):
+                                        "backup", "pull-cloud", "publish", "tags", "copies"):
         print(__doc__)
         return 1
     cmd, folder = argv[1], argv[2]
@@ -99,11 +103,22 @@ def main(argv):
             print(f"Mine: {mine_counts(lib)}")
         elif cmd == "import":
             lib = open_library(folder)
-            print("Import (library copies of Mine songs):")
-            print_result(import_mine(lib))
-            print("Phone copies:")
-            print_result(make_phone_copies(lib))
+            with copy_lock(lib.root, wait=COPY_WAIT):  # waits for the server's own copy run to finish
+                print("Import (library copies of Mine songs):")
+                print_result(import_mine(lib))
+                print("Phone copies:")
+                print_result(make_phone_copies(lib))
             print(size_report(lib))
+        elif cmd == "copies":
+            # the same add-only run the server makes by itself; safe while the server runs (one writer at a time)
+            open_library(folder).close()  # stops here if the marker is missing
+            library, phone = run_autocopy_once(Path(folder).resolve(), log=lambda *a, **k: None, wait=COPY_WAIT)
+            print(f"phone copies made now: {phone} ({library} songs copied into the library first)")
+            conn = open_library(folder)
+            left = len(mine_without_phone_copy(conn.store.conn, conn.root))
+            conn.close()
+            print(f"Mine songs still without a phone copy: {left}" + (" (cloud-only or missing files: run doctor)" if left else ""))
+            return 0
         elif cmd == "mains":
             lib = open_library(folder)
             print_result(newest_mains(lib))

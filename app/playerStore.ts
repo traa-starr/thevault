@@ -9,7 +9,7 @@ import type { FamilyEdit } from './family';
 import { offline } from './offline';
 import { addChange, addChanges } from './outbox';
 import { note } from './pressLog';
-import { currentId, jumpTo, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setFlag, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
+import { currentId, jumpTo, moveBy, SORT_START_SEC, startSpot, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setFlag, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
 import { isVersion, members, removeEditFor, sendEdit, showToast, songTitle, undo as undoVersions, type Sent } from './versionStore';
 
 export type PlayerSong = { id: string; title: string; mine: string; sorted: boolean };
@@ -108,6 +108,8 @@ let lastSaved = 0;
 let recent: string[] = []; // songs heard lately, newest first: the picker's best clue
 let undoTimer: ReturnType<typeof setTimeout> | undefined;
 let stallTimer: ReturnType<typeof setInterval> | undefined;
+let loadTicket = 0; // each loadOrder's number: only the newest one reaches the sound
+let startPoint = 0; // where a fresh song starts, in seconds: set by Sort and the tagging session
 let handOff: (() => void) | null = null; // Compare is handing the sound back: any tap finishes that first
 const listeners = new Set<() => void>();
 
@@ -225,7 +227,7 @@ function onSound(sound: Sound) {
 function finished() {
   const moved = state.order && nextInOrder(state.order, avoid());
   if (moved) {
-    loadOrder(moved, 0, true);
+    loadOrder(moved, undefined, true);
     return;
   }
   update({ note: 'Played every song in this list', wanted: false });
@@ -258,6 +260,8 @@ function onTrack(index: number) {
       track = [{ id: currentId(behind), order: behind }, ...track];
     }
   }
+  // the lock screen or a song's end moved on: the player began it at 0:00, so it goes silent and finds its start point
+  if (startPoint > 0) engine?.startHere(startPoint);
   if (badInARow >= MAX_BAD_IN_A_ROW) stopForBadSongs();
 }
 
@@ -286,6 +290,7 @@ function replaceAhead(order: Order, index: number) {
 }
 
 function stopForBadSongs() {
+  engine?.abandonWait(); // a song that never loaded can't find its start point: the volume comes back
   engine?.pause();
   update({ wanted: false, trouble: "Several songs in a row wouldn't play, so it stopped" });
   badInARow = 0;
@@ -295,14 +300,16 @@ const ensureEngine = () => (engine ??= createEngine(ENGINE, { onSound, onTrack }
 const ensureMode = () =>
   (modeSet ??= setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'doNotMix' }).catch(() => {}));
 
-/** Starts this order from scratch. Restarts the sound, so ordinary moves between songs let the player do it instead. */
-function loadOrder(order: Order, at: number, play: boolean) {
+/** Starts this order from scratch. Restarts the sound, so ordinary moves between songs let the player do it instead.
+ * `at` undefined: a fresh song, which starts at the mode's start point (session 0:15, Sort 0:30, else 0:00). */
+function loadOrder(order: Order, asked: number | undefined, play: boolean) {
+  const at = startSpot(asked, startPoint);
   settleHandOff();
   // the laptop is off and this song isn't on the phone: the next one that is, or say so at once, never a spinner
   if (cantReach(currentId(order))) {
     const moved = nextInOrder(order, avoid());
     if (moved && !cantReach(currentId(moved))) {
-      loadOrder(moved, 0, play);
+      loadOrder(moved, undefined, play);
       update({ note: `Skipped: ${titleOf(currentId(order))} isn't on this phone` });
       return;
     }
@@ -318,13 +325,16 @@ function loadOrder(order: Order, at: number, play: boolean) {
   if (!state.sorting) heard(id);
   saveSpot(true);
   startStallWatch();
+  const ticket = ++loadTicket;
   ensureMode().finally(() => {
-    if (state.order !== order) return; // a newer tap got there first
+    if (ticket !== loadTicket) return; // a newer load got there first
+    // the same song, its order changed meanwhile (a restored session's Not mine, a Queue drag): load the order as it is now
+    const now = state.order && currentId(state.order) === id ? state.order : order;
     const sound = ensureEngine();
     if (sound.windowed) {
-      const behind = walkBack(order, BEHIND);
-      const ahead = walkAhead(order, AHEAD, avoid());
-      track = [...behind, order, ...ahead].map((one) => ({ id: currentId(one), order: one }));
+      const behind = walkBack(now, BEHIND);
+      const ahead = walkAhead(now, AHEAD, avoid());
+      track = [...behind, now, ...ahead].map((one) => ({ id: currentId(one), order: one }));
       sound.load(track.map((one) => audioUrl(one.id)), behind.length, at, play);
     } else {
       sound.load([audioUrl(id)], 0, at, play);
@@ -379,9 +389,10 @@ function skipBadSong(why: string) {
   }
   const moved = state.order && nextInOrder(state.order, avoid());
   if (moved) {
-    loadOrder(moved, 0, true);
+    loadOrder(moved, undefined, true);
     update({ note: `Skipped: ${why}` });
   } else {
+    engine?.abandonWait();
     engine?.pause();
     update({ wanted: false, trouble: why });
   }
@@ -402,7 +413,7 @@ const canUseWindow = (index: number) => !!engine?.windowed && index >= 0 && inde
 
 export const player = {
   /** A tap on a song in a list. During Sort it replaces the saved library spot, so the sort song keeps playing. */
-  playList(serverUrl: string, list: PlayerSong[], startId: string, shuffle: boolean, pool: Pool = 'unsorted', at = 0) {
+  playList(serverUrl: string, list: PlayerSong[], startId: string, shuffle: boolean, pool: Pool = 'unsorted', at?: number) {
     url = serverUrl;
     list.forEach((song) => songs.set(song.id, song));
     const ids = list.map((song) => song.id);
@@ -410,7 +421,7 @@ export const player = {
     ids.forEach((id) => delete marks[id]); // the list already holds my latest choices
     update({ marks, pool });
     const order = startOrder(ids, startId, shuffle);
-    if (state.sorting) saved = { order, at };
+    if (state.sorting) saved = { order, at: at ?? 0 };
     else loadOrder(order, at, true);
   },
 
@@ -446,14 +457,14 @@ export const player = {
       return;
     }
     badInARow = 0;
-    if (engine?.windowed && canUseWindow(engine.index() + 1)) {
+    if (engine?.windowed && moveBy(startPoint, canUseWindow(engine.index() + 1)) === 'queue') {
       settleUntil = Date.now() + SETTLE_MS;
       holdPausedUntil = 0;
       engine.next();
       engine.play();
       update({ wanted: true });
     } else {
-      loadOrder(moved, 0, true);
+      loadOrder(moved, undefined, true);
     }
   },
 
@@ -466,14 +477,14 @@ export const player = {
       return;
     }
     badInARow = 0;
-    if (engine?.windowed && canUseWindow(engine.index() - 1)) {
+    if (engine?.windowed && moveBy(startPoint, canUseWindow(engine.index() - 1)) === 'queue') {
       settleUntil = Date.now() + SETTLE_MS;
       holdPausedUntil = 0;
       engine.previous();
       engine.play();
       update({ wanted: true });
     } else {
-      loadOrder(moved, 0, true);
+      loadOrder(moved, undefined, true);
     }
   },
 
@@ -488,7 +499,8 @@ export const player = {
     update({ time: seconds });
   },
 
-  jump(id: string, at = 0) {
+  /** `at` left out: the song's start point. */
+  jump(id: string, at?: number) {
     if (!state.order) return;
     badInARow = 0;
     loadOrder(jumpTo(state.order, id), at, true);
@@ -592,7 +604,7 @@ export const player = {
     update({ undo, marks, message: '' });
     const moved = nextInOrder(out, avoid());
     if (moved) {
-      loadOrder(moved, 0, true);
+      loadOrder(moved, undefined, true);
     } else {
       engine?.pause();
       update({ order: out, wanted: false, note: 'No more songs in this list' });
@@ -640,8 +652,9 @@ export const player = {
     engine?.pause();
     list.forEach((song) => songs.set(song.id, song));
     state = { ...state, sorting: true };
+    startPoint = SORT_START_SEC;
     const ids = list.map((song) => song.id);
-    if (ids.length) loadOrder(startOrder(ids, ids[0], false), 0, play);
+    if (ids.length) loadOrder(startOrder(ids, ids[0], false), undefined, play);
     else update({ sorting: true });
   },
 
@@ -651,6 +664,7 @@ export const player = {
     const spot = saved;
     saved = null;
     state = { ...state, sorting: false };
+    startPoint = 0;
     engine?.setLoop(false);
     if (!spot) {
       engine?.stop();
@@ -661,7 +675,7 @@ export const player = {
     const gone = (id: string) => state.marks[id]?.mine === 'not mine';
     if (gone(currentId(spot.order))) {
       const moved = nextInOrder(removeFromOrder(spot.order), avoid());
-      if (moved) loadOrder(moved, 0, false);
+      if (moved) loadOrder(moved, undefined, false);
       else {
         engine?.stop();
         update({ order: null, song: null, wanted: false });
@@ -726,7 +740,7 @@ export const player = {
       return;
     }
     badInARow = 0;
-    loadOrder(playHere(state.order, song.id), 0, true);
+    loadOrder(playHere(state.order, song.id), undefined, true);
   },
 
   /** Sets or clears my mark on a song from outside the player (a link made it Mine). */
@@ -746,6 +760,11 @@ export const player = {
     clearTimeout(undoTimer);
     update({ message: text, undo: null });
     undoTimer = setTimeout(() => update({ message: '' }), UNDO_MS);
+  },
+
+  /** Where fresh songs start from now on, in seconds (the tagging session's 0:15; 0 to end it). */
+  setStartPoint(seconds: number) {
+    startPoint = seconds;
   },
 
   /** Saves the spot now: the app is going to the background and may be closed there. */

@@ -702,6 +702,17 @@ def main():
     check("Tailscale not installed means laptop only", server.tailscale_info(lambda *a, **k: (_ for _ in ()).throw(OSError()))[0] is None)
     s = server.start_servers(root, [server.LOOPBACK], 0)
     check("listens on the given address, not every address", s[0].server_address[0] == server.LOOPBACK)
+    import contextlib, io
+    for error, quiet in ((ConnectionResetError(10054, "reset"), True), (ConnectionAbortedError(), True), (BrokenPipeError(), True),
+                         (ValueError("a real bug"), False)):
+        said = io.StringIO()
+        with contextlib.redirect_stderr(said):
+            try:
+                raise error
+            except Exception:
+                s[0].handle_error(None, (server.LOOPBACK, 1))
+        check(f"{type(error).__name__}: {'no traceback (the phone hung up)' if quiet else 'still prints its traceback'}",
+              (said.getvalue() == "") == quiet, said.getvalue()[:200])
     server.stop_servers(s)
 
     # starting up

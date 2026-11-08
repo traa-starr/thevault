@@ -1,6 +1,6 @@
 // Self-test for the play order: node --experimental-strip-types app/playOrder.test.mjs
 import assert from 'node:assert/strict';
-import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere, dialTarget, tagsWithPending, setFlag, listAfterTap, listIsOpen, shuffleAfterTap, shuffleWords, tickWordsAfter, noTickWords, songStartWords, tagTapped, TICK_SHOW_MS, TAP_BOUNCE_MS, seekRelease, tagEdit, tagRemoval, tagUndoLine, rowOrder, sessionPool, sessionLap, sessionCount, draftGoesOnChange, draftLine, libraryShuffleTap } from './playOrder.ts';
+import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere, dialTarget, tagsWithPending, setFlag, listAfterTap, listIsOpen, shuffleAfterTap, shuffleWords, tickWordsAfter, noTickWords, songStartWords, tagTapped, TICK_SHOW_MS, TAP_BOUNCE_MS, seekRelease, tagEdit, tagRemoval, tagUndoLine, rowOrder, sessionPool, sessionLap, sessionCount, draftGoesOnChange, draftLine, libraryShuffleTap, startSpot, moveBy, SESSION_START_SEC, SORT_START_SEC, sessionLine, sessionBack } from './playOrder.ts';
 import { applyEdit, applyPicks, groupEdit, groupLead, linkEdit, makeMainEdit, membersOf, removeEdit, reverse, settle } from './family.ts';
 
 const fams = (pairs) => new Map(Object.entries(pairs));
@@ -715,5 +715,60 @@ for (const [name, test] of Object.entries(tests)) {
     console.log(`FAIL  ${name}  ${e.message}`);
   }
 }
+
+// Start points (2026-11-08 review): session 0:15, Sort 0:30, fixed, handed to the player at load
+{
+  assert.equal(SESSION_START_SEC, 15);
+  assert.equal(SORT_START_SEC, 30);
+  assert.equal(startSpot(undefined, SESSION_START_SEC), 15, 'a fresh session card starts at 0:15');
+  assert.equal(startSpot(undefined, SORT_START_SEC), 30, 'a fresh Sort card starts at 0:30');
+  assert.equal(startSpot(undefined, 0), 0, 'Library songs start at 0:00');
+  assert.equal(startSpot(72.5, SORT_START_SEC), 72.5, 'an undone card carries on where it was');
+  assert.equal(startSpot(0, SORT_START_SEC), 0, 'an explicit 0:00 stays 0:00');
+  // with a start point, Next and Previous load the song with its spot; the queued song would start at 0:00 first
+  assert.equal(moveBy(SESSION_START_SEC, true), 'load');
+  assert.equal(moveBy(SORT_START_SEC, true), 'load');
+  assert.equal(moveBy(0, true), 'queue', 'Library keeps the gapless move');
+  assert.equal(moveBy(0, false), 'load');
+}
+
+// The session after an app kill: same lap, same counter, same place
+{
+  const songs = ['m1', 'm2', 'm3', 'm4', 'm5'].map((id) => ({ id, mine: 'mine' }));
+  const pool = sessionPool(songs, () => true, () => false);
+  const tagged = new Set(['m2']);
+  const lap = sessionLap(pool, tagged, () => 0.5);
+  // two cards in: Next twice, Not mine on the third
+  let order = startOrder(lap, lap[0], false);
+  order = nextInOrder(nextInOrder(order));
+  const out = [currentId(order)];
+  const countBefore = sessionCount(pool, out, tagged);
+  // what the phone keeps: session.json, and the player's last-play.json (order + second)
+  const sessionText = JSON.stringify(sessionLine(pool, out, lap));
+  const playerText = JSON.stringify({ order, at: 42.5 });
+  // ...the app is killed and reopened
+  const last = JSON.parse(playerText);
+  const back = sessionBack(sessionText, last.order);
+  assert.ok(back, 'the session comes back');
+  assert.deepEqual(back.pool, pool);
+  assert.deepEqual(back.out, out);
+  assert.deepEqual(sessionCount(back.pool, back.out, tagged), countBefore, 'same "N of M tagged"');
+  assert.deepEqual(last.order.list, lap, 'same lap');
+  assert.equal(currentId(last.order), currentId(order), 'same song');
+  assert.equal(last.at, 42.5, 'same second');
+  assert.deepEqual(walkAhead(last.order, 8).map(currentId), walkAhead(order, 8).map(currentId), 'the same songs to come, same order');
+  // a Library song played after the session: the player came back on another list, so no session look
+  assert.equal(sessionBack(sessionText, startOrder(['x', 'y'], 'x', false)), null);
+  // same songs, other order (a new lap): not this session
+  assert.equal(sessionBack(sessionText, { list: [...lap].reverse() }), null);
+  // nothing saved, a broken file, an old shape, no player song
+  assert.equal(sessionBack(null, order), null);
+  assert.equal(sessionBack('{not json', order), null);
+  assert.equal(sessionBack(JSON.stringify({ pool, out, lap }), order), null);
+  assert.equal(sessionBack(sessionText, null), null);
+  // an out song no longer in the pool is dropped, never counted
+  assert.deepEqual(sessionBack(JSON.stringify(sessionLine(pool, ['gone', ...out], lap)), order).out, out);
+}
+
 console.log(failed ? `\n${failed} FAILED` : '\nALL PASSED');
 process.exitCode = failed ? 1 : 0;

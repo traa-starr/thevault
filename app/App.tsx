@@ -11,6 +11,7 @@ import { flush, startOutbox } from './outbox';
 import { tagStore } from './tagStore';
 import { NowPlayingBar, PlayerSheet, UndoToast } from './Player';
 import { player } from './playerStore';
+import { session } from './sessionStore';
 import Sort from './Sort';
 import { VersionsLayer } from './Versions';
 import { RestoreNotice, WaitingLine } from './Notices';
@@ -93,6 +94,7 @@ export default function App() {
   // the last song back in the bar, paused where it was, as soon as the app opens
   useEffect(() => {
     if (address) player.restore(serverUrl(address));
+    if (address) session.restore(); // the tagging session, if the player came back on its lap
     if (address) pointUpdatesAt(serverUrl(address));
   }, [address]);
 

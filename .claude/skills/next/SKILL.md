@@ -17,6 +17,8 @@ Arguments: `$ARGUMENTS`
 
 ## 2. Orient, reading the minimum
 Read `docs/STATUS.md`, `docs/NEXT.md`, and only what NEXT's `Read:` line names.
+- **Phone copies backstop:** run `python server/vault_cli.py copies E:/VaultLibrary` in the background and print its first
+  line ("phone copies made now: N") when it finishes. The server makes them on its own; this catches anything it missed.
 - **Resume check:** if STATUS "In progress" names a part or plan line of *this* NEXT (same step name), run
   `git status` and `git diff --stat`, then continue from the first unticked part or plan line. Don't redo finished ones. If it names an older step, it's stale:
   clear it and note that in REPORT.

@@ -356,3 +356,32 @@ export function libraryShuffleTap(pick: ShufflePick, hasMine: boolean, hasUnsort
   }
   return { ...pick, on: false };
 }
+
+// Where a song starts (DECISIONS 2026-11-08, Phase 2 code-complete review): tagging session cards at 0:15, Sort cards at
+// 0:30, fixed times handed to the player when the song loads, so nothing plays from 0:00 first. Everywhere else: 0:00.
+export const SESSION_START_SEC = 15;
+export const SORT_START_SEC = 30;
+/** A spot asked for (an Undo, a saved place) wins; a fresh song gets the mode's start point. */
+export const startSpot = (asked: number | undefined, startPoint: number) => asked ?? startPoint;
+/** Next and Previous: with a start point, a fresh load that carries it (the queued song would start at 0:00 first);
+ * without one, the player's own queue, which moves with no gap. */
+export const moveBy = (startPoint: number, queueHasIt: boolean): 'queue' | 'load' => (startPoint === 0 && queueHasIt ? 'queue' : 'load');
+
+// The tagging session survives an app kill (2026-11-08 review): its pool, its Not mine songs and the lap it plays are
+// saved to the phone. The player saves its own place (last-play.json); the session comes back only if the player came
+// back on that same lap, so a Library song played after the session never wakes it.
+export type SessionLine = { v: 1; pool: string[]; out: string[]; lap: string[] };
+export const sessionLine = (pool: string[], out: string[], lap: string[]): SessionLine => ({ v: 1, pool, out, lap });
+export function sessionBack(text: string | null | undefined, playing: { list: string[] } | null | undefined): { pool: string[]; out: string[] } | null {
+  if (!text || !playing) return null;
+  try {
+    const line = JSON.parse(text) as SessionLine;
+    if (line?.v !== 1 || !Array.isArray(line.pool) || !Array.isArray(line.out) || !Array.isArray(line.lap)) return null;
+    const same = line.lap.length === playing.list.length && line.lap.every((id, i) => id === playing.list[i]);
+    if (!same || !line.pool.length) return null;
+    const pool = new Set(line.pool);
+    return { pool: line.pool, out: line.out.filter((id) => pool.has(id)) };
+  } catch {
+    return null;
+  }
+}

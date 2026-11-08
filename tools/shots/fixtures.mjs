@@ -9,6 +9,8 @@ const playing = (extra = {}) => ({ song, time: 62, duration: 214, wanted: true, 
 const titles = ['Midnight Run', 'Cold Brew Freestyle', 'Lights Out (demo)', 'No Sleep 2', 'Paper Planes idea', 'Basement Tape 4',
   'Gold Teeth', 'Window Seat', 'Static', 'Late Checkout', 'Rooftop', 'Still Here', 'Overtime', 'Blue Hour', 'Echo Park'];
 const songs = titles.map((title, i) => ({ id: `s${i + 1}`, title, mine: i % 3 !== 1 ? 'mine' : 'unknown', sorted: i % 3 !== 2, where: 'laptop', date: `2025-0${(i % 9) + 1}-1${i % 9}`, folder: 'x', size: 4e6 }));
+const MINE = songs.filter((one) => one.mine === 'mine').map((one) => one.id);
+const LAP = [...MINE].reverse();
 const player = (fix, steps) => ({ fix: { screen: 'player', ...fix }, steps });
 
 export const fixtures = [
@@ -30,6 +32,10 @@ export const fixtures = [
   { name: 'session-field-open', ...player({ player: playing(), songs, files: tagFile(tags(2)) }, ["app.session.start('http://laptop')", "app.tagLine.tap('s1','Midnight Run (rough 3)',62.4)"]) },
   { name: 'session-not-mine-undo', ...player({ player: playing(), songs, files: tagFile(tags(2)) }, ["app.session.start('http://laptop')", 'app.session.notMine()']) },
   { name: 'session-30-tags', ...player({ player: playing(), songs, files: tagFile(tags(30)) }, ["app.session.start('http://laptop')", "app.tagLine.toggleList('s1')"]) },
+  // after an app kill: the player came back on the session's lap, so the session look comes back (s4 was Not mine)
+  { name: 'session-restored', ...player({ player: playing({ sheet: 'none', order: { shuffle: false, list: LAP } }), songs, files: { ...tagFile(tags(2)), 'session.json': JSON.stringify({ v: 1, pool: MINE, out: ['s4'], lap: LAP }) } }, ['app.session.restore()']) },
+  // a Library song played after the session: no session look
+  { name: 'session-not-restored', ...player({ player: playing({ order: { shuffle: false, list: ['s2', 's5'] } }), songs, files: { ...tagFile(tags(2)), 'session.json': JSON.stringify({ v: 1, pool: MINE, out: [], lap: LAP }) } }, ['app.session.restore()']) },
   { name: 'session-long-words', ...player({ player: playing({ song: { ...song, title: 'A very long working title for a song that goes on (final final v7) 🔥' } }), songs, files: tagFile([at(12, LONG, 0)]) }, ["app.session.start('http://laptop')", "app.tagLine.toggleList('s1')", "app.tagLine.hold('t0')"]) },
   { name: 'library', fix: { screen: 'library', songs } },
   { name: 'library-shuffle-unsorted', fix: { screen: 'library', songs, player: playing({ order: { shuffle: true }, pool: 'unsorted' }) } },

@@ -11,10 +11,10 @@ Do these in order. Say in REPORT if one was skipped, and why.
 2. **`docs/REPORT.md`**, overwritten, under 40 lines, these headings:
    - **Step:** NEXT's exact step name, and date. Chat matches REPORT to NEXT by this.
    - **Verified by running:** what ran, what came out.
-   - **Phone update:** exactly one of: `none` (no app code changed) · `publish` (app code changed: run the publish line
-     from COMMANDS.md, then close and reopen the app) · `full rebuild` (app.json, package.json or native code changed:
-     GitHub build plus SideStore). Decide from `git status --short` on `app/`, not memory. Add `server restart` if
-     `server/` changed.
+   - **Phone update:** exactly one of: `none` (no app code changed) · `published <time>` (app code changed: you ran
+     publish yourself in step 6b; I only close and reopen the app) · `full rebuild` (app.json, package.json or native
+     code changed: GitHub build plus SideStore, mine). Decide from `git status --short` on `app/`, not memory. Add
+     `server restarted` if you restarted it in step 6b.
    - **Needs the phone:** numbered exact taps, and what passing looks like, covering the "I prove" lines of Done when
      (goal format). "None" if none. Chat walks me through these at `Review.`, one at a time.
    - **Changed:** files, taken from `git status --short`, not memory.
@@ -33,12 +33,16 @@ Do these in order. Say in REPORT if one was skipped, and why.
 4. **`docs/DECISIONS.md`:** every settled call from this session. Hard-to-undo entries list date, options, choice and why.
 5. **`docs/MAP.md`:** only if a location changed. **`docs/ROADMAP.md`:** tick items built this step.
 6. **Safety check:** `python .claude/scripts/check_repo.py`. Fix anything it flags. Never weaken the check to pass.
-7. **Last message, short, nothing pasted from the docs. Never print the phone checks: chat walks me through them.**
-   - What happened, in one or two lines. Say plainly if something failed.
-   - **Phone update:** the same line as REPORT, in plain words, with the exact line to copy if it's `publish`.
-     First line of the message if it isn't `none`.
-   - **Phone checks waiting:** a count only ("3 checks, chat walks you through them"). "None" if none.
-   - **Commit message:** one line. I do git myself: never commit, push or merge.
-   - **YOUR NEXT ACTION:** normally "Commit and push, do the phone update above, then in a new chat in the Project type
-     `Review.`" If the step had no phone checks and the next step is `fast-lane OK`: "Commit and push, then in a new
-     Code session type `/next pass`."
+6b. **Do the laptop side of the phone update yourself** (one job, not a task for me):
+   - `server/` changed: restart the server with the Stop and Start lines from COMMANDS.md "From the phone", then
+     confirm it's up with "Is it running?".
+   - App code changed and no full rebuild needed: make sure the server is running, run the publish line from
+     COMMANDS.md, and confirm the "Published update ..." line. If publish fails twice, write it up and put the line in
+     the last message instead.
+   - Full rebuild: don't start it; it needs me (GitHub build, SideStore).
+7. **Last message: three lines, nothing else.** REPORT is for chat; I read the outcome in chat's review, not here.
+   Don't summarise the work, don't list checks, decisions or pitches, don't explain the loop.
+   - `Done: <x of y goals met>.` Add `<goal> failed` only if one did.
+   - `Phone: <none | published, close and reopen the app | full rebuild needed, see REPORT>.`
+   - The commit message in a copy block. I do git myself: never commit, push or merge.
+   Then stop. I know the rest: commit, push, `Review.` in chat (or `/next pass` when fast-lane).

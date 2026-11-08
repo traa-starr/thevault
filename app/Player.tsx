@@ -316,8 +316,9 @@ export function FullPlayer() {
             <Pressable style={(p) => [s.button, tint(p)]} onPress={leavingCompare(player.next)}>
               <Text style={s.buttonText}>Next</Text>
             </Pressable>
-            {/* each tap: Off > Mine > Unsorted > Off, no box. On: filled, like Mine. Hidden while sorting, its width kept so the row never shifts */}
-            {sorting || inSession ? (
+            {/* each tap: Off > Mine > Unsorted > Off, no box. On: filled, like Mine. Hidden while sorting, its width kept so the row
+                never shifts. A session has no Shuffle at all: no empty slot, so its three buttons sit centred */}
+            {inSession ? null : sorting ? (
               <View style={s.shuffle} />
             ) : (
               <Pressable
