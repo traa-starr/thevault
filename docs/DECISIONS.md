@@ -37,3 +37,5 @@ Older rows: `decisions/phase-0-1.md` (Phase 0 and Phase 1, word for word).
 | Topic | Choice | Why |
 |---|---|---|
 | Fold pass, /verify started (2026-11-07) | Fold passed (fast-lane `/next pass`); `/verify` next | Queue item 1 marked fast-lane OK |
+| /verify reviewed, Phase 2 plan next (2026-11-07, chat) | 11/11 PASS accepted. Plan session on Opus writes BLUEPRINT/BATCH-PLAN for Phase 2 plus a throwaway HTML tagging-card mockup; batch 1 goes into BATCH-PLAN, NEXT waits until I've tried the mockup on the phone | Taste is set by touch before code; the tag's journal shape is hard to change later |
+| /verify speed-up (2026-11-07, chat) | Parked (Code's pitch: build the 7,200-line test journal in one go, ~6 min to under 1) | Laptop-only nicety; nothing waits on it |

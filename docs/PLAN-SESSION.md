@@ -1,56 +1,44 @@
-# Plan session brief (Opus, Plan mode)
-Written by chat, 2026-11-01. For one Claude Code session on Opus in Plan mode. **No app or server code this session.**
-Only docs. The owner is an audio engineer, not a developer: plain words, one line per jargon term.
+# Plan session brief: Phase 2 (Tagging)
+Written by chat, 2026-11-07. One Claude Code session on Opus. **Docs plus one throwaway mockup. No app or server code.**
+The owner is an audio engineer, not a developer: plain words, one line per jargon term.
+(The Phase 1 brief this replaces is in git history.)
 
 ## Objective
-Produce the blueprint and the build plan for **the rest of Phase 1**, so the next Code sessions can build bigger batches
-without stopping to design. Then write the first batch into `NEXT.md`.
+Design Phase 2 so the build batches can run without stopping to design, and give me a tagging card I can tap on the
+phone **before** any real code is built.
 
 ## Read first
-`VISION.md`, `ROADMAP.md` (Phase 1 order, "Decisions to raise"), `DECISIONS.md` (settled, never re-ask), `STATUS.md`
-(queue, open questions), `WORKFLOW.md`, `CHAT-INSTRUCTIONS.md` (rules every task must respect), `ARCHITECTURE-OPTIONS.md`,
-`STORAGE-OPTIONS.md`, `SPIKE-RESULTS.md`, then the code as it is: `server/` (database, verdict journal, routes) and `app/`.
+`VISION.md` (tagging, search), `ROADMAP.md` Phase 2 + Phase 3 + "Decisions to raise", `DECISIONS.md` (Phase 1 summary;
+settled, never re-ask), `BLUEPRINT.md` ("Left open for Phase 2", "Hard to change later"), `BOARD.md`, `DESIGN-NOTES.md`,
+STATUS open questions. Code only as needed: the journal, `POST /changes` allow-list, the shared player, the sorting card.
 
-## What is left in Phase 1
-1.15 queue (+ parked remaining-time tap) · Not mine buttons in the player (STATUS queue 1) · 1.16 background and lock
-screen (+ parked now-playing bar) · 1.19 sorting card prototype · 1.21 sorting session · 1.22 import list · 1.3 cloud-only
-downloads · 1.7 phone copies · 1.17 offline kept songs · 1.18 re-sign survival test · 1.9 nightly backup.
-"Done when": sort the catalogue from the phone without downloading it, play a kept song at home and away with the screen
-locked and the laptop asleep, app data survives a re-sign.
+## Deliverables
+1. **Board meeting** (the batch adds screens, so the board test says yes). Notes in `docs/board/phase-2-tagging.md`.
+2. **Mockup:** `spike/mockups/tagging-card.html`, one self-contained file, phone-sized, fake songs and tags. Tappable:
+   play/pause, tap-a-moment, type a line, tag list, tap a tag to jump, edit/delete, Not mine, next card, progress.
+   Follow `DESIGN-NOTES.md` and my taste (big controls, minimal, nothing jumps). Chat publishes it as a private page at
+   review so I can try it on the phone.
+3. **`BLUEPRINT.md`:** replace "Left open for Phase 2" with a short Phase 2 section: tag data, journal lines for add /
+   edit / delete, outbox and sync state (2.6), tagging screen and how I get there, jump-to-tag, restore (2.7). File stays
+   under ~150 lines.
+4. **`BATCH-PLAN.md`:** Phase 1 batches fold to one line (done). Phase 2 items 2.1-2.7 grouped into batches, each 2-3
+   phone checks, ROADMAP IDs, stop line, calls marked "blocks batch N". Batch 1 is the real build of what the mockup shows,
+   **written here, not in NEXT** (chat writes NEXT after I've tried the mockup).
+5. **`DECISIONS.md`** rows for my answers and your calls. **`STATUS.md`** and **`REPORT.md`** as usual.
 
-## Deliverables (all in `docs/`)
-1. **`BLUEPRINT.md`** (under ~150 lines): how the finished Phase 1 fits together.
-   - Data: what the laptop stores (songs, verdicts, journal, kept list, phone copies) and what the phone stores.
-   - Server: every route needed, read vs write, and how writes stay safe (music files read-only always).
-   - App: screens and how you move between them (Library, Player, Sorting, Settings), shared player state.
-   - The first write path: Not mine / Mine / Undo, built on the existing verdict journal if it fits (Code's proposal in
-     the last REPORT). Show it so Phase 2 tags can reuse the same pattern.
-   - Offline and "laptop asleep": what works where.
-   - Shape left open for Phase 2 (tags) so nothing has to be rebuilt.
-2. **`BATCH-PLAN.md`**: the remaining Phase 1 items grouped into batches. Each batch = one Code session, **2-3 phone
-   checks**, ROADMAP IDs cited, parts small and checkable, a stop line, and the calls it needs from the owner marked
-   "blocks batch N". Order follows ROADMAP; reorders need a reason line for DECISIONS.
-3. **`NEXT.md`**: batch 1 in the usual NEXT format (see `CHAT-INSTRUCTIONS.md`), with a numbered phone check per part.
-4. **`WORKFLOW.md` Sizing**: proposed new rule ("one NEXT = one batch, 2-3 phone checks") as a draft line marked
-   *pending owner OK*. Don't change the loop otherwise.
-5. **`DECISIONS.md`**: one row per answer the owner gives, and one per plan call you make. **`STATUS.md`**: Next up,
-   current task, open questions closed or added. **`REPORT.md`**: what was planned, open risks, commit message.
-
-## Asking the owner (survey style)
-Use multiple-choice questions (AskUserQuestion) when a call is truly the owner's. Max ~8 total, grouped in rounds of up to
-4. Each: 2-4 options, a recommendation first marked (Recommended), a one-line why, "other" always allowed.
-- **Must ask (hard to undo, never default):** where Not mine / Mine verdicts are saved and how undo works; where pulled
-  cloud-only audio lives and the disk limit (ROADMAP "Decisions to raise" 1.3); how sorting works on the phone (1.19
-  options: swipe each, bulk by folder/name first, short preview clips); plan if data doesn't survive a re-sign (1.18).
-- **Taste:** sorting card look and gestures, Undo toast timing, what the lock screen shows.
-- **Decide yourself and log:** anything reversible and technical.
-- Don't re-ask anything settled in DECISIONS. Don't ask about the open questions STATUS marks as waiting for later.
-
-## Freedom to innovate
-Follow the framework that exists (laptop server + Tailscale + Expo app + SideStore, journal-first saves, read-only music).
-Improve where you see a better path, but name it as a proposal with the trade-off, and prefer bridges (Shortcuts, deep
-links, lock-screen controls) over fighting the platform. Flag anything that would be hard to change later.
+## Ask me (multiple choice, max ~8, rounds of 4, recommendation first, "other" always)
+- **Hard to undo, never default:** what one tag line in the journal holds (text, time in the song, which version it was
+  heard on, date), and how edit and delete are recorded (old lines must always replay). Say what a senior engineer would
+  pick and why, and include one option I didn't think of.
+- **Taste:** what happens when I tap "tag here" (keep playing vs pause; the moment is the tap, not when I finish typing);
+  dictation (iPhone keyboard mic as the bridge, no new build, vs in-app); how "favoring untagged" picks songs; whether I
+  can also tag from the normal player, not just the session; whether the card can name `Untitled...` and date-only songs
+  (STATUS "waiting for tagging").
+- **Note, don't ask:** Phase 3 "search on phone or laptop" (ROADMAP Decisions to raise). Just make sure the tag shape
+  doesn't block either answer.
+- Decide reversible technical things yourself and log them. Don't re-ask anything in DECISIONS.
 
 ## Limits
-No code, no installs, no builds. No git (owner commits). Repo is public: no addresses, names, audio or credentials in docs.
-Music folders and BandLab untouched. Docs stay short; STATUS and REPORT under 40 lines.
+No app or server code, no installs, no builds, no git. Throwaway mockup only in `spike/mockups/`. Repo is public: no
+addresses, real song names, audio or credentials in docs or the mockup (fake names only). Music folders and BandLab
+untouched. Docs short; STATUS and REPORT under 40 lines.
