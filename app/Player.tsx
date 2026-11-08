@@ -15,9 +15,9 @@ import { CompareDial, WHEEL_WIDTH } from './Compare';
 import { compare, useCompare } from './compareStore';
 import { openLibrarySelect, HomeButton } from './nav';
 import { player, usePlayer, type Pool } from './playerStore';
-import type { ShownTag } from './playOrder';
-import { jumpToTag, ReservedLine, TagButton, TagList, TagsButton } from './Tagging';
-import { say, tagLine, useTagLine, useTags } from './tagStore';
+import { shuffleAfterTap, shuffleWords, type ShownTag } from './playOrder';
+import { jumpToTag, ReservedLine, TagButton, TagList, TagsButton, usePassedTag } from './Tagging';
+import { sayAside, tagLine, useTagLine, useTags } from './tagStore';
 import { VersionsChip, VersionsToast } from './Versions';
 import * as versions from './versionStore';
 
@@ -118,7 +118,7 @@ export function SeekBar({ value, max, onDrag, onDrop, ticks = [], onTick }: Seek
   );
 }
 
-/** Shuffle asks what to play: songs not yet called mine, or only Mine. */
+/** Library's Shuffle asks what to play: songs not yet called mine, or only Mine. The player's cycles instead. */
 export const askShuffle = (pick: (pool: Pool) => void) =>
   Alert.alert('Shuffle', undefined, [
     { text: 'Unsorted', onPress: () => pick('unsorted') },
@@ -291,6 +291,13 @@ function FullPlayer() {
   const tags = useTags(shownId);
   const isMine = player.isMine();
   const shuffleOn = !!order?.shuffle;
+  // playback passing a tick says its words: only while playing on its own, never while dragged, seeking or typing
+  const passed = usePassedTag(song?.id, comparing ? [] : tags, playerTime, !comparing && playerWanted && dragAt === null && seekingTo === null && !draft);
+  const tapShuffle = () => {
+    const pick = shuffleAfterTap({ on: shuffleOn, pool });
+    player.setShuffleOn(pick.on, pick.pool);
+    sayAside(pick.on ? { text: 'Shuffle: ', bold: shuffleWords(pick) } : { text: 'Shuffle ', bold: 'off' });
+  };
   return (
     <View style={s.page}>
       <View style={s.topRow}>
@@ -309,7 +316,7 @@ function FullPlayer() {
           </Pressable>
         </View>
         {/* also the player's own note when nothing about tags is showing */}
-        <ReservedLine songId={song?.id} duration={duration} fallback={trouble || note} />
+        <ReservedLine songId={song?.id} duration={duration} fallback={trouble || note} passed={passed} />
         {/* the same buttons in Compare: Play/Pause works the version heard, the rest end Compare first */}
         <View style={s.slot}>
           <View style={s.controls}>
@@ -322,17 +329,13 @@ function FullPlayer() {
             <Pressable style={s.button} onPress={leavingCompare(player.next)}>
               <Text style={s.buttonText}>Next</Text>
             </Pressable>
-            {/* on: filled, like Mine. Hidden while sorting, its width kept so the row never shifts */}
+            {/* each tap: Off > Mine > Unsorted > Off, no box. On: filled, like Mine. Hidden while sorting, its width kept so the row never shifts */}
             {sorting ? (
               <View style={s.shuffle} />
             ) : (
               <Pressable
                 style={[s.button, s.shuffle, shuffleOn && s.shuffleOn]}
-                onPress={leavingCompare(() =>
-                  shuffleOn
-                    ? (player.setShuffleOn(false), say({ text: 'Shuffle ', bold: 'off' }))
-                    : askShuffle((picked) => (player.setShuffleOn(true, picked), say({ text: 'Shuffle: ', bold: picked === 'mine' ? 'Mine' : 'unsorted' }))),
-                )}
+                onPress={leavingCompare(tapShuffle)}
                 accessibilityLabel={shuffleOn ? `Shuffle on, ${pool === 'mine' ? 'Mine' : 'unsorted'}` : 'Shuffle off'}
               >
                 <ShuffleIcon color={shuffleOn ? '#111' : '#8e8e93'} />

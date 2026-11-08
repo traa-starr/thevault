@@ -4,7 +4,7 @@
 import { File, Paths } from 'expo-file-system';
 import { useMemo, useSyncExternalStore } from 'react';
 import { addTagChange, newId, onOutbox, onSent, takeBack, useOutbox } from './outbox';
-import { listAfterTap, tagsWithPending, type Change, type ShownTag, type Tag, type TagChange } from './playOrder';
+import { listAfterTap, tagTapped, tagsWithPending, type Change, type ShownTag, type Tag, type TagChange } from './playOrder';
 
 const TIMEOUT_MS = 10000;
 export const MAX_TEXT = 500;
@@ -92,7 +92,6 @@ export type Draft = { tagId: string; songId: string; songTitle: string; at: numb
 export type Note = { text: string; bold?: string; undo?: () => void };
 const NOTE_MS = 3000;
 const UNDO_MS = 6000;
-const GUARD_MS = 1000;
 
 const draftFile = () => new File(Paths.document, 'tag-draft.json');
 
@@ -106,10 +105,12 @@ function loadDraft(): Draft | null {
 }
 
 // listFor: the song whose Tags list is open. One place, and a song change closes it by itself (the id no longer matches).
-type Line = { draft: Draft | null; note: Note | null; listFor: string | null };
-let line: Line = { draft: loadDraft(), note: null, listFor: null };
+// aside: the right side of the reserved line (Shuffle's pool), so it never covers tag words on the left.
+type Line = { draft: Draft | null; note: Note | null; listFor: string | null; aside: Note | null };
+let line: Line = { draft: loadDraft(), note: null, listFor: null, aside: null };
 let noteTimer: ReturnType<typeof setTimeout> | undefined;
-let lastTap = 0;
+let asideTimer: ReturnType<typeof setTimeout> | undefined;
+let lastTap = -Infinity;
 const lineListeners = new Set<() => void>();
 
 function setLine(next: Partial<Line>) {
@@ -150,17 +151,34 @@ export function say(note: Note) {
   setLine({ note });
 }
 
+/** The right side of the reserved line, for 3 s. A new one restarts the 3 s. */
+export function sayAside(note: Note) {
+  clearTimeout(asideTimer);
+  asideTimer = setTimeout(() => setLine({ aside: null }), NOTE_MS);
+  setLine({ aside: note });
+}
+
+/** Passing tag words take the line from a plain note (a jump's words); a note with Undo keeps it. */
+export function dropPlainNote() {
+  if (!line.note || line.note.undo) return;
+  clearTimeout(noteTimer);
+  setLine({ note: null });
+}
+
 export const tagLine = {
-  /** Tag here: the second is the one passed in, frozen. A second tap within 1 s, or with a draft open, starts nothing. */
-  start(songId: string, songTitle: string, at: number) {
-    const now = Date.now();
-    const guarded = now - lastTap < GUARD_MS;
-    lastTap = now;
-    if (line.draft || guarded) return false;
-    clearTimeout(noteTimer);
-    setLine({ note: null });
-    keepDraft({ tagId: newId(), songId, songTitle, at: Math.max(0, at), text: '', madeAt: new Date().toISOString() });
-    return true;
+  /** The Tag icon. No draft: opens one at the second passed in, frozen. A draft open: cancels it, the same as Cancel.
+   *  A tap within 1 s of the last does nothing (tagTapped). */
+  tap(songId: string, songTitle: string, at: number) {
+    const next = tagTapped({ draft: line.draft, lastTap }, Date.now(), () => ({
+      tagId: newId(), songId, songTitle, at: Math.max(0, at), text: '', madeAt: new Date().toISOString(),
+    }));
+    lastTap = next.lastTap;
+    if (next.draft === line.draft) return;
+    if (next.draft) {
+      clearTimeout(noteTimer);
+      setLine({ note: null });
+    }
+    keepDraft(next.draft);
   },
 
   type(text: string) {

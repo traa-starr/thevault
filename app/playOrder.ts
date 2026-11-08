@@ -229,3 +229,40 @@ export function setFlag(file: FlagFile, on: boolean) {
  *  song change closes it with no extra step. */
 export const listAfterTap = (openFor: string | null, songId: string) => (openFor === songId ? null : songId);
 export const listIsOpen = (openFor: string | null, songId: string | null | undefined) => !!songId && openFor === songId;
+
+/** Shuffle's one button: each tap goes Off > Mine > Unsorted > Off. `on` is read from `order.shuffle`, the one place. */
+export type ShufflePick = { on: boolean; pool: 'unsorted' | 'mine' };
+export const shuffleAfterTap = ({ on, pool }: ShufflePick): ShufflePick =>
+  !on ? { on: true, pool: 'mine' } : pool === 'mine' ? { on: true, pool: 'unsorted' } : { on: false, pool };
+export const shuffleWords = ({ on, pool }: ShufflePick) => (!on ? 'off' : pool === 'mine' ? 'Mine' : 'Unsorted');
+
+/** Tag words as playback passes a tick. One sample per time update; a step longer than this is a seek, not play. */
+export const TICK_SHOW_MS = 4000;
+const PLAY_STEP = 1.5;
+/** `from`: the last second heard while playing on its own; null after a drag, seek, pause or open field. */
+export type TickWords = { from: number | null; tagId: string | null; until: number };
+export const noTickWords: TickWords = { from: null, tagId: null, until: 0 };
+/** A fresh song counts from just before 0:00, so a tag at 0:00 shows as it starts. */
+export const songStartWords: TickWords = { from: -0.001, tagId: null, until: 0 };
+/** `settled`: playing on its own (not dragged, not seeking, no tag field open). The newest tag passed replaces the
+ *  last at once; words clear after 4 s or when the next tag is passed. */
+export function tickWordsAfter(s: TickWords, tags: { id: string; at_sec: number }[], time: number, now: number, settled: boolean): TickWords {
+  let { tagId, until } = s;
+  if (tagId && now >= until) [tagId, until] = [null, 0];
+  if (!settled) return { from: null, tagId, until };
+  if (s.from !== null && time > s.from && time - s.from <= PLAY_STEP) {
+    let passed: string | null = null;
+    for (const tag of tags) if (tag.at_sec > s.from && tag.at_sec <= time) passed = tag.id;
+    if (passed) [tagId, until] = [passed, now + TICK_SHOW_MS];
+  }
+  return { from: time, tagId, until };
+}
+
+/** The Tag icon: opens a draft, or with one open, cancels it (no tag saved). A tap within 1 s of the last does nothing,
+ *  so the double tap that opened a field can't close it. */
+export const TAP_GUARD_MS = 1000;
+export type TagTap<D> = { draft: D | null; lastTap: number };
+export function tagTapped<D>(s: TagTap<D>, now: number, fresh: () => D): TagTap<D> {
+  if (now - s.lastTap < TAP_GUARD_MS) return { ...s, lastTap: now };
+  return { draft: s.draft ? null : fresh(), lastTap: now };
+}

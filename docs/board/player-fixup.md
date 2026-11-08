@@ -29,3 +29,35 @@ Seats: flow and screen (board test line 2). Advisory, trims only. Brief: NEXT.md
 
 ## Proposed phone checks
 In NEXT already (5, 6). Add to 6: a song with 0 tags shows **Tags · 0** and opens to "No tags yet".
+
+# Board: player polish (2026-11-08)
+
+Seats: flow and screen (board test line 2). Advisory, trims only. Brief: NEXT.md "Player polish".
+
+## Agreed
+- Passed-tick words look exactly like a jump's words; no marker on the seek bar.
+- Only forward play passing a tick counts; drags, seeks and Previous never fire it. A jumped-to tag isn't shown twice.
+- Two tags close together: the newest replaces the older at once, never queued.
+- Tag at 0:00 shows as a song starts from the beginning; Previous restarting the same song doesn't fire it again.
+- The open tag field wins; words passed while typing aren't saved for later.
+- A note with Undo wins over passed-tick words and over the Shuffle text (Undo keeps the far right).
+- Shuffle: a tap within the 3 s moves on at once and restarts the 3 s. Off is said in words ("Shuffle off").
+- Changing the pool never interrupts the song playing; only what plays next changes.
+- Tag icon while typing should not look disabled; it now reads as "close".
+
+## Disagreed
+- Tag with no words, when passed. Flow: time only ("1:23"), "no words yet" nags. Screen: silent. Code's pick: time only.
+- Shuffle wording. Flow: "Shuffle: Mine / Unsorted", "Shuffle off". Screen: drop the prefix ("Mine"). Code's pick: keep
+  the prefix, so "Mine" never reads as the Mine verdict.
+- Pool mark on the Shuffle icon after the 3 s. Flow: a tiny M/U. Screen: icon stays clean. Code's pick: clean (owner's
+  earlier call).
+- Tag icon while typing. Screen: amber X. Flow: filled/highlighted. Code's pick: amber X, label "Cancel tag".
+- Double tap on Tag. Flow: ignore re-taps for 400 ms, and do nothing if words are typed. Code's pick: the 1 s guard that
+  already exists (a tap within 1 s of the last does nothing); typed words still cancel, as the owner decided.
+
+## Owner questions (defaults built)
+1. Tag re-tap with words typed: cancel and lose them (built, your call) or do nothing?
+2. Tag icon while typing: amber X (built) or the tag icon unchanged?
+
+## Proposed phone checks
+In NEXT already (5-7). Add to 7: tap Tag twice fast: the field stays open.

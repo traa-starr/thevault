@@ -1,34 +1,34 @@
-**Step:** Player fix-up (crash, layout, Tags button), 2026-11-08.
+**Step:** Player polish (tag words while playing, Tag re-tap cancels, Shuffle cycle), 2026-11-08.
 
-**Verified by running:** `/verify` 11/11 PASS (incl. music guard test, check_repo). playOrder test: new eye test FAILED before the fix ("path does not exist"), passes after; new Tags list test passes. Typecheck clean.
+**Verified by running:** `/verify` 11/11 PASS (incl. playOrder test, typecheck, music guard test, check_repo). The 3 new playOrder tests pass.
 
 **Phone update:** publish. Run `python server\vault_cli.py publish E:\VaultLibrary`, then close and reopen the app. No server change.
 
 **Needs the phone:**
-1. On a song marked Mine (opens with buttons hidden), tap the eye 5 times. Close the app fully, reopen, open the player, 5 more. Pass: no crash, nothing on screen jumps.
-2. Player look: Shuffle is a box at the end of Previous / Play / Next. Off = grey arrows; on = filled blue. Turning it on still asks Unsorted / Mine, and the line under the times says "Shuffle: Mine" for 3 s. Pass: you can tell on from off.
-3. Amber tag shape at the right end of the Back row. Tap it: the field opens as before. Pass: easy to hit, and Back is not hit by mistake.
-4. No tag list until you tap **Tags · N** (after Compare / Versions). Tap: the list opens under Back; a row tap jumps and the list stays open; tap Tags · N again: it closes. On a song with no tags: "Tags · 0" opens to "No tags yet".
-5. Tag words still show above the controls while playing. With Mine/Not mine shown and hidden: nothing cramped or floating.
-6. (Done when 7) In a Code session with auto mode on, ask Code to write a test file into `E:\vault-dummy-protected`. Pass: the guard blocks it, the folder is unchanged.
+1. (Done when 5) Open a song with 2+ tags, drag to before the first tick, press Play, touch nothing. Pass: as play passes each tick its words show on the left of the line under the times ("1:23  words"); they go after about 4 s or when the next tick passes. A tag with no words shows just its time.
+2. Drag the knob across a tick and let go past it. Pass: no words show until play passes the next tick.
+3. (Done when 6) Tap Shuffle 3 times, a second or two apart. Pass: "Shuffle: Mine", "Shuffle: Unsorted", "Shuffle off" on the right side of that line, no box; blue on for the first two. With Shuffle just tapped and a tick passing, both texts readable at once.
+4. (Done when 7) Tap Tag: the Tag icon turns into an amber X. Type a few letters, wait a second, tap the X. Pass: the field closes, Tags · N doesn't go up, the music never stopped. Also: tap Tag twice fast: the field stays open.
 
-**Changed:** `.claude/skills/next/SKILL.md`, `.claude/skills/wrap/SKILL.md`, `app/Player.tsx`, `app/Tagging.tsx`, `app/playOrder.ts`, `app/playOrder.test.mjs`, `app/playerStore.ts`, `app/tagStore.ts`, `docs/pending-skills/` deleted, new `docs/board/player-fixup.md`, `docs/STATUS.md`, `docs/REPORT.md`, `docs/DECISIONS.md`.
+**Changed:** `app/Player.tsx`, `app/Tagging.tsx`, `app/playOrder.ts`, `app/playOrder.test.mjs`, `app/tagStore.ts`, `docs/board/player-fixup.md`, `docs/STATUS.md`, `docs/REPORT.md`, `docs/DECISIONS.md`.
 
 **Done when:**
-1. Skills in `.claude/skills/`, `docs/pending-skills/` gone: pass.
-2. Test reproduces the eye crash, passes after: pass.
-3. `/verify` all PASS incl. music guard: pass (11/11).
-4. One place each (Shuffle: `order.shuffle`; count and ticks: one `useTags` list; open: `listFor` in the tag store), Tags · 0 opens empty: pass (test + typecheck; the screen itself is check 4).
+1. Tick-words test (passes show, 4 s / next tick clears, drag and seek show nothing): pass.
+2. Shuffle test (Mine, Unsorted, off, Mine from `order.shuffle`; Next follows the pool); dialog gone from the player: pass (Library's own Shuffle still asks, NEXT only covered the player).
+3. Tag test (tap, type, tap closes with nothing saved, as Cancel): pass.
+4. `/verify` all PASS incl. music guard: pass (11/11).
 5-7. not run (for chat).
 
-**Plan I chose:** [x] 0 skills in. [x] 1 crash test then fix. [x] 2 board (flow + screen). [x] 3 layout. [x] 4 checks, wrap.
-- The crash: the eye rule from 6.5 hides the buttons on sorted songs without writing the setting file, so Unhide tried to delete a file that wasn't there and iOS threw. It likely surfaced in batch 1 because you were tapping Unhide on Mine songs while tagging. Fix: toggles check the file first (same fix for the time-left tap).
-- Board splits I settled (reversible, see `board/player-fixup.md`): Tag icon dims and ignores taps while typing; Shuffle pool shown on the reserved line, not on the icon; Tags · N last in its row; Tag icon and Tags hidden in Compare.
+**Plan I chose:** [x] 0 board (flow + screen). [x] 1 tag words (test first). [x] 2 Tag re-tap. [x] 3 Shuffle cycle. [x] 4 verify, wrap.
+- Rules sit in `playOrder.ts` (`tickWordsAfter`, `shuffleAfterTap`, `tagTapped`) so they're tested without a phone. A time step over 1.5 s counts as a seek, not play.
+- Board splits I settled (reversible, `board/player-fixup.md`): a tag with no words shows its time only; "Shuffle:" prefix kept; no M/U mark on the icon; Undo note beats tick words and the Shuffle text; the 1 s double-tap guard on Tag stays.
 
-**Not done:** Tags list opens without animation (Limits allowed it). Tag editing is batch 2.
+**Not done:** Tag editing (batch 2). No fade on the words (screen seat's optional idea, skipped).
 
-**Decisions needed:** 3 taste calls, defaults built: Shuffle "on" blue (not amber); tag drawn as a tag shape (not "+" in a ring); Tag icon inert while typing (not "tap saves"). Change any at Review.
+**Decisions needed:**
+1. Tag re-tap with words already typed: cancels and loses them (built, as you decided) or does nothing? Board flow seat recommends "does nothing". Default: as built.
+2. Tag icon while typing: amber X (built) or the tag icon unchanged? Default: X.
 
-**Proposed next step:** chat walks the checks; then Phase 2 batch 2, its row actions inside the Tags list.
+**Proposed next step:** Phase 2 batch 2 (goal trial task 3).
 
-**Pitch:** a tiny app-side test runner for store logic (fake File), so crashes like this one are caught on the laptop.
+**Pitch:** let Library's Shuffle cycle the same way, so the pop-up is gone everywhere.

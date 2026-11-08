@@ -1,6 +1,6 @@
 // Self-test for the play order: node --experimental-strip-types app/playOrder.test.mjs
 import assert from 'node:assert/strict';
-import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere, dialTarget, tagsWithPending, setFlag, listAfterTap, listIsOpen } from './playOrder.ts';
+import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere, dialTarget, tagsWithPending, setFlag, listAfterTap, listIsOpen, shuffleAfterTap, shuffleWords, tickWordsAfter, noTickWords, songStartWords, tagTapped, TICK_SHOW_MS } from './playOrder.ts';
 import { applyEdit, applyPicks, groupEdit, groupLead, linkEdit, makeMainEdit, membersOf, removeEdit, reverse, settle } from './family.ts';
 
 const fams = (pairs) => new Map(Object.entries(pairs));
@@ -21,6 +21,81 @@ const fakeFile = (exists) => ({
   delete() { if (!this.exists) throw new Error('path does not exist'); this.exists = false; },
 });
 const tests = {
+  'tick words: playback passing a tick shows it; 4 s or the next tick clears it; a drag shows nothing': () => {
+    const tags = [{ id: 'zero', at_sec: 0 }, { id: 'a', at_sec: 10 }, { id: 'b', at_sec: 12 }, { id: 'c', at_sec: 40 }];
+    // play: one sample every 0.25 s, the clock in ms alongside
+    let s = songStartWords;
+    let ms = 0;
+    const play = (from, to, settled = true) => {
+      for (let t = from; t <= to + 1e-9; t += 0.25) {
+        s = tickWordsAfter(s, tags, Math.round(t * 100) / 100, ms, settled);
+        ms += 250;
+      }
+    };
+    play(0, 0);
+    assert.equal(s.tagId, 'zero'); // a tag at 0:00 shows as the song starts
+    play(0.25, 9.75);
+    assert.equal(s.tagId, null); // gone after 4 s
+    play(10, 10);
+    assert.equal(s.tagId, 'a'); // passed, no tap
+    play(10.25, 11.75);
+    assert.equal(s.tagId, 'a'); // still there under 4 s
+    play(12, 12);
+    assert.equal(s.tagId, 'b'); // the next tick replaces it at once
+    const shownAt = ms;
+    play(12.25, 15.75);
+    assert.equal(s.tagId, 'b');
+    play(16, 16.25);
+    assert.ok(ms - shownAt > TICK_SHOW_MS);
+    assert.equal(s.tagId, null); // cleared after 4 s
+    // dragging the knob across 'c' (40 s): nothing while dragged, nothing on landing past it
+    s = tickWordsAfter(s, tags, 30, ms, false);
+    s = tickWordsAfter(s, tags, 41, ms + 100, false);
+    s = tickWordsAfter(s, tags, 41, ms + 200, true); // played on from the drop
+    s = tickWordsAfter(s, tags, 41.25, ms + 450, true);
+    assert.equal(s.tagId, null);
+    // a seek (a long step while playing) is not play passing a tick either
+    s = tickWordsAfter(s, tags, 5, ms + 700, true);
+    s = tickWordsAfter(s, tags, 11, ms + 950, true);
+    assert.equal(s.tagId, null);
+    // dragged back before 'c', then play passes it: it shows
+    s = tickWordsAfter({ ...noTickWords }, tags, 39.5, ms + 1200, true);
+    s = tickWordsAfter(s, tags, 39.75, ms + 1450, true);
+    s = tickWordsAfter(s, tags, 40, ms + 1700, true);
+    assert.equal(s.tagId, 'c');
+  },
+  'shuffle: four taps go Mine, Unsorted, Off, Mine, read from order.shuffle, and Next follows the pool': () => {
+    const mine = new Set(['b', 'c']);
+    const outside = (pool) => abcd.filter((id) => (pool === 'mine') !== mine.has(id)); // what the player's avoid set holds
+    let order = list('a');
+    let pool = 'unsorted';
+    const seen = [];
+    for (let i = 0; i < 4; i++) {
+      const pick = shuffleAfterTap({ on: order.shuffle, pool });
+      order = setShuffle(order, pick.on, keep);
+      pool = pick.pool;
+      seen.push(shuffleWords({ on: order.shuffle, pool }));
+      if (order.shuffle) for (const id of walk(order, outside(pool))) assert.equal(mine.has(id), pool === 'mine', `${id} in ${pool}`);
+    }
+    assert.deepEqual(seen, ['Mine', 'Unsorted', 'off', 'Mine']);
+    assert.deepEqual(walk(order, outside('mine')), ['b', 'c']);
+    order = setShuffle(order, shuffleAfterTap({ on: true, pool: 'mine' }).on, keep);
+    assert.deepEqual(walk(setShuffle(order, true, keep), outside('unsorted')), ['d']);
+  },
+  'tag icon: tap, type, tap again closes the field with nothing saved (as Cancel); a double tap keeps it open': () => {
+    let made = 0;
+    const fresh = () => ({ text: '', n: ++made });
+    let s = tagTapped({ draft: null, lastTap: -10000 }, 0, fresh);
+    assert.ok(s.draft);
+    s = { ...s, draft: { ...s.draft, text: 'a line' } }; // typed
+    const cancelled = { ...s, draft: null }; // what Cancel leaves
+    s = tagTapped(s, 3000, fresh);
+    assert.equal(s.draft, cancelled.draft); // closed, so no tag and no words-free mark is made (only finish saves)
+    assert.equal(made, 1); // and no new field opened
+    s = tagTapped(s, 6000, fresh);
+    s = tagTapped(s, 6300, fresh); // the second half of a double tap
+    assert.ok(s.draft);
+  },
   'tags list: a song with 0 tags counts 0 and still opens; a second tap closes; a song change closes it': () => {
     const tags = tagsWithPending([{ id: 't1', song_id: 'other', text: 'x', at_sec: 3, made_at: '' }], [], 'empty');
     assert.equal(tags.length, 0); // the button reads Tags · 0, from the same list the ticks use

@@ -1,18 +1,20 @@
 // Tagging in the player (BLUEPRINT "Phase 2: tagging"): the reserved line under the seek bar (the typing field, or a
 // short note with Undo), the Tag button, Tags · N and the song's tag list. Fixed heights throughout, so nothing moves.
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { player } from './playerStore';
-import { clock, clockExact, MAX_TEXT, say, tagLine, useTagLine } from './tagStore';
-import { listIsOpen, type ShownTag } from './playOrder';
+import { clock, clockExact, dropPlainNote, MAX_TEXT, say, tagLine, useTagLine } from './tagStore';
+import { listIsOpen, noTickWords, songStartWords, tickWordsAfter, type ShownTag, type TickWords } from './playOrder';
 
 const ACCENT = '#f5b041'; // the mockup's amber, a placeholder (DECISIONS 2026-11-07)
 const NUDGE = 0.5;
 export const LINE_HEIGHT = 52;
 const ROW_HEIGHT = 48;
 
-/** The reserved line: the field while a tag is being typed, else the last note, else empty. Always the same height. */
-export function ReservedLine({ songId, duration, fallback }: { songId: string | null | undefined; duration: number; fallback?: string }) {
-  const { draft, note } = useTagLine();
+/** The reserved line: the field while a tag is being typed. Else, left: the last note, else the tag just passed, else the
+ *  fallback; right: Shuffle's pool for 3 s, unless Undo needs the spot. Always the same height. */
+export function ReservedLine({ songId, duration, fallback, passed }: { songId: string | null | undefined; duration: number; fallback?: string; passed?: ShownTag | null }) {
+  const { draft, note, aside } = useTagLine();
   if (draft) {
     return (
       <View style={s.line}>
@@ -50,13 +52,19 @@ export function ReservedLine({ songId, duration, fallback }: { songId: string | 
   return (
     <View style={s.line}>
       <Text style={s.msg} numberOfLines={1}>
-        {note ? note.text : fallback || ''}
+        {note ? note.text : passed ? '' : fallback || ''}
         {note?.bold ? <Text style={s.bold}>{note.bold}</Text> : null}
+        {!note && passed ? <Text style={s.bold}>{tagWords(passed)}</Text> : null}
       </Text>
       {note?.undo ? (
         <Pressable style={s.act} onPress={tagLine.undo}>
           <Text style={s.undoText}>Undo</Text>
         </Pressable>
+      ) : aside ? (
+        <Text style={s.aside} numberOfLines={1}>
+          {aside.text}
+          {aside.bold ? <Text style={s.bold}>{aside.bold}</Text> : null}
+        </Text>
       ) : null}
     </View>
   );
@@ -74,20 +82,29 @@ function TagIcon({ color }: { color: string }) {
   );
 }
 
+/** An X, drawn: the Tag icon while a tag is being typed, where a tap cancels. */
+function CloseIcon() {
+  return (
+    <View style={s.closeIcon}>
+      <View style={[s.closeBar, { transform: [{ rotate: '45deg' }] }]} />
+      <View style={[s.closeBar, { transform: [{ rotate: '-45deg' }] }]} />
+    </View>
+  );
+}
+
 /** Tag, on the Back row's right. The second is read from the player at the tap and frozen; the music keeps playing.
- *  While a tag is being typed it dims and takes no taps: the field's Return and Cancel finish it. */
+ *  While a tag is being typed it shows an X and a tap cancels, the same as Cancel. */
 export function TagButton({ songId, title }: { songId: string | null | undefined; title: string }) {
   const { draft } = useTagLine();
   if (!songId) return <View style={s.tagButton} />;
   return (
     <Pressable
       style={s.tagButton}
-      onPress={() => tagLine.start(songId, title, player.positionNow())}
-      disabled={!!draft}
+      onPress={() => tagLine.tap(songId, title, player.positionNow())}
       hitSlop={8}
-      accessibilityLabel="Tag here"
+      accessibilityLabel={draft ? 'Cancel tag' : 'Tag here'}
     >
-      <TagIcon color={draft ? '#636366' : ACCENT} />
+      {draft ? <CloseIcon /> : <TagIcon color={ACCENT} />}
     </Pressable>
   );
 }
@@ -107,6 +124,35 @@ export function TagsButton({ songId, tags }: { songId: string; tags: ShownTag[] 
 export function jumpToTag(tag: ShownTag) {
   player.seek(tag.at_sec);
   say({ text: '', bold: `${clock(tag.at_sec)}  ${tag.text || 'no words yet'}` });
+}
+
+/** A passed tag's words, as a jump shows them; a tag with no words shows only its time. */
+const tagWords = (tag: ShownTag) => (tag.text ? `${clock(tag.at_sec)}  ${tag.text}` : clock(tag.at_sec));
+
+/** The tag playback just passed, for 4 s or until the next (tickWordsAfter). `settled`: playing on its own, not dragged
+ *  or seeking, no field open. A song change starts again from 0:00. */
+export function usePassedTag(songId: string | null | undefined, tags: ShownTag[], time: number, settled: boolean): ShownTag | null {
+  const state = useRef<TickWords>(noTickWords);
+  const song = useRef(songId);
+  const [shown, setShown] = useState<{ tagId: string | null; until: number }>({ tagId: null, until: 0 });
+  useEffect(() => {
+    const was = song.current === songId ? state.current : songStartWords;
+    song.current = songId;
+    const next = tickWordsAfter(was, tags, time, Date.now(), settled);
+    state.current = next;
+    if (next.tagId && next.until !== was.until) dropPlainNote();
+    if (next.tagId !== shown.tagId || next.until !== shown.until) setShown({ tagId: next.tagId, until: next.until });
+  }, [songId, time, settled]);
+  // paused, no time updates come: a timer clears it
+  useEffect(() => {
+    if (!shown.tagId) return;
+    const timer = setTimeout(() => {
+      state.current = { ...state.current, tagId: null, until: 0 };
+      setShown({ tagId: null, until: 0 });
+    }, Math.max(0, shown.until - Date.now()));
+    return () => clearTimeout(timer);
+  }, [shown]);
+  return (shown.tagId && tags.find((tag) => tag.id === shown.tagId)) || null;
 }
 
 /** The tag playing now: the last one at or before this second. */
@@ -144,6 +190,9 @@ export function TagList({ songId, tags, time }: { songId: string | null | undefi
 const s = StyleSheet.create({
   line: { height: LINE_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 10 },
   msg: { flex: 1, color: '#8e8e93', fontSize: 15 },
+  aside: { flexShrink: 0, marginLeft: 2, color: '#8e8e93', fontSize: 15 },
+  closeIcon: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  closeBar: { position: 'absolute', width: 24, height: 3, borderRadius: 2, backgroundColor: ACCENT },
   bold: { color: '#fff', fontWeight: '500' },
   act: { height: 44, justifyContent: 'center', paddingHorizontal: 4 },
   undoText: { color: ACCENT, fontSize: 15 },
