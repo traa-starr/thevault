@@ -1,16 +1,16 @@
-# NEXT: Batch 6.7, Compare lock-screen play + Compare word spot (over the air)
+# NEXT: Phase 1 close: fold DECISIONS
 Written by chat, 2026-11-07.
-Log: 6.6 phone results (1-4 pass; 5 half: Compare lock-screen play pauses itself once); Compare word lines up with the pill's right edge (chat-default); lock-screen log added because this is the second fix (chat); board skipped (chat). See rows "Batch 6.6 phone" and "Batch 6.7 calls" at the end of `DECISIONS.md` (logged by chat)
-Queue after this: Phase 1 "Done when" with me (away, screen locked, laptop asleep). Then `/verify`, then the Phase 2 plan session.
-Read: this file, last 3 rows of `DECISIONS.md`, the `publish` line in `COMMANDS.md`, last REPORT's "What was found". Code of `Player.tsx`, `Compare.tsx`, `compareEngine.ts`, `engine.ts`, `playerStore.ts` as needed.
-Session: Opus, medium effort. No build: app code only, ships over the air.
+Log: 6.7 phone 3/3 pass; away test pass, Phase 1 closed (mine); leftover names wait for tagging (chat-default); fold moves Phase 0-1 rows to an archive file (chat). See rows "Batch 6.7 phone" and "Phase 1 close" at the end of `DECISIONS.md` (logged by chat)
+Queue after this: `/verify` (fast-lane OK, below). Then the Opus plan session for Phase 2 tagging (`PLAN-SESSION.md`, board inside, no "Plan mode" label; board tries a clickable HTML mockup of new screens before Code builds).
+Read: this file, `DECISIONS.md` (once, to summarise), `ROADMAP.md` Phase 1 only.
+Session: cheaper model (Sonnet), docs only, no build, no publish.
 ## Parts
-a. **Compare lock-screen play, first press.** In Compare, pause from the lock screen already works first time; play doesn't: the lock-screen button flips to playing, then the version pauses itself before any sound, and a second play starts it. Normal playback is fine now, don't change it. Find what pauses it (likely Compare or the queue player undoing the play, the mirror of 6.6's pause fix); add an engine test that fails on today's code and passes on the fix.
-b. **Lock-screen log.** Code's 6.6 pitch: a hidden log on the phone that records each lock-screen press and what the player and Compare did next, with times. A way to show it on the phone (for example a long press on the home screen's Update line), copyable as text. Nothing new visible on normal screens. If a's fix fails on the phone, the next step reads this log instead of guessing (two-fails rule).
-c. **Compare word spot.** "Versions · N" and the open pill stay exactly where they are now. The closed Compare word moves right so its right edge lines up with the pill's right edge (today it sits at the slot's left, mid-row). Nothing moves when Compare opens or closes.
-d. **Ship it.** tsc and the engine tests, then the `publish` line yourself. REPORT gives the publish result line.
-**Stop line:** a and c first, then b. If a can't be found from code, ship b and c so the phone log can catch it, and say so in REPORT.
-## Phone check (no build: server running, close and reopen the app, the home screen's bottom line shows the new Update time)
-1. Open TOXICBRAT. Pass: the Compare word sits at the right, ending where the wheel's right edge will be. Tap Compare: the wheel opens there, nothing else moves. Done: the word is back in the same spot.
-2. In Compare, lock the phone, pause then play from the lock screen, 3 times. Pass: every press works first time, no self-pause.
-3. Normal song, same on the lock screen 3 times. Pass: still first press. Then open the hidden log (REPORT says how). Pass: it shows your presses.
+a. **Archive.** Move every row from the Phase 0 and Phase 1 tables in `DECISIONS.md`, word for word, to new `docs/decisions/phase-0-1.md` (short header: what it is, where the summaries live). Nothing deleted or reworded.
+b. **Summaries.** `DECISIONS.md` keeps its header, the Phase 0 summary as is, and a new "Phase 1 summary (closed 2026-11-07)" in the same style: 10-15 bullets of what still binds (rules, product calls, Compare and lock-screen behaviour, over-the-air updates, build 22 as last full build, board rules, leftover names). Then one link line to the archive and an empty table for rows from here on, with the same columns. Target under 8 KB.
+c. **Pointers.** Anything that cites "DECISIONS" for an old row still finds it: add one line to `CLAUDE.md`'s pointer line and `docs/MAP.md` naming the archive. Check `check_repo.py` passes.
+**Stop line:** a and b first; c can be one line each.
+## Phone check
+None. Chat checks at `Review.`: archive row count equals the rows removed, DECISIONS under 8 KB.
+
+## Queued: /verify (fast-lane OK)
+One command runs everything that can be checked on the laptop: server tests, doctor test, playOrder and compareEngine tests, `tsc --noEmit`, guard test, `check_repo.py`; prints one PASS/FAIL line per item and a final total. Read-only: no publish, no build, no music touched. Add as `.claude/skills/verify` plus a script; `COMMANDS.md` gets its line; `CLAUDE.md` Commands points to it. Later NEXTs can use it with `/goal`. Check: chat runs it at review; you run the COMMANDS line once and see all PASS.

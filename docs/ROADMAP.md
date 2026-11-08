@@ -47,7 +47,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [x] 1.22 Import list: only kept songs are imported; not-mine songs stay out of the library and the app *(verified 2026-11-04, Batch 5: `import` rerun copies 0, Mine = already in)*
 - [x] 1.23 Versions, manual (phone-verified 2026-11-04; select mode phone-verified in Batch 4c): "this is another version of song X" from library, player or sort, any time; versions as a second layer of sort. Pulled forward from 4.1/4.7 (DECISIONS 2026-11-01); name and fingerprint proposals stay in Phase 4
 
-**Done when:** I've sorted my catalogue from the phone without downloading it, then play a kept song at home and away with the screen locked and the laptop asleep, and app data survives a re-sign.
+**Done when:** I've sorted my catalogue from the phone without downloading it, then play a kept song at home and away with the screen locked and the laptop asleep, and app data survives a re-sign. **Passed 2026-11-07, Phase 1 closed** (away test: laptop asleep, off home Wi-Fi, lock screen first press, reconnects at home).
 
 ## Phase 2: Tagging (Checkpoint 2). "My songs start having memory"
 - [ ] 2.1 Prototype: tagging card, tappable with fake data
