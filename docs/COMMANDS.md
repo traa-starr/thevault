@@ -17,6 +17,8 @@ None of these change, move or delete my music. Chat keeps this file up to date w
 | **Import**: copy Mine songs into the library and make phone copies (stop the server first) | `python server\vault_cli.py import E:\VaultLibrary` | First run about 15 min. Rerun: "copied now: 0" and "Mine songs" = "already in". Run after marking new songs Mine |
 | **Refresh song dates** (after a scan, stop the server first) | `python server\vault_cli.py songs E:\VaultLibrary` | A count of dates refreshed |
 | **Reset group Mains to newest** (one-off; your hand picks stay) | `python server\vault_cli.py mains E:\VaultLibrary` | "Main changed to newest: N" |
+| **Tags per song**: compare with the phone (restore check) | `python server\vault_cli.py tags E:\VaultLibrary` (add title words to show one song) | Each song's title, then its tags as `1:42.300  words`, and a total. Read-only |
+| **Screenshots** of the app's screens with fake songs (Code's eyes; first time: `npm --prefix tools/shots install`) | `npm --prefix tools/shots run shots` | `ok  player-30-tags` lines and "N of N screens drawn"; PNGs in `spike\output\shots\`. Laptop only, nothing reaches the phone |
 | **Publish an app update** (app-code changes only: no GitHub build, no SideStore) | `python server\vault_cli.py publish E:\VaultLibrary` | About 30 s of build lines, then "Published update 2026...". With the server running, close and reopen the app: the bottom line of its home screen changes to "Update <date>, <time>". "Stopped: the app code didn't build" means nothing changed on the phone |
 
 ## Checkpoints (backups that never get auto-deleted)

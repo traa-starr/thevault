@@ -14,6 +14,7 @@
     python server/vault_cli.py backup <library folder> [backup folder]       copy the database and journal to C:\\VaultBackup, keep 14
     python server/vault_cli.py publish <library folder>                      send the app's newest code to the phone over the air (no GitHub build)
     python server/vault_cli.py pull-cloud <library folder> <music root> [n]  make cloud-only songs download, one at a time (only the first n if given); rerun any time
+    python server/vault_cli.py tags <library folder> [title words]          every tag per song, second to 3 decimals (to compare with the phone); read-only
 """
 import shutil
 import sys
@@ -32,6 +33,7 @@ from vault_server.scanner import ScanStopped, apply_sorting, fingerprint, source
 from vault_server.server import run as run_server  # noqa: E402
 from vault_server.songs import FfprobeMissing, fill_details, fill_mine, link_songs, mine_counts, song_counts  # noqa: E402
 from vault_server.store import Busy  # noqa: E402
+from vault_server.tags import tags_by_song  # noqa: E402
 from vault_server.updates import publish  # noqa: E402
 
 
@@ -44,7 +46,7 @@ def main(argv):
     for stream in (sys.stdout, sys.stderr):  # a song name with an emoji mustn't stop a command halfway
         stream.reconfigure(errors="replace")
     if len(argv) < 3 or argv[1] not in ("init", "check", "import-sorting", "scan", "apply-sorting", "songs", "mains", "import", "fingerprint", "serve", "doctor",
-                                        "backup", "pull-cloud", "publish"):
+                                        "backup", "pull-cloud", "publish", "tags"):
         print(__doc__)
         return 1
     cmd, folder = argv[1], argv[2]
@@ -85,6 +87,9 @@ def main(argv):
             print(f"Scanned: {source_verdicts(lib)}")
             print(f"Songs: {song_counts(lib)}")
             print(f"Mine: {mine_counts(lib)}")
+        elif cmd == "tags":
+            lib = open_library(folder)
+            print("\n".join(tags_by_song(lib.store.conn, " ".join(argv[3:]))))
         elif cmd == "songs":
             lib = open_library(folder)
             print_result(link_songs(lib))

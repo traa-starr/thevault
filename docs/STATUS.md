@@ -1,11 +1,12 @@
 # Status
 
-**Phase 2 (tagging): player polish passed, Phase 2 code-complete next.** Updated 2026-11-08 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 2 (tagging): code-complete built, phone checks next.** Updated 2026-11-08 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 **In progress:** nothing.
-**Next up:** me: commit and push, new Code session, `/next`.
-**Current task:** Phase 2 code-complete (`NEXT.md`, goal trial task 3 of 3): fixes, change tags, tagging session, Library Shuffle, restore test, screenshot tool.
+**Next up:** me: commit, publish the app update, restart the server, then `Review.` in chat.
+**Current task:** Phase 2 code-complete (`NEXT.md`): built, `REPORT.md` has 4 phone checks.
 
 ## Done
+- Phase 2 code-complete built 2026-11-08: Tag tap and drag fixes, change tags, tagging session, Library Shuffle cycle, restore test + `tags` command, screenshot tool (`tools/shots/`). Board `board/phase-2-complete.md`. Fresh-eyes review caught 7 (REPORT).
 - Player polish reviewed 2026-11-08: checks 4 of 4 pass. Found: Tag won't reopen after an icon cancel; drag snaps to ticks. Both go in the next step. Results `PHASE-2-RESULTS.md`.
 - Player polish built 2026-11-08: tag words as play passes a tick, Tag re-tap cancels (amber X), Shuffle taps cycle with the pool on the right. Board notes appended to `board/player-fixup.md`. `/verify` 11/11.
 - Player fix-up reviewed 2026-11-08: checks 5 of 6 pass; fail: tag words only after a jump. Shuffle pop-up out (tap cycles). Results `PHASE-2-RESULTS.md`.
@@ -16,7 +17,7 @@
 - Phase 0 closed (`SPIKE-RESULTS.md`). Design ideas in `DESIGN-NOTES.md`.
 
 ## Queue
-1. Now: Phase 2 code-complete (one big step, see NEXT).
+1. Now: Review of Phase 2 code-complete (4 phone checks).
 2. Then: my real tagging sessions + restore check, then Phase 2 closes.
 3. Then (fast-lane OK, laptop-only): build sessions refresh phone copies on their own. Add a `refresh` step to `/next`'s start: stop the server, run `import`, start it again, and print "phone copies made now: N". Pass: `/verify` still 11/11 and the count shows. (465 Mine, 314 with copies today.)
 4. Chat, at a later review: a plain tour of the laptop commands in `COMMANDS.md` (what each is for, when to run it).
@@ -30,4 +31,4 @@
 - `SAVE ME` (mine?), 26 date-only names, `Untitled...` files: display names wait for the release system (ROADMAP 6.1).
 
 ## Checks pending
-- none.
+- Phase 2 code-complete: 4 (REPORT).

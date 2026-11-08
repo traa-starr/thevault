@@ -402,7 +402,7 @@ const canUseWindow = (index: number) => !!engine?.windowed && index >= 0 && inde
 
 export const player = {
   /** A tap on a song in a list. During Sort it replaces the saved library spot, so the sort song keeps playing. */
-  playList(serverUrl: string, list: PlayerSong[], startId: string, shuffle: boolean, pool: Pool = 'unsorted') {
+  playList(serverUrl: string, list: PlayerSong[], startId: string, shuffle: boolean, pool: Pool = 'unsorted', at = 0) {
     url = serverUrl;
     list.forEach((song) => songs.set(song.id, song));
     const ids = list.map((song) => song.id);
@@ -410,8 +410,8 @@ export const player = {
     ids.forEach((id) => delete marks[id]); // the list already holds my latest choices
     update({ marks, pool });
     const order = startOrder(ids, startId, shuffle);
-    if (state.sorting) saved = { order, at: 0 };
-    else loadOrder(order, 0, true);
+    if (state.sorting) saved = { order, at };
+    else loadOrder(order, at, true);
   },
 
   toggle() {
@@ -492,6 +492,19 @@ export const player = {
     if (!state.order) return;
     badInARow = 0;
     loadOrder(jumpTo(state.order, id), at, true);
+  },
+
+  /** The tagging session's Not mine: the song leaves the order (Next and Previous skip it) but plays on; Undo puts it back. */
+  setOut(id: string, out: boolean) {
+    if (!state.order) return;
+    const was = state.order.removed;
+    const removed = out ? (was.includes(id) ? was : [...was, id]) : was.filter((one) => one !== id);
+    if (removed === was) return;
+    const order = { ...state.order, removed };
+    const index = engine?.windowed ? engine.index() : 0;
+    track = track.map((one, i) => (i <= index ? { id: one.id, order: i === index ? order : null } : one));
+    update({ order });
+    replaceAhead(order, index);
   },
 
   setShuffleOn(on: boolean, pool: Pool = state.pool) {
@@ -836,6 +849,8 @@ export const player = {
 
   isSorting: () => state.sorting,
   isMine: () => (state.song ? markOf(state.song).mine === 'mine' : false),
+  /** The player as it is now, for code outside React. */
+  now: () => state,
   isOut: () => (state.order ? state.order.removed.includes(currentId(state.order)) : false),
   titleOf,
   upNext: () => (state.order ? upNext(state.order, UP_NEXT_SHOWN, avoid()) : []),

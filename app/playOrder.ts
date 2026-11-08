@@ -137,7 +137,7 @@ export type FamilyChange = {
 };
 /** A whole tag, as the laptop keeps it (BLUEPRINT "Phase 2: tagging"). `version_id` is filled in by the laptop. */
 export type Tag = { id: string; song_id: string; version_id?: string | null; text: string; at_sec: number; made_at: string };
-export type TagLine = { tag_id: string; song_id: string; text: string; at_sec: number; made_at: string };
+export type TagLine = { tag_id: string; song_id: string; version_id?: string | null; text: string; at_sec: number; made_at: string };
 export type TagChange =
   | { id: string; kind: 'tag_add'; data: TagLine }
   | { id: string; kind: 'tag_remove'; data: { tag_id: string; song_id: string } };
@@ -199,7 +199,8 @@ export function tagsWithPending(copy: Tag[], pending: Change[], songId?: string)
     if (change.kind === 'tag_add') {
       const { tag_id, ...rest } = change.data;
       const was = tags.get(tag_id);
-      tags.set(tag_id, { ...was, id: tag_id, ...rest, made_at: was?.made_at ?? rest.made_at, onPhone: true });
+      // the laptop's song wins: it may have moved the tag to the song that stayed after a merge
+      tags.set(tag_id, { ...was, id: tag_id, ...rest, song_id: was?.song_id ?? rest.song_id, made_at: was?.made_at ?? rest.made_at, onPhone: true });
     } else if (change.kind === 'tag_remove') tags.delete(change.data.tag_id);
   }
   return [...tags.values()]
@@ -258,11 +259,100 @@ export function tickWordsAfter(s: TickWords, tags: { id: string; at_sec: number 
   return { from: time, tagId, until };
 }
 
-/** The Tag icon: opens a draft, or with one open, cancels it (no tag saved). A tap within 1 s of the last does nothing,
- *  so the double tap that opened a field can't close it. */
-export const TAP_GUARD_MS = 1000;
+/** The Tag icon: opens a draft, or with one open, cancels it (no tag saved), every tap, as fast as Cancel. Only a finger
+ *  bounce (a tap under 150 ms after the last one that counted) is dropped, and a dropped tap never moves that window on. */
+export const TAP_BOUNCE_MS = 150; // fast double taps land 150-250 ms apart: both must count
 export type TagTap<D> = { draft: D | null; lastTap: number };
 export function tagTapped<D>(s: TagTap<D>, now: number, fresh: () => D): TagTap<D> {
-  if (now - s.lastTap < TAP_GUARD_MS) return { ...s, lastTap: now };
+  if (now - s.lastTap < TAP_BOUNCE_MS) return s;
   return { draft: s.draft ? null : fresh(), lastTap: now };
+}
+
+/** Seek bar let go. A tick jump needs a quick, still tap near a tick; anything held or moved seeks to where the finger
+ *  is, so a drag never snaps to a tick. */
+export const TICK_TAP_MS = 600; // a careful press on a small tick; a drag also moves 6 px or more
+const TICK_TAP_SLOP = 6;
+const TICK_REACH = 22;
+export function seekRelease<T extends { at_sec: number }>(r: { grabX: number; dx: number; heldMs: number; width: number; max: number; ticks: T[] }): { tick?: T; seek: number } {
+  const x = Math.min(Math.max(r.grabX + r.dx, 0), r.width);
+  const seek = r.width > 0 ? (x / r.width) * r.max : 0;
+  if (r.heldMs >= TICK_TAP_MS || Math.abs(r.dx) >= TICK_TAP_SLOP || !r.max) return { seek };
+  let tick: T | undefined;
+  let gap = TICK_REACH;
+  for (const one of r.ticks) {
+    const d = Math.abs((one.at_sec / r.max) * r.width - r.grabX);
+    if (d <= gap) [tick, gap] = [one, d];
+  }
+  return tick ? { tick, seek } : { seek };
+}
+
+// ---------- changing a tag (hold a row: Change words, Move to now, Delete) ----------------------------------------
+type NewTagChange = { kind: 'tag_add'; data: TagLine } | { kind: 'tag_remove'; data: { tag_id: string; song_id: string } };
+
+/** The whole tag again, with new words or a new second: same id, made_at and version (whole-tag lines, BLUEPRINT). */
+export function tagEdit(tag: Tag, to: { text?: string; at?: number }): NewTagChange {
+  const at = to.at ?? tag.at_sec;
+  return {
+    kind: 'tag_add',
+    data: {
+      tag_id: tag.id, song_id: tag.song_id, version_id: tag.version_id ?? null, text: (to.text ?? tag.text).trim().slice(0, 500),
+      at_sec: Math.round(Math.max(0, at) * 1000) / 1000, made_at: tag.made_at,
+    },
+  };
+}
+export const tagRemoval = (tag: Tag): NewTagChange => ({ kind: 'tag_remove', data: { tag_id: tag.id, song_id: tag.song_id } });
+
+/** Undo once the change has left the phone: the old whole tag goes back, or a new tag is removed. */
+export const tagUndoLine = (change: TagChange, before: Tag | null): NewTagChange =>
+  before ? tagEdit(before, {}) : { kind: 'tag_remove', data: { tag_id: change.data.tag_id, song_id: change.data.song_id } };
+
+/** Tags list rows while it stays open: each row keeps its place (a moved tag too); a new tag goes at the bottom; a
+ *  deleted one keeps its place (hidden by the caller), so Undo brings it back where it was. `prev` null (just opened,
+ *  or another song): time order. */
+export function rowOrder(prev: string[] | null, tags: { id: string; at_sec: number }[]): string[] {
+  const now = [...tags].sort((a, b) => a.at_sec - b.at_sec).map((tag) => tag.id); // stable: ties keep the list's order
+  if (!prev) return now;
+  const had = new Set(prev);
+  return [...prev, ...now.filter((id) => !had.has(id))];
+}
+
+// ---------- the tagging session (BLUEPRINT "Phase 2: tagging") --------------------------------------------------
+/** Mine songs that can play right now, one per family (`isVersion`: a version, whose Main stands for it). */
+export const sessionPool = <S extends { id: string; mine: string }>(songs: S[], canPlay: (song: S) => boolean, isVersion: (id: string) => boolean) =>
+  songs.filter((song) => song.mine === 'mine' && !isVersion(song.id) && canPlay(song)).map((song) => song.id);
+
+/** Untagged songs are this many times as likely to come next. */
+export const UNTAGGED_WEIGHT = 3;
+/** One lap of the pool: every song once, each next one picked at random with untagged ones 3x as likely (a weighted
+ *  draw without putting back: each song's key is random^(1/weight), highest first). */
+export function sessionLap(pool: string[], tagged: ReadonlySet<string>, random: () => number = Math.random): string[] {
+  return pool
+    .map((id) => ({ id, key: Math.pow(random(), 1 / (tagged.has(id) ? 1 : UNTAGGED_WEIGHT)) }))
+    .sort((a, b) => b.key - a.key)
+    .map((one) => one.id);
+}
+
+/** "N of M tagged": M is the pool less the songs called Not mine this session; N those of M with a live tag. */
+export function sessionCount(pool: string[], out: readonly string[], tagged: ReadonlySet<string>) {
+  const left = pool.filter((id) => !out.includes(id));
+  return { tagged: left.filter((id) => tagged.has(id)).length, of: left.length };
+}
+
+/** A tag being typed when the song changes (Next, song end, a jump): it is saved, to the song it was tapped on. */
+export const draftGoesOnChange = (draft: { songId: string } | null, from: string | null | undefined, to: string | null | undefined) =>
+  !!draft && from === draft.songId && to !== draft.songId;
+
+/** The line a new tag's draft is saved as: its own song, trimmed words, the second to 3 decimals. */
+export const draftLine = (d: { tagId: string; songId: string; at: number; text: string; madeAt: string }): TagLine => ({
+  tag_id: d.tagId, song_id: d.songId, text: d.text.trim().slice(0, 500), at_sec: Math.round(d.at * 1000) / 1000, made_at: d.madeAt,
+});
+
+/** Library's Shuffle: the player's cycle (shuffleAfterTap), stepping over a pool with no song that can play. */
+export function libraryShuffleTap(pick: ShufflePick, hasMine: boolean, hasUnsorted: boolean): ShufflePick {
+  let next = pick;
+  for (let i = 0; i < 3; i++) {
+    next = shuffleAfterTap(next);
+    if (!next.on || (next.pool === 'mine' ? hasMine : hasUnsorted)) return next;
+  }
+  return { ...pick, on: false };
 }

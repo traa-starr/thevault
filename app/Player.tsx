@@ -2,7 +2,7 @@
 // playerStore.ts, so closing any of these never touches the music.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
-import { Alert, Animated, Dimensions, Modal, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Dimensions, Modal, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import ReorderableList, { useIsActive, useReorderableDrag, type ReorderableListDragEndEvent, type ReorderableListReorderEvent } from 'react-native-reorderable-list';
@@ -15,8 +15,9 @@ import { CompareDial, WHEEL_WIDTH } from './Compare';
 import { compare, useCompare } from './compareStore';
 import { openLibrarySelect, HomeButton } from './nav';
 import { player, usePlayer, type Pool } from './playerStore';
-import { shuffleAfterTap, shuffleWords, type ShownTag } from './playOrder';
-import { jumpToTag, ReservedLine, TagButton, TagList, TagsButton, usePassedTag } from './Tagging';
+import { draftGoesOnChange, seekRelease, shuffleAfterTap, shuffleWords, type ShownTag } from './playOrder';
+import { session, useSession, useSessionCount } from './sessionStore';
+import { jumpToTag, ReservedLine, TagButton, TagList, TagsButton, tint, usePassedTag } from './Tagging';
 import { sayAside, tagLine, useTagLine, useTags } from './tagStore';
 import { VersionsChip, VersionsToast } from './Versions';
 import * as versions from './versionStore';
@@ -47,12 +48,10 @@ type SeekBarProps = {
   max: number;
   onDrag: (value: number) => void;
   onDrop: (value: number) => void;
-  /** Tag ticks: a tap within half a finger of one calls onTick with it instead of seeking to the spot. */
+  /** Tag ticks: a quick still tap within half a finger of one calls onTick with it instead of seeking to the spot. */
   ticks?: ShownTag[];
   onTick?: (tag: ShownTag) => void;
 };
-const TICK_REACH = 22;
-const TAP_SLOP = 6;
 const TICK_MERGE = 0.025; // ticks closer than this share of the bar draw as one wider tick
 
 export function SeekBar({ value, max, onDrag, onDrop, ticks = [], onTick }: SeekBarProps) {
@@ -61,22 +60,13 @@ export function SeekBar({ value, max, onDrag, onDrop, ticks = [], onTick }: Seek
   const latest = useRef({ max, onDrag, onDrop, ticks, onTick });
   latest.current = { max, onDrag, onDrop, ticks, onTick };
 
-  /** The tick nearest a tap at x, if within reach. */
-  const tickAt = (x: number) => {
-    const { max: m, ticks: all } = latest.current;
-    if (!m) return null;
-    let best: ShownTag | null = null;
-    let bestGap = TICK_REACH;
-    for (const tag of all) {
-      const gap = Math.abs((tag.at_sec / m) * width.current - x);
-      if (gap <= bestGap) [best, bestGap] = [tag, gap];
-    }
-    return best;
-  };
+  const grabbedWhen = useRef(0);
+  // a tick only on a quick still tap (seekRelease): a drag lands where it's let go, never on a tick
   const release = (dx: number) => {
-    const tag = Math.abs(dx) < TAP_SLOP && latest.current.onTick ? tickAt(grabbedAt.current) : null;
-    if (tag) latest.current.onTick!(tag);
-    else latest.current.onDrop(valueAt(grabbedAt.current + dx));
+    const { max: m, ticks: all, onTick, onDrop } = latest.current;
+    const r = seekRelease({ grabX: grabbedAt.current, dx, heldMs: Date.now() - grabbedWhen.current, width: width.current, max: m, ticks: onTick ? all : [] });
+    if (r.tick) onTick!(r.tick);
+    else onDrop(r.seek);
   };
 
   const valueAt = (x: number) => (Math.min(Math.max(x, 0), width.current) / width.current) * latest.current.max;
@@ -88,6 +78,7 @@ export function SeekBar({ value, max, onDrag, onDrop, ticks = [], onTick }: Seek
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (e) => {
         grabbedAt.current = e.nativeEvent.locationX;
+        grabbedWhen.current = Date.now();
         latest.current.onDrag(valueAt(grabbedAt.current));
       },
       onPanResponderMove: (_, g) => latest.current.onDrag(valueAt(grabbedAt.current + g.dx)),
@@ -117,14 +108,6 @@ export function SeekBar({ value, max, onDrag, onDrop, ticks = [], onTick }: Seek
     </View>
   );
 }
-
-/** Library's Shuffle asks what to play: songs not yet called mine, or only Mine. The player's cycles instead. */
-export const askShuffle = (pick: (pool: Pool) => void) =>
-  Alert.alert('Shuffle', undefined, [
-    { text: 'Unsorted', onPress: () => pick('unsorted') },
-    { text: 'Mine', onPress: () => pick('mine') },
-    { text: 'Cancel', style: 'cancel' },
-  ]);
 
 /** Touch handlers that call onSwipe on an upward swipe and leave taps to whatever is inside. */
 function useSwipeUp(onSwipe: () => void) {
@@ -230,7 +213,7 @@ export function NowPlayingBar() {
   );
 }
 
-function FullPlayer() {
+export function FullPlayer() {
   const { song, order, wanted: playerWanted, time: playerTime, duration: playerDuration, note, trouble, timeLeft, sorting, buttonsHidden, pool } = usePlayer();
   const [dragAt, setDragAt] = useState<number | null>(null);
   const [seekingTo, setSeekingTo] = useState<number | null>(null);
@@ -275,7 +258,7 @@ function FullPlayer() {
   const { draft } = useTagLine();
   const lastSong = useRef(song?.id);
   useEffect(() => {
-    if (draft && lastSong.current === draft.songId && song?.id !== draft.songId) tagLine.finish(song?.id);
+    if (draftGoesOnChange(draft, lastSong.current, song?.id)) tagLine.finish(song?.id);
     lastSong.current = song?.id;
   }, [song?.id]);
 
@@ -291,6 +274,7 @@ function FullPlayer() {
   const tags = useTags(shownId);
   const isMine = player.isMine();
   const shuffleOn = !!order?.shuffle;
+  const { on: inSession } = useSession();
   // playback passing a tick says its words: only while playing on its own, never while dragged, seeking or typing
   const passed = usePassedTag(song?.id, comparing ? [] : tags, playerTime, !comparing && playerWanted && dragAt === null && seekingTo === null && !draft);
   const tapShuffle = () => {
@@ -300,9 +284,12 @@ function FullPlayer() {
   };
   return (
     <View style={s.page}>
-      <View style={s.topRow}>
-        <HomeButton />
-      </View>
+      {/* the tagging session: Close back to where I came from, and the count */}
+      {inSession ? <SessionTop /> : (
+        <View style={s.topRow}>
+          <HomeButton />
+        </View>
+      )}
       <View style={s.pageTop}>
         {/* two lines' height always, so a longer version name never moves the bar */}
         <View style={s.titleBox}>
@@ -320,21 +307,21 @@ function FullPlayer() {
         {/* the same buttons in Compare: Play/Pause works the version heard, the rest end Compare first */}
         <View style={s.slot}>
           <View style={s.controls}>
-            <Pressable style={s.button} onPress={leavingCompare(player.previous)}>
+            <Pressable style={(p) => [s.button, tint(p)]} onPress={leavingCompare(player.previous)}>
               <Text style={s.buttonText}>Previous</Text>
             </Pressable>
-            <Pressable style={[s.button, s.play]} onPress={comparing ? compare.toggle : player.toggle}>
+            <Pressable style={(p) => [s.button, s.play, p.pressed && s.nextPressed]} onPress={comparing ? compare.toggle : player.toggle}>
               <Text style={[s.buttonText, s.playText]}>{wanted ? 'Pause' : 'Play'}</Text>
             </Pressable>
-            <Pressable style={s.button} onPress={leavingCompare(player.next)}>
+            <Pressable style={(p) => [s.button, tint(p)]} onPress={leavingCompare(player.next)}>
               <Text style={s.buttonText}>Next</Text>
             </Pressable>
             {/* each tap: Off > Mine > Unsorted > Off, no box. On: filled, like Mine. Hidden while sorting, its width kept so the row never shifts */}
-            {sorting ? (
+            {sorting || inSession ? (
               <View style={s.shuffle} />
             ) : (
               <Pressable
-                style={[s.button, s.shuffle, shuffleOn && s.shuffleOn]}
+                style={(p) => [s.button, s.shuffle, shuffleOn && s.shuffleOn, p.pressed && (shuffleOn ? s.nextPressed : s.verdictPressed)]}
                 onPress={leavingCompare(tapShuffle)}
                 accessibilityLabel={shuffleOn ? `Shuffle on, ${pool === 'mine' ? 'Mine' : 'unsorted'}` : 'Shuffle off'}
               >
@@ -345,7 +332,8 @@ function FullPlayer() {
         </View>
         {!shownId ? null : (
           <View style={s.versionRow}>
-            {!comparing && (sorting || player.isOut()) ? null : (
+            {/* in a session a Not mine song keeps its row, so nothing jumps */}
+            {!comparing && (sorting || (player.isOut() && !inSession)) ? null : (
               <>
                 {/* never a sheet over this sheet (iOS froze on that): the player closes first, then the next screen opens */}
                 {/* already in a group: hidden, its Versions chip and Compare do the work */}
@@ -377,7 +365,7 @@ function FullPlayer() {
         )}
         <View style={s.backRow}>
           {/* while comparing, Back is Done: same spot, same size */}
-          <Pressable onPress={comparing ? compare.done : () => player.open('none')}>
+          <Pressable style={tint} onPress={comparing ? compare.done : () => player.open('none')}>
             <Text style={s.link}>{comparing ? 'Done' : 'Back'}</Text>
           </Pressable>
           {/* the most-used button: full-size, the thumb's side. Its slot stays in Compare so Done never moves */}
@@ -386,13 +374,14 @@ function FullPlayer() {
       </View>
       {/* the song's tags, while Tags · N has them open; the space under them is the swipe area */}
       <View style={s.tagZone}>
-        {comparing ? null : <TagList songId={shownId} tags={tags} time={shown} />}
+        {comparing ? null : <TagList songId={shownId} songTitle={song?.title ?? ""} tags={tags} time={shown} />}
         {/* The blank space under the tags: a swipe up opens Queue, a tap does nothing. */}
         <View style={s.swipeZone} {...(comparing ? {} : swipe)} />
       </View>
       {/* Keeps its height with the buttons hidden or gone, so nothing above it jumps. */}
       <View style={s.dock}>
-        {sorting ? null : (
+        {/* the session's Not mine / Next take the Mine / Not mine spot exactly, with no eye */}
+        {inSession ? <SessionDock onNext={leavingCompare(player.next)} /> : sorting ? null : (
           <Animated.View style={{ transform: [{ translateY: hidden.interpolate({ inputRange: [0, 1], outputRange: [0, EYE_DROP] }) }] }}>
             <Pressable
               style={s.hideTap}
@@ -403,6 +392,7 @@ function FullPlayer() {
             </Pressable>
           </Animated.View>
         )}
+        {inSession ? null : (
         <Animated.View
           style={[s.verdicts, { transform: [{ translateY: hidden.interpolate({ inputRange: [0, 1], outputRange: [0, VERDICT_DROP] }) }] }]}
           pointerEvents={buttonsHidden || comparing ? 'none' : 'auto'}
@@ -419,9 +409,38 @@ function FullPlayer() {
             </View>
           )}
         </Animated.View>
+        )}
       </View>
       <UndoToast aboveButtons />
       <VersionsToast />
+    </View>
+  );
+}
+
+/** The session's top row: Close on the left, "N of M tagged" on the right. */
+function SessionTop() {
+  const { tagged, of } = useSessionCount();
+  return (
+    <View style={s.sessionTop}>
+      <Pressable style={(p) => [s.sessionClose, tint(p)]} onPress={session.close}>
+        <Text style={s.link}>Close</Text>
+      </Pressable>
+      <Text style={s.sessionCount}>{tagged.toLocaleString('en-US')} of {of.toLocaleString('en-US')} tagged</Text>
+    </View>
+  );
+}
+
+/** The session's dock, where Mine / Not mine sit in the player: Not mine (the song plays on, with Undo) and Next. */
+function SessionDock({ onNext }: { onNext: () => void }) {
+  const out = usePlayer().song ? player.isOut() : false;
+  return (
+    <View style={s.verdicts}>
+      <Pressable style={(p) => [s.verdict, out && s.verdictDone, p.pressed && s.verdictPressed]} onPress={session.notMine} disabled={out}>
+        <Text style={[s.verdictText, out && s.verdictDoneText]}>Not mine</Text>
+      </Pressable>
+      <Pressable style={(p) => [s.verdict, s.sessionNext, p.pressed && s.nextPressed]} onPress={onNext}>
+        <Text style={[s.verdictText, s.playText]}>Next</Text>
+      </Pressable>
     </View>
   );
 }
@@ -592,6 +611,14 @@ const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#111' },
   // beside the grab mark, only as wide as Home, so the rest of the grab area still pulls the sheet down
   topRow: { alignSelf: 'flex-end', marginTop: -44, height: 44, justifyContent: 'center', paddingRight: 8 },
+  sessionTop: { marginTop: -44, height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8 },
+  sessionClose: { minWidth: 64, height: 44, justifyContent: 'center' },
+  sessionCount: { color: '#8e8e93', fontSize: 15, paddingRight: 8, fontVariant: ['tabular-nums'] },
+  sessionNext: { backgroundColor: '#fff', borderColor: '#fff' },
+  verdictPressed: { backgroundColor: '#3a3a3c' },
+  nextPressed: { backgroundColor: '#c7c7cc', borderColor: '#c7c7cc' },
+  verdictDone: { borderColor: '#3a3a3c' },
+  verdictDoneText: { color: '#636366' },
   versionRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, minHeight: 46, marginTop: -8 },
   pageTop: { paddingHorizontal: 24, gap: 12 },
   tagZone: { flex: 1, marginTop: 8, paddingHorizontal: 24 },

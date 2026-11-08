@@ -18,6 +18,7 @@ sys.path.insert(0, str(HERE))
 from vault_server import scanner, server, songs as songs_module  # noqa: E402
 from vault_server.library import DB_NAME, JOURNAL_NAME, MARKER_NAME, LibraryMissing, init_library, open_library  # noqa: E402
 from vault_server.store import LOCK_NAME, Busy, now, write_lock  # noqa: E402
+from vault_server.tags import tags_by_song  # noqa: E402
 
 failures = []
 OFFLINE = 0x1000
@@ -346,6 +347,14 @@ def tag_path(tmp):
     lib.close()
     check("tags rebuild from the journal row for row, old-style line included",
           after["tags"] == before["tags"] and len(before["tags"]) == 7, str(len(before["tags"])))
+    # the tags command (2.7): every tag under its song, the second to 3 decimals, a filter by title
+    lib = open_library(root)
+    listed = tags_by_song(lib.store.conn)
+    only = tags_by_song(lib.store.conn, "no such title")
+    lib.close()
+    check("tags command lists every tag per song", listed[-1] == "7 tags on 2 songs." and any(l.strip().startswith("0:03.500  from before") for l in listed),
+          " | ".join(listed[-3:]))
+    check("tags command filter by title", only == ["No tags on a title with 'no such title'."], str(only))
 
 
 def sorting_path(tmp):

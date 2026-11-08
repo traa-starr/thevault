@@ -9,9 +9,10 @@ import { HomeButton, takeSeed, useSeed } from './nav';
 import { loadSongList, offline, saveSongList, useOffline } from './offline';
 import { flush, useOutbox } from './outbox';
 import { LaptopLine, RestoreNotice, WaitingLine } from './Notices';
-import { askShuffle } from './Player';
-import { NOT_HERE, player, type Pool } from './playerStore';
-import { withPending } from './playOrder';
+import { NOT_HERE, player, usePlayer, type Pool } from './playerStore';
+import { session } from './sessionStore';
+import { tint } from './Tagging';
+import { libraryShuffleTap, shuffleWords, withPending } from './playOrder';
 import { setLibrary, useVersions, type LibSong } from './versionStore';
 import { VersionsChip } from './Versions';
 import * as versions from './versionStore';
@@ -148,10 +149,24 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     player.open('player');
   };
 
-  // unsorted lands only on songs not yet called mine, Mine only on Mine; tapping any song still plays it
-  const shuffle = (pool: Pool) => {
-    const from = playable.filter((song) => (song.mine === 'mine') === (pool === 'mine'));
-    if (from.length) open(from[Math.floor(Math.random() * from.length)], true, pool);
+  // Shuffle cycles like the player's (Off > Mine > Unsorted > Off), in place, no box. Nothing playing: a song from that
+  // pool starts in the bar. Something playing: it plays on, only what comes next changes. Unsorted lands only on songs
+  // not yet called mine, Mine only on Mine; tapping any song still plays it
+  const { order: playing, pool: playingPool, song: playingSong } = usePlayer();
+  const shuffleOn = !!playing?.shuffle;
+  const poolOf = (pool: Pool) => playable.filter((song) => (song.mine === 'mine') === (pool === 'mine'));
+  const tapShuffle = () => {
+    Keyboard.dismiss();
+    const pick = libraryShuffleTap({ on: shuffleOn, pool: playingPool }, poolOf('mine').length > 0, poolOf('unsorted').length > 0);
+    if (!pick.on) return player.setShuffleOn(false);
+    // playing from this list: only what comes next changes. From another list (a session, a Sort set): this list
+    // takes over, the song carrying on from its second
+    if (playingSong && playing && playable.some((song) => song.id === playingSong.id)) {
+      if (playing.list.length === playable.length && playable.every((song) => playing.list.includes(song.id))) return player.setShuffleOn(true, pick.pool);
+      return player.playList(url, playable, playingSong.id, true, pick.pool, player.positionNow());
+    }
+    const from = poolOf(pick.pool);
+    player.playList(url, playable, from[Math.floor(Math.random() * from.length)].id, true, pick.pool);
   };
 
   const cancelSelect = () => {
@@ -235,7 +250,15 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
           <Text style={s.link}>{selecting ? 'Cancel' : 'Back'}</Text>
         </Pressable>
         <Text style={s.title}>{selecting ? `${number(ticked.length)} ticked` : 'Library'}</Text>
-        <HomeButton />
+        <View style={s.headerRight}>
+          {/* the tagging session: Mine songs that can play now, one card at a time */}
+          {selecting || !songs ? null : (
+            <Pressable style={(p) => [s.tagSongs, tint(p)]} onPress={() => (Keyboard.dismiss(), session.start(url))}>
+              <Text style={s.link}>Tag songs</Text>
+            </Pressable>
+          )}
+          <HomeButton />
+        </View>
       </View>
       {!selecting ? <SavedLine /> : null}
       {!selecting ? <RestoreNotice /> : null}
@@ -277,8 +300,8 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.sortScroll} contentContainerStyle={s.sorts}>
               {playable.length ? (
-                <Pressable onPress={() => (mineOnly ? shuffle('mine') : askShuffle(shuffle))}>
-                  <Text style={s.sort}>Shuffle</Text>
+                <Pressable style={tint} onPress={tapShuffle} accessibilityLabel={shuffleOn ? `Shuffle on, ${shuffleWords({ on: true, pool: playingPool })}` : 'Shuffle off'}>
+                  <Text style={[s.sort, shuffleOn && s.sortOn]}>{shuffleOn ? `Shuffle: ${shuffleWords({ on: true, pool: playingPool })}` : 'Shuffle'}</Text>
                 </Pressable>
               ) : null}
               <Pressable onPress={() => toggle('mine')}>
@@ -366,13 +389,15 @@ const s = StyleSheet.create({
   hidden: { display: 'none' },
   page: { flex: 1, backgroundColor: '#111', paddingTop: 60, paddingHorizontal: 16 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  headerRight: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center' },
+  tagSongs: { minHeight: 44, justifyContent: 'center' },
   title: { color: '#fff', fontSize: 26, fontWeight: '700' },
   link: { color: '#8ab4f8', fontSize: 15, padding: 8 },
   middle: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   line: { color: '#ddd', fontSize: 18 },
   input: { color: '#fff', fontSize: 16, borderColor: '#555', borderWidth: 1, borderRadius: 8, padding: 12 },
   bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
-  count: { color: '#ddd', fontSize: 14, fontVariant: ['tabular-nums'] },
+  count: { flexShrink: 0, color: '#ddd', fontSize: 14, fontVariant: ['tabular-nums'] }, // never wraps: the chips scroll instead
   refused: { color: '#f28b82', fontSize: 14, paddingBottom: 8 },
   sortScroll: { flexGrow: 0, flexShrink: 1, marginLeft: 8 },
   sorts: { flexDirection: 'row', gap: 4 },

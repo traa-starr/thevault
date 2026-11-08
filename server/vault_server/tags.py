@@ -60,6 +60,29 @@ def remove_tag(store, data, change_id=None):
     return store.record("tag_remove", {"tag_id": tag_id, "song_id": cur["song_id"]}, change_id=change_id)
 
 
+def _clock(at):
+    """102.3456 -> "1:42.346": the second to 3 decimals, as stored."""
+    whole = int(at)
+    return f"{whole // 60}:{whole % 60:02d}.{round((at - whole) * 1000):03d}"
+
+
+def tags_by_song(conn, words=""):
+    """Every live tag grouped by song title, for comparing with the phone (2.7). `words`: only titles containing them."""
+    rows = conn.execute("SELECT t.*, s.title FROM tags t JOIN songs s ON s.id = t.song_id ORDER BY s.title COLLATE NOCASE, t.song_id, t.at_sec, t.ts").fetchall()
+    want = words.strip().lower()
+    out, last = [], None
+    for r in rows:
+        if want and want not in r["title"].lower():
+            continue
+        if r["song_id"] != last:
+            last = r["song_id"]
+            out.append(f"{r['title']}  ({r['song_id']})")
+        out.append(f"  {_clock(r['at_sec']):>10}  {r['text'] or '(no words yet)'}")
+    songs = len({line for line in out if not line.startswith("  ")})
+    out.append(f"{len(out) - songs} tags on {songs} songs." if out else "No tags" + (f" on a title with '{words}'." if want else " yet."))
+    return out
+
+
 def all_tags(conn):
     """Every live tag, for GET /tags. Ordered by song, then second."""
     return [{"id": r["id"], "song_id": r["song_id"], "version_id": r["version_id"], "text": r["text"],

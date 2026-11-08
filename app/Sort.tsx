@@ -7,6 +7,7 @@ import Cards from './Cards';
 import { HomeButton } from './nav';
 import { WaitingLine } from './Notices';
 import { player } from './playerStore';
+import { session } from './sessionStore';
 import { loadNotSure, saveNotSure, useSortData, type SortSet, type SortSong } from './sortData';
 
 type Row = { key: string; set: SortSet } & ({ kind: 'set' } | { kind: 'actions' } | { kind: 'song'; song: SortSong });
@@ -111,6 +112,10 @@ export default function Sort({ url, onBack }: { url: string; onBack: () => void 
             ) : (
               <Text style={s.line}>Every song has a card verdict or is in Not sure.</Text>
             )}
+            {/* the tagging session over Mine songs: the cards' other half */}
+            <Pressable style={({ pressed }) => [s.button, s.outlined, pressed && s.pressed]} onPress={() => session.start(url)}>
+              <Text style={s.buttonText}>Tag songs</Text>
+            </Pressable>
             {unsure ? (
               <Pressable style={s.button} onPress={() => setCards({ scope: null, pile: true })}>
                 <Text style={s.buttonText}>Not sure · {number(unsure)}</Text>
@@ -192,6 +197,8 @@ const s = StyleSheet.create({
   button: { backgroundColor: '#2a2a2a', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 14, alignItems: 'center' },
   buttonText: { color: '#fff', fontSize: 15 },
   primary: { backgroundColor: '#fff', paddingVertical: 16 },
+  outlined: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#555', minHeight: 48, justifyContent: 'center' },
+  pressed: { backgroundColor: '#3a3a3c' },
   primaryText: { color: '#111', fontSize: 17, fontWeight: '700' },
   good: { backgroundColor: '#1e5b34' },
   bad: { backgroundColor: '#6a2a2a' },
