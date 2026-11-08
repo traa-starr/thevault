@@ -48,7 +48,8 @@ By now I've committed, pushed and done REPORT's "Phone update". I don't bring re
    (use the tappable-choice tool if there is one). Write each answer straight into the result doc and STATUS as it
    comes. A fail: ask one short follow-up for what I saw, then go on. If a check needs something first (a published
    mockup page, a server restart), do or say that before the check. "Stop" pauses the walk: write what's done.
-4. After the last check, finish the review: a failure becomes the next task or a written retry. Decide what's yours
+4. After the last check, finish the review. **Lessons:** for every fail or "something off", add a row to `docs/LESSONS.md`: what slipped and the check that would have caught it before me. Every NEXT's `Read:` line includes LESSONS. Count fails per review in STATUS so we can see if the harness is improving.
+   Then: a failure becomes the next task or a written retry. Decide what's yours
    (below). Do the file updates above.
 5. Answer in this order, nothing else:
    - **Checks:** passed x of y, one line per fail.
@@ -89,7 +90,8 @@ I prove: <each line an exact tap or listen on the phone, and what passing looks 
 ```
 **Writing Done when:** every line must be checkable by running or tapping. If two coders could both pass it and still
 build different things, add a check that tells them apart. Outcomes and limits, not code; Code plans its own steps.
-The "I prove" lines are the phone checks you walk at `Review.` Size it as 2-3 "I prove" lines.
+The "I prove" lines are the phone checks you walk at `Review.` **Size it as a milestone, not a baby step:** a whole batch or more, as far as code can go before I must test or decide. Group phone checks so each covers several things (4-6 is fine).
+**Every goal NEXT carries `## The bar`** (between Goal and Done when): board first if the test says so; failure modes listed before building and turned into tests or screenshot checks; tests first; control rules (instant press, 44 pt, no swallowed tap, no layout shift); screenshots of every changed screen with the screenshot command; a hostile self-review of the whole diff before `/wrap`; two failed fixes on a goal = write it up and move on, don't stop the session; for milestones with new screens or risky logic, one fresh-eyes review (a subagent with only NEXT, LESSONS, the diff and screenshots) after the self-review, its catches listed in REPORT. Drop it if REPORT shows it catching nothing twice in a row.
 Recipe format keeps the old shape: `## Parts` a, b, c, a **Stop line**, then `## Phone check`.
 Code's `/wrap` doesn't print phone checks; it states the phone update (none / publish / full rebuild) and marks each
 Done when line pass / fail / not run. You walk the checks at `Review.`

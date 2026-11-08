@@ -21,6 +21,8 @@ d. **Tag list and seek bar ticks:** tap a row or tick to jump; the playing row m
 2. Airplane mode: tag, then mid-typing a second one kill the app; reopen: the draft is back, both say "Saved on phone".
 3. Airplane off at home: both turn "On laptop" within a minute.
 
+Batches 2 and 3a, plus fixes, run as one step ("Phase 2 code-complete", DECISIONS 2026-11-08).
+
 ## Batch 2: Change tags, tagging session
 **ROADMAP:** 2.4 (edit, delete), 2.2, 2.5.
 a. Hold a row: Change words · Move to now · Delete, each with Undo (whole-tag lines, BLUEPRINT).
