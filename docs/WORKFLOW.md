@@ -23,20 +23,21 @@ other is mid-turn.
 | `docs/DECISIONS.md` | Calls made during the session | My answers and chat's calls. Settled, never re-ask |
 | Result docs (`SPIKE-RESULTS.md`, options memos) | Measured results | My phone results, one line each |
 
-**`Next up` line in STATUS** says whose move it is: `Code: /next`, `me: phone checks, then Review.`, or `me: answer in chat`.
+**`Next up` line in STATUS** says whose move it is: `Code: /next`, `me: commit, update the phone, then Review.`, or `me: answer in chat`.
 Whoever writes last sets it. `/where` reads it first.
 
 Full chat duties: `CHAT-INSTRUCTIONS.md` ("Files you manage").
 
 ## The loop
-1. **Code:** `/next` does the task, then wraps: REPORT, STATUS, DECISIONS, and a one-line commit message.
-2. **Me:** VS Code buttons: commit, push. Do any phone checks.
-3. **Chat:** new chat in the Project, type `Review.` plus my phone results. It reads the docs straight from the laptop
-   folder (no push needed for chat to see them).
-4. **Chat** checks the work, logs decisions and phone results, updates STATUS, writes the next task into `docs/NEXT.md`,
-   and tells me what it decided and what needs me (max 3).
-5. **Me:** new Code session, type `/next`. Code starts the task. (If chat's Log lines are missing from DECISIONS, Code
-   adds them first.) Same as Untethered.
+1. **Code:** `/next` does the task, then wraps: REPORT, STATUS, DECISIONS, a one-line commit message, and a clear
+   **Phone update** line: none, publish (exact line), or full rebuild. It counts the phone checks but doesn't print them.
+2. **Me:** VS Code buttons: commit, push. Do the phone update if there is one.
+3. **Chat:** new chat in the Project, type `Review.` Chat reads the laptop folder and walks me through the phone
+   checks one at a time, writing each result down as I give it.
+4. **Chat**, after the last check: checks the work, logs decisions, updates STATUS, writes the next task into
+   `docs/NEXT.md`, and tells me what it decided and what needs me (max 3).
+5. **Me:** commit and push chat's files, then a new Code session, type `/next`. (If chat's Log lines are missing from
+   DECISIONS, Code adds them first.)
 
 ## Outside the loop
 I can bring chat anything (an idea, a worry, a question). Chat answers, and parks work-changing ideas in the STATUS queue
@@ -51,7 +52,7 @@ or open questions. It rewrites NEXT only if the idea should beat the current tas
 | Code | `/wrap` | Closes a session early. `/next` runs it by itself at the end |
 | Code | `/review` | Skips chat: checks the last step, then writes the next NEXT. For when chat is out of reach or capped |
 | Code | `/where` | Lost? Where we are and my one next action. Changes nothing |
-| Chat | `Review.` | Checks the last step, writes the next NEXT.md straight to the laptop |
+| Chat | `Review.` | Walks me through the phone checks one by one, then checks the step and writes the next NEXT.md straight to the laptop |
 
 ## Sizing
 One NEXT = one batch from `BATCH-PLAN.md`, 2-3 phone checks. Split earlier only where I must see A before B is worth building, or before

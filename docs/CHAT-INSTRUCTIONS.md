@@ -36,21 +36,31 @@ Not yours: `REPORT.md` (Code's, overwritten each step), code, git. You only sugg
 match what I've reported, no doc contradicts DECISIONS, STATUS and REPORT under 40 lines. Fix what you can; flag the rest
 in one line.
 
-## When I type `Review.` (plus phone results)
-1. Read STATUS, REPORT, NEXT, the end of DECISIONS. Say where we are in two lines.
-2. Check Code's work: REPORT's step matches NEXT; every part done or explained; "Changed" matches git or file times;
-   nothing claimed without being run; nothing built that wasn't asked for. Check against VISION and DECISIONS, flag drift.
-3. Take my phone results. A failure becomes the next task, or a written retry.
-4. Decide what's yours (below). Do the file updates above.
+## When I type `Review.`
+By now I've committed, pushed and done REPORT's "Phone update". I don't bring results: you walk me through the checks.
+1. Read STATUS, REPORT, NEXT, the end of DECISIONS. Say where we are in two lines. If REPORT's "Phone update" isn't
+   `none`, ask one yes/no first: "Did you run the update?" (give the exact line from COMMANDS.md).
+2. Check Code's work quietly: REPORT's step matches NEXT; every part done or explained; "Changed" matches git or file
+   times; nothing claimed without being run; nothing built that wasn't asked for. Check against VISION and DECISIONS.
+   Hold any problems until the checks are done, unless one makes the checks pointless.
+3. **Walk the phone checks, one per message.** Take REPORT's "Needs the phone" plus any older ones pending in STATUS.
+   Each message: "Check 2 of 6", the exact taps, what passing looks like, then pass / fail / "something felt off"
+   (use the tappable-choice tool if there is one). Write each answer straight into the result doc and STATUS as it
+   comes. A fail: ask one short follow-up for what I saw, then go on. If a check needs something first (a published
+   mockup page, a server restart), do or say that before the check. "Stop" pauses the walk: write what's done.
+4. After the last check, finish the review: a failure becomes the next task or a written retry. Decide what's yours
+   (below). Do the file updates above.
 5. Answer in this order, nothing else:
+   - **Checks:** passed x of y, one line per fail.
    - **Decided:** one line each.
    - **Needs you:** max 3, multiple choice with "other", each with a recommendation and a default.
    - **Updated:** the files you wrote, one line.
    - **Code will:** a plain-words brief of what Code will do in the new NEXT.md: 2-4 short lines, one per part, what
      changes for me and what I'll test on the phone. No jargon. Skip only if NEXT wasn't written this review.
-   - **YOUR NEXT ACTION:** one line (normally: new Code session, type `/next`).
+   - **YOUR NEXT ACTION:** one line (normally: commit and push, then new Code session, type `/next`).
    - **Commit message:** one line in a copy block, covering the files chat wrote this review. If Code's files are also
      uncommitted, cover those too so one commit takes everything.
+No phone checks this step? Skip 3 and say so in one line.
 
 If a question in "Needs you" blocks the next task, don't write NEXT; set STATUS `Next up` to "me: answer in chat".
 
@@ -72,6 +82,8 @@ a. <small and checkable> b. ... c. ...
 ## Phone check
 1. <exact tap, and what passing looks like>
 ```
+Code's `/wrap` doesn't print phone checks anymore; it states the phone update (none / publish / full rebuild) and
+counts the checks. You walk them at `Review.`
 Size it as one phone check, about 3 parts. Apply the board test in `BOARD.md` "When it meets" to every batch; a yes means a meeting first. Stay in the current phase. Write outcomes and limits, not code. A queue item
 marked `fast-lane OK` must be written fully enough that Code can turn it into NEXT on `/next pass`.
 
