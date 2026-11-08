@@ -36,6 +36,13 @@ const tests = {
     assert.equal(dialTarget(2, 3, [true, true, false, false, true]), 4);
     assert.equal(dialTarget(2, 1, [true, true, false, false, true]), 1);
   },
+  'wheel: a flick rests where it lands, several rows on, never one step back (6.6)': () => {
+    const on = [true, true, true, true, true];
+    assert.equal(dialTarget(0, 3, on), 3);
+    assert.equal(dialTarget(4, 1, on), 1);
+    assert.equal(dialTarget(0, 2, [true, true, false, true]), 3);
+    assert.equal(dialTarget(3, 1, [true, false, true, true]), 0);
+  },
   'list order wraps both ways': () => {
     assert.equal(currentId(nextInOrder(list('d'))), 'a');
     assert.equal(currentId(previousInOrder(list('a'))), 'd');

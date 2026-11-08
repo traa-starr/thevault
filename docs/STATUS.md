@@ -1,12 +1,13 @@
 # Status
 
-**Phase 1.** Updated 2026-11-07 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 1.** Updated 2026-11-07 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 **In progress:** nothing.
-**Next up:** me: new Code session, `/next`.
+**Next up:** me: phone checks, then Review.
 **Current task:** `NEXT.md` "Batch 6.6, Compare in place + lock-screen first press (over the air)".
 
 ## Done
 - Phase 0 closed (`SPIKE-RESULTS.md`). ROADMAP verified: 1.1-1.10, 1.12-1.17, 1.19-1.23. 1.11 built, unproven. Library at `E:\VaultLibrary`, 1,395 songs, 314 Mine, all imported with phone copies.
+- Batch 6.6 built and published over the air 2026-11-07 (update 20261108-005832): Compare inside the player, wheel momentum, lock-screen fixes (REPORT).
 - Batch 6.5 phone-checked 2026-11-07 on build 22: over-the-air updates work (check 0), Done word, eye rule, queue ticks pass. Wheel steps one at a time, Compare row replaces the player's buttons, lock screen needs two presses: Batch 6.6, over the air (DECISIONS). Build 22 is the last full build for now.
 - Prompt audit 2026-11-06: board seats run only when called; see DECISIONS.
 - Board test 2026-11-06: one yes/no test in `BOARD.md` "When it meets". 6.5 skipped it (DECISIONS).
@@ -24,4 +25,4 @@
 - Waiting for later: `SAVE ME` (mine?), 26 date-only names, `Untitled...` files. Same-render copies keep `Music`; Mine 314.
 
 ## Checks pending
-Batch 6.6 (no build: close and reopen the app after Code publishes): `NEXT.md` "Phone check" 1-5.
+Batch 6.6 (published; close and reopen the app): `NEXT.md` "Phone check" 1-5.

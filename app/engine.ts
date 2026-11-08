@@ -33,6 +33,8 @@ export type Engine = {
   releaseLockScreen: () => void;
   /** Hides Next and Previous on the lock screen while Compare borrows this player, so it can't move on. */
   lockScreenSkips: (show: boolean) => void;
+  /** Playing changed: the lock screen reads it again, so its button shows the truth and the next press does the right thing. */
+  refreshLockScreen: () => void;
   /** This player as Compare sees it: Compare sets its volume and moves it along with the other versions. */
   voice: () => Voice;
   stop: () => void;
@@ -72,7 +74,14 @@ function playlistEngine({ onSound, onTrack }: Handlers): Engine {
   const list = createAudioPlaylist({ updateInterval: UPDATE_MS });
   let locked = false;
   let shownTitle = '';
+  let skips = LOCK_SCREEN;
   let waiting: Waiting | null = null;
+  // Always the full call, never updateLockScreenMetadata: that one blanks the lock screen before refilling it, and does
+  // nothing at all once another player took the lock screen (Compare from Library) while we still think we hold it.
+  const claim = () => {
+    list.setActiveForLockScreen(true, { title: shownTitle }, skips);
+    locked = true;
+  };
 
   // Seeking before a song has loaded can be lost, so it waits. Reads the player's live answer: an event can be from before.
   const settle = () => {
@@ -137,19 +146,18 @@ function playlistEngine({ onSound, onTrack }: Handlers): Engine {
     },
     setTitle: (title) => {
       shownTitle = title;
-      if (locked) {
-        list.updateLockScreenMetadata({ title });
-      } else {
-        list.setActiveForLockScreen(true, { title }, LOCK_SCREEN);
-        locked = true;
-      }
+      claim();
     },
     releaseLockScreen: () => {
       list.clearLockScreenControls();
       locked = false;
     },
     lockScreenSkips: (show) => {
-      if (locked) list.setActiveForLockScreen(true, { title: shownTitle }, show ? LOCK_SCREEN : NO_SKIPS);
+      skips = show ? LOCK_SCREEN : NO_SKIPS;
+      if (locked) claim();
+    },
+    refreshLockScreen: () => {
+      if (locked) claim();
     },
     voice: () => voiceOf(list, () => waiting, engine),
     stop: () => {
@@ -165,7 +173,12 @@ function playlistEngine({ onSound, onTrack }: Handlers): Engine {
 function singleEngine({ onSound }: Handlers): Engine {
   const player = createAudioPlayer(null, { updateInterval: UPDATE_MS });
   let locked = false;
+  let shownTitle = '';
   let waiting: Waiting | null = null;
+  const claim = () => {
+    player.setActiveForLockScreen(true, { title: shownTitle });
+    locked = true;
+  };
 
   const settle = () => {
     const held = waiting;
@@ -224,18 +237,17 @@ function singleEngine({ onSound }: Handlers): Engine {
       player.loop = loop;
     },
     setTitle: (title) => {
-      if (locked) {
-        player.updateLockScreenMetadata({ title });
-      } else {
-        player.setActiveForLockScreen(true, { title });
-        locked = true;
-      }
+      shownTitle = title;
+      claim();
     },
     releaseLockScreen: () => {
       player.clearLockScreenControls();
       locked = false;
     },
     lockScreenSkips: () => {}, // it never shows them
+    refreshLockScreen: () => {
+      if (locked) claim();
+    },
     voice: () => voiceOf(player, () => waiting, engine),
     stop: () => {
       waiting = null;

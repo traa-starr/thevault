@@ -1,6 +1,7 @@
-// Compare's version wheel (Batch 6.5, the picker 4d agreed): like the iPhone date picker, but only the middle row shows.
-// The version name as plain text, scroll up or down, it snaps to each version; the sound flips when the wheel rests, at
-// the same second. The name on the wheel is always the version sounding: a version still lining up shows dimmed until
+// Compare's version wheel (Batch 6.5, the picker 4d agreed; 6.6: a small pill in the Compare word's place, like the
+// Claude app's model picker but scrolled, never tapped). Only the middle row shows: the version name and a dim "3/5".
+// A flick travels several versions and settles where it stops, like the iPhone picker; the sound flips when the wheel
+// rests, at the same second, and passing rows stay silent. The name on the wheel is always the version sounding: a version still lining up shows dimmed until
 // it sounds, and a wheel caught between rows is finished on the nearest one, never left half-way.
 // The player's own seek bar drives Compare while it's open. compareStore.ts holds the logic; this only draws it.
 import { useEffect, useRef } from 'react';
@@ -9,7 +10,8 @@ import { compare, useCompare } from './compareStore';
 import { dialTarget } from './playOrder';
 import { songTitle, useVersions } from './versionStore';
 
-export const WHEEL_ROW = 40;
+export const WHEEL_ROW = 32;
+export const WHEEL_WIDTH = 168; // the Compare word's slot: the same width open or closed, so nothing beside it moves
 const NO_MOMENTUM_MS = 120; // a drag let go without a flick: rest once no momentum follows
 const SNAP_BACK_MS = 600;
 
@@ -80,7 +82,7 @@ export function CompareDial() {
         style={s.window}
         contentOffset={{ x: 0, y: at * WHEEL_ROW }}
         snapToInterval={WHEEL_ROW}
-        decelerationRate="fast"
+        decelerationRate="normal"
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={32}
         onScroll={(e) => (lastY.current = e.nativeEvent.contentOffset.y)}
@@ -111,9 +113,9 @@ export function CompareDial() {
 }
 
 const s = StyleSheet.create({
-  wheel: { height: WHEEL_ROW, borderRadius: 8, backgroundColor: '#181818', overflow: 'hidden' },
+  wheel: { width: WHEEL_WIDTH, height: WHEEL_ROW, borderRadius: WHEEL_ROW / 2, backgroundColor: '#1e1e1e', overflow: 'hidden' },
   window: { height: WHEEL_ROW },
-  row: { height: WHEEL_ROW, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 10 },
+  row: { height: WHEEL_ROW, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12 },
   name: { flexShrink: 1, color: '#8ab4f8', fontSize: 15 },
   dim: { opacity: 0.4 },
   count: { color: '#666', fontSize: 12, fontVariant: ['tabular-nums'] },

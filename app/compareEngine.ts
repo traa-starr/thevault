@@ -261,6 +261,9 @@ export function createCompareEngine({ onChange, onEnd, makePlayer, lockScreen }:
       if (one.v.duration) lengths[one.id] = one.v.duration;
       if (one.finished) return;
       if (following && !one.own) return; // never play or pause the queue's player for it while it has its buttons
+      // the lock screen's player out of step for longer than our own command takes: a lock-screen press caught mid-seek
+      // or mid-load, adopted above once it settles. Never undo it here (6.5: every press needed a second one)
+      if (one === control && one.v.playing !== wanted && Date.now() - wantedAt > ADOPT_MS) return;
       if (wanted && !one.v.playing && one.v.isLoaded) one.v.play();
       if (!wanted && one.v.playing) one.v.pause();
       if (one.id === sounding || seekingTo !== null) return;

@@ -404,5 +404,50 @@ assert.equal(e.sounding(), 'b');
 assert.deepEqual(audible().map((f) => f.name), ['B'], 'B sounds again');
 e.stop();
 
+// ---- Batch 6.6: a lock-screen press works the first time ----
+// 25. The lock-screen pause lands while the silent queue player is being lined up (a seek under way): Compare must not
+// play it again, and everything pauses once the seek ends. Before 6.6 the tick re-played it: a second press was needed.
+e = fresh();
+e.start('a', uris, 30, true, ['b'], (id) => id, queue);
+await pass(1500);
+e.flipTo('b');
+await pass(2000);
+// the queue player's seeks hang until endSeek() lets every one of them finish
+let hung = [];
+const endSeek = () => {
+  hung.forEach((finish) => finish());
+  hung = [];
+};
+const hangSeeks = () => {
+  queue.seekTo = (s) => {
+    queue.seeks.push(s);
+    return new Promise((r) => hung.push(() => { queue.currentTime = s; r(); }));
+  };
+};
+hangSeeks();
+queue.currentTime -= 1; // drifted: the next tick pulls it, and that seek hangs
+await pass(1100);
+assert.ok(hung.length, 'a pull is under way');
+const playsBefore = queue.plays;
+queue.pause(); // the lock screen's pause, mid-seek
+await pass(500);
+assert.equal(queue.plays, playsBefore, 'the lock-screen pause is not undone mid-seek');
+endSeek();
+await pass(500);
+assert.equal(e.playing(), false, 'Compare follows the pause once the seek ends');
+assert.equal(audible().length, 0, 'nothing sounds');
+// 26. The lock-screen play lands mid-seek too: nothing pauses it again, Compare follows
+await pass(2000);
+e.seek(40); // hangs on the queue player
+await pass(200);
+queue.play(); // the lock screen's play
+await pass(500);
+assert.ok(queue.playing, 'the lock-screen play is not undone mid-seek');
+endSeek();
+await pass(1500);
+assert.equal(e.playing(), true, 'Compare follows the play');
+assert.deepEqual(audible().map((f) => f.name), ['B'], 'B sounds again');
+e.stop();
+
 mock.timers.reset();
 console.log('compareEngine: all rules pass');

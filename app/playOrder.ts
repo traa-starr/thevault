@@ -181,12 +181,12 @@ export function withPending<S extends { id: string; mine: string; sorted: boolea
   });
 }
 
-/** Compare's dial: where a swipe from row `from` that landed on row `landed` should rest. It goes to the nearest row
- * that can play, in the swipe's direction, starting one past `from`. None that way: it stays on the row it landed on,
- * which shows why it can't play. Never 2 places past a row that can play. */
+/** Compare's wheel: where a flick from row `from` that landed on row `landed` should rest. A flick travels: it rests
+ * where it landed (6.6, like the iPhone picker). A row there that can't play is stepped over, on in the flick's
+ * direction. None that way: it stays on the row it landed on, which shows why it can't play. */
 export function dialTarget(from: number, landed: number, playable: boolean[]): number {
   const step = Math.sign(landed - from);
   if (!step) return from;
-  for (let i = from + step; i >= 0 && i < playable.length; i += step) if (playable[i]) return i;
+  for (let i = landed; i >= 0 && i < playable.length; i += step) if (playable[i]) return i;
   return landed;
 }

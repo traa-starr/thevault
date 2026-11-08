@@ -183,9 +183,16 @@ const newTrackStarted = () => {
   lastTime = -1;
 };
 
+let soundPlaying = false;
+
 function onSound(sound: Sound) {
   if (state.comparing) return; // paused and waiting: nothing it says counts
   if (sound.loaded) everLoaded = true;
+  // the lock screen reads playing again on every change, so its button never lags a press behind (6.5: two presses)
+  if (sound.playing !== soundPlaying) {
+    soundPlaying = sound.playing;
+    engine?.refreshLockScreen();
+  }
   const changes: Partial<State> = { time: sound.time, duration: sound.duration };
   if (sound.time !== lastTime) {
     if (lastTime >= 0 && sound.playing) {

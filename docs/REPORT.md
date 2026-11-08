@@ -1,40 +1,35 @@
 # Report
 
-**Step:** Batch 6.5, over-the-air updates + last Compare fixes (build). Parts 0, b, c, a, d, 2026-11-07.
+**Step:** Batch 6.6, Compare in place + lock-screen first press (over the air). Parts a, b, c, d, 2026-11-07.
 
-**Verified by running:** `tsc --noEmit`: clean. `expo export --platform ios`: bundles (1,205 modules). `compareEngine.test.mjs`:
-all rules pass (24 tests; 2 new lock-screen tests fail on the old engine). `playOrder.test.mjs`, `test_server.py`, `test_doctor.py`:
-ALL PASSED. New `test_updates.py`: ALL PASS (17). Guard 39/39. `check_repo.py`: clean.
-Part 0 proven on the laptop: a real `publish` into a throwaway library, then `GET /update` answered 200 multipart with
-runtime 1, and the 3.3 MB bundle downloaded with a matching hash. `expo config` shows the updates settings in the build.
+## Verified by running
+- `tsc --noEmit`: clean. `compareEngine.test.mjs`: all rules pass (2 new: lock-screen pause and play landing mid-seek). `playOrder.test.mjs`: ALL PASSED (1 new: a flick rests where it lands). Guard test 39/39.
+- New test 25 failed on the old engine (the pause was re-played), passes on the new one.
+- `publish`: "Published update 20261108-005832 (runtime 1)".
 
-**Needs the phone:** new build first (adds expo-updates, native). Restart the laptop server (level 3). The 6 checks below.
+## Needs the phone
+`NEXT.md` "Phone check" 1-5 (server running, close and reopen the app; home line shows the new Update time).
 
-**Changed:** app/App.tsx, Compare.tsx, Player.tsx, app.json, compareEngine.ts, compareEngine.test.mjs, compareStore.ts,
-package.json, package-lock.json, phoneBackup.ts, playerStore.ts, new app/updates.ts; server/vault_cli.py,
-vault_server/server.py, new vault_server/updates.py, new test_updates.py; docs/COMMANDS.md, STATUS, REPORT, DECISIONS.
+## Changed
+app/Compare.tsx, app/Player.tsx, app/compareEngine.ts, app/compareEngine.test.mjs, app/engine.ts, app/playOrder.ts, app/playOrder.test.mjs, app/playerStore.ts, docs/STATUS.md, docs/REPORT.md.
 
-**Done:**
-- 0: build holds a placeholder update address; the app points updates at the typed laptop address (counts from the next
-  open). Laptop serves `/update` (Expo protocol v1, iOS only, runtime must match) and `/update-files/...` from
-  `E:\VaultLibrary\updates` (last 5 kept). On open, a new update reloads the app at once if nothing plays (first minute),
-  else it's used next open. Home screen's bottom line shows "Update <date>, <time>" when running one. Server level 3.
-- b: the engine follows the player the lock screen drives (the queue's, even when silent). Compare word uses one fade node.
-- c: Mine/Not mine show only by the eye; in Compare they stay as the eye says, dimmed, no taps. Sorted songs open hidden,
-  unsorted showing; a hand flip lasts to the next song; Done on another version keeps the eye.
-- a: vertical wheel, one row, name in Compare's blue + dim "3/5", snaps; a wheel stopped between rows finishes on its row;
-  a row that can't sound goes back to the one you hear after 0.6 s; a version lining up shows dimmed. Play/Done are text.
-- d: no haptic on Compare tap or flips; light tick on queue grab and each spot passed (`onIndexChange`).
+## What was found (c, lock screen)
+- Compare: when a lock-screen press landed while the queue's player was being lined up (a seek under way), Compare's tick played it again at once, so a second press was needed. Fixed: it never undoes a lock-screen press; it adopts it once the seek ends. Tested.
+- Normal playback: no single cause proven from code. Two fixes: (1) the player thought it still held the lock screen after Compare from Library took it, so title updates did nothing; it now always re-claims fully (the old "update" call also blanked the lock screen before refilling it). (2) Every play/pause change makes the lock screen re-read the state, so its button can't lag a press behind. Check 5 tells us if that was it.
+- (b) Cause of "moves one, snaps back from two": the wheel's rule picked the first row past the start, not where it landed. Now it rests where it lands; momentum set to the iPhone's normal speed.
 
-**Differed from NEXT.md:**
-- Check 0's "visible word": the home screen's bottom line ("Build N..." becomes "Update <date>, <time>"), so no second commit.
-- Override needs one close/reopen after installing before updates count (Expo rule). Laptop off: the check fails quietly.
-- Anti-bricking is off (Expo requires it for a typed address): a crashing update may need a reinstall. Publish only tested code.
-- Runtime version is a fixed "1" in app.json: raise it with any native change, or old builds would get code they can't run.
-- Eye and Done-word fixes have no automated test (React and expo modules don't run in node). Only expo-updates is native.
+## Differed from NEXT.md
+- Shuffle in Compare ends Compare first, like Previous/Next (NEXT didn't say).
+- The Compare word sits in a fixed 168-pt slot so the wheel fits without moving anything; the Versions row shifts left once (~45 pt) compared to 6.5, and stays put when Compare opens or closes.
 
-**Not done:** nothing in scope. **Decisions needed:** none.
+## Not done
+Nothing.
 
-**Proposed next step:** phone checks 0-5, then chat Review; then Phase 1 "Done when".
+## Decisions needed
+None.
 
-**Pitch:** `publish` refuses unless tsc and the engine tests pass first, so a broken update can't reach the phone.
+## Proposed next step
+Phone checks 1-5, then Phase 1 "Done when" with you.
+
+## Pitch
+Lock-screen test mode: a hidden home-screen line that logs each lock-screen press and what the player did, so the next "two presses" bug is read off the phone, not guessed.

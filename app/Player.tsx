@@ -11,7 +11,7 @@ import ReorderableList, { useIsActive, useReorderableDrag, type ReorderableListD
 const tick = () => {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 };
-import { CompareDial } from './Compare';
+import { CompareDial, WHEEL_WIDTH } from './Compare';
 import { compare, useCompare } from './compareStore';
 import { openLibrarySelect, HomeButton } from './nav';
 import { player, usePlayer, type Pool } from './playerStore';
@@ -31,9 +31,8 @@ const SWIPE_UP_SPEED = 0.4;
 const HIDE_MS = 250;
 const EYE_DROP = 64; // the verdict row's height plus the gap above it, so the hidden eye sits where the buttons were
 const VERDICT_DROP = 120; // far enough to leave the bottom of the screen
-const FADE_MS = 200; // player controls and Compare's row crossfade in the same slot
 const PULSE_MS = 600;
-const SLOT_HEIGHT = 124; // the controls slot: the same height in both modes, so nothing above or below moves
+const SLOT_HEIGHT = 124; // the controls and the Shuffle line: a fixed height, so nothing below moves
 
 const clock = (seconds: number) => {
   const whole = Math.floor(seconds);
@@ -178,21 +177,19 @@ function FullPlayer() {
   const [seekingTo, setSeekingTo] = useState<number | null>(null);
   const swipe = useBlankSwipeUp(() => player.open('queue'));
   const hidden = useRef(new Animated.Value(buttonsHidden ? 1 : 0)).current;
-  // Compare open: it owns the sound, so the title, seek bar and Play are its; Previous and Next wait for Done
+  // Compare lives inside the player (6.6): it owns the sound, so the title, seek bar and Play/Pause are its. The buttons
+  // never change or move; Previous, Next and Shuffle mean another song, which ends Compare first (Done, then the move)
   const cmp = useCompare();
   const comparing = cmp.open;
   const time = comparing ? cmp.sound.time : playerTime;
   const duration = comparing ? cmp.sound.duration : playerDuration;
   const shownId = comparing ? cmp.sound.sounding || cmp.ids[0] : song?.id;
-  const mode = useRef(new Animated.Value(comparing ? 1 : 0)).current;
+  const wanted = comparing ? cmp.sound.playing : playerWanted;
   const pulse = useRef(new Animated.Value(1)).current;
-  // the Compare word: fades out while Compare is open, pulses during the wait. One node always attached: switching it
-  // between two animated values left it blank after Done until the player was reopened (6.4)
-  const compareWord = useMemo(() => Animated.multiply(pulse, mode.interpolate({ inputRange: [0, 1], outputRange: [1, 0] })), [pulse, mode]);
-
-  useEffect(() => {
-    Animated.timing(mode, { toValue: comparing ? 1 : 0, duration: FADE_MS, useNativeDriver: true }).start();
-  }, [comparing, mode]);
+  const leavingCompare = (then: () => void) => () => {
+    if (compare.busy()) compare.done();
+    then();
+  };
 
   // the wait: "Compare" pulses in place (opacity only, so it can't change width)
   useEffect(() => {
@@ -244,40 +241,26 @@ function FullPlayer() {
             <Text style={s.time}>{timeLeft ? `-${clock(Math.max(duration - shown, 0))}` : clock(duration)}</Text>
           </Pressable>
         </View>
-        {/* One slot, one height: the player's controls and Compare's row crossfade inside it; the hidden one takes no taps */}
+        {/* the same buttons in Compare: Play/Pause works the version heard, the rest end Compare first */}
         <View style={s.slot}>
-          <Animated.View style={[s.layer, { opacity: mode.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }]} pointerEvents={comparing ? 'none' : 'auto'}>
-            <View style={s.controls}>
-              <Pressable style={s.button} onPress={player.previous}>
-                <Text style={s.buttonText}>Previous</Text>
-              </Pressable>
-              <Pressable style={[s.button, s.play]} onPress={player.toggle}>
-                <Text style={[s.buttonText, s.playText]}>{playerWanted ? 'Pause' : 'Play'}</Text>
-              </Pressable>
-              <Pressable style={s.button} onPress={player.next}>
-                <Text style={s.buttonText}>Next</Text>
-              </Pressable>
-            </View>
-            {sorting ? null : (
-              <Pressable onPress={() => (order?.shuffle ? player.setShuffleOn(false) : askShuffle((picked) => player.setShuffleOn(true, picked)))}>
-                <Text style={[s.link, order?.shuffle && s.linkOn]}>
-                  {order?.shuffle ? `Shuffle: ${pool === 'mine' ? 'Mine' : 'unsorted'}` : 'Shuffle: off'}
-                </Text>
-              </Pressable>
-            )}
-          </Animated.View>
-          <Animated.View style={[s.layer, { opacity: mode }]} pointerEvents={comparing ? 'auto' : 'none'}>
-            {/* small and quiet, like the Compare word: Play, the version wheel, Done */}
-            <View style={s.compareRow}>
-              <Pressable style={s.compareAct} onPress={compare.toggle} hitSlop={8}>
-                <Text style={s.compareActText}>{cmp.sound.playing ? 'Pause' : 'Play'}</Text>
-              </Pressable>
-              <View style={s.dialSlot}>{comparing ? <CompareDial /> : null}</View>
-              <Pressable style={s.compareAct} onPress={compare.done} hitSlop={8}>
-                <Text style={[s.compareActText, s.doneText]}>Done</Text>
-              </Pressable>
-            </View>
-          </Animated.View>
+          <View style={s.controls}>
+            <Pressable style={s.button} onPress={leavingCompare(player.previous)}>
+              <Text style={s.buttonText}>Previous</Text>
+            </Pressable>
+            <Pressable style={[s.button, s.play]} onPress={comparing ? compare.toggle : player.toggle}>
+              <Text style={[s.buttonText, s.playText]}>{wanted ? 'Pause' : 'Play'}</Text>
+            </Pressable>
+            <Pressable style={s.button} onPress={leavingCompare(player.next)}>
+              <Text style={s.buttonText}>Next</Text>
+            </Pressable>
+          </View>
+          {sorting ? null : (
+            <Pressable onPress={leavingCompare(() => (order?.shuffle ? player.setShuffleOn(false) : askShuffle((picked) => player.setShuffleOn(true, picked))))}>
+              <Text style={[s.link, order?.shuffle && s.linkOn]}>
+                {order?.shuffle ? `Shuffle: ${pool === 'mine' ? 'Mine' : 'unsorted'}` : 'Shuffle: off'}
+              </Text>
+            </Pressable>
+          )}
         </View>
         {!shownId || (!comparing && (sorting || player.isOut())) ? null : (
           <View style={s.versionRow}>
@@ -289,18 +272,25 @@ function FullPlayer() {
               </Pressable>
             )}
             <VersionsChip id={shownId} onPress={() => player.closeThen(() => versions.openVersions(shownId))} />
-            {/* stays in place in Compare (faded out, no taps), so the row never shifts */}
+            {/* one fixed-width slot: the Compare word, or in Compare the wheel in its place, so nothing beside it moves */}
             {versions.members(shownId).length > 1 ? (
-              <Animated.View style={{ opacity: compareWord }} pointerEvents={comparing ? 'none' : 'auto'}>
-                <Pressable onPress={() => compare.openFromPlayer(player.url())}>
-                  <Text style={s.link}>Compare</Text>
-                </Pressable>
-              </Animated.View>
+              <View style={s.compareSlot}>
+                {comparing ? (
+                  <CompareDial />
+                ) : (
+                  <Animated.View style={{ opacity: pulse }}>
+                    <Pressable onPress={() => compare.openFromPlayer(player.url())}>
+                      <Text style={s.link}>Compare</Text>
+                    </Pressable>
+                  </Animated.View>
+                )}
+              </View>
             ) : null}
           </View>
         )}
-        <Pressable onPress={() => player.open('none')}>
-          <Text style={s.link}>Back</Text>
+        {/* while comparing, Back is Done: same spot, same size */}
+        <Pressable onPress={comparing ? compare.done : () => player.open('none')}>
+          <Text style={s.link}>{comparing ? 'Done' : 'Back'}</Text>
         </Pressable>
       </View>
       {/* All the blank space down to the buttons: a swipe up opens Queue, a tap does nothing. */}
@@ -532,13 +522,9 @@ const s = StyleSheet.create({
   times: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: -12 },
   time: { color: '#ddd', fontSize: 14, fontVariant: ['tabular-nums'] },
   timeTap: { paddingVertical: 14, paddingLeft: 32 },
-  slot: { height: SLOT_HEIGHT, marginTop: 16 },
-  layer: { position: 'absolute', left: 0, right: 0, top: 0, gap: 12 },
+  slot: { height: SLOT_HEIGHT, marginTop: 16, gap: 12 },
   controls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12 },
-  compareRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dialSlot: { flex: 1 },
-  compareAct: { minWidth: 56, height: 40, alignItems: 'center', justifyContent: 'center' },
-  compareActText: { color: '#fff', fontSize: 15 },
+  compareSlot: { width: WHEEL_WIDTH, height: 46, justifyContent: 'center', alignItems: 'flex-start' },
   button: { paddingVertical: 14, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, borderColor: '#555' },
   buttonText: { color: '#fff', fontSize: 16 },
   play: { minWidth: 92, alignItems: 'center', backgroundColor: '#fff', borderColor: '#fff' },
@@ -549,7 +535,6 @@ const s = StyleSheet.create({
   toastText: { flex: 1, color: '#fff', fontSize: 15 },
   toastUndo: { color: '#8ab4f8', fontSize: 16, fontWeight: '700' },
   link: { color: '#8ab4f8', fontSize: 15, paddingHorizontal: 8, paddingVertical: 13, textAlign: 'center' },
-  doneText: { color: '#8ab4f8', fontWeight: '600' },
   linkOn: { color: '#fff', fontWeight: '700' },
   queue: { flex: 1, backgroundColor: '#111', paddingHorizontal: 16 },
   queueHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
