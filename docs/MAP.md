@@ -6,6 +6,7 @@ From the interview and read-only scans, 2026-10-31. No Tailscale hostnames or IP
 | What | Where | Notes |
 |---|---|---|
 | This repo | `E:\dev\thevault` | Remote: `github.com/traa-starr/thevault` (public) |
+| Decisions archive | `docs/decisions/phase-0-1.md` | Phase 0 and Phase 1 rows, word for word; summaries stay in `docs/DECISIONS.md` |
 | iCloud Drive | `C:\Users\illus\iCloudDrive` | **Locked.** ~2,240 files |
 | My songs (mostly) | `iCloudDrive\Music` | 443 audio files, ~1.9 GB. FL bounces and BandLab exports land here together |
 | Mixed: mine + other artists | `iCloudDrive\Session Music` | 1,233 audio files, ~5.2 GB, in artist subfolders. Scanned: loose files + `#FREEMONEY THE MIXTAPE` only; other artist subfolders are not mine and excluded |

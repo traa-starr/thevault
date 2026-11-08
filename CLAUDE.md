@@ -1,7 +1,7 @@
 # The Vault: notes for Claude
 
 One place for all my songs from FL Studio and BandLab. The phone is the primary device; the laptop hosts.
-Product: `docs/VISION.md`. Choices: `docs/DECISIONS.md`. Current state: `docs/STATUS.md` (read first).
+Product: `docs/VISION.md`. Choices: `docs/DECISIONS.md` (Phase 0-1 rows: `docs/decisions/phase-0-1.md`). Current state: `docs/STATUS.md` (read first).
 Build order: `docs/ROADMAP.md`. Where things live: `docs/MAP.md`. The one current task: `docs/NEXT.md`. Last session's results: `docs/REPORT.md`.
 How we work: `docs/WORKFLOW.md`. Chat manages, Code builds, and I carry one line. Commands: `/next`, `/wrap`, `/review`, `/where`.
 
