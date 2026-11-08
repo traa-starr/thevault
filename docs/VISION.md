@@ -21,8 +21,8 @@ One place where all my songs from two DAWs on two devices end up, and where fina
   moment, type or dictate a quotable line, and it becomes a timestamped tag. Tapping a tag jumps to that moment.
 - **Search:** never excludes, only reorders. Exact phrase > same words in order with gaps > all words > some words weighted
   by rarity. Common words count ~0 (down-weighted, not banned, so "has to" works). Tolerates misspellings and word endings,
-  learns my slang spellings, boosts the result I pick for that search. Shows the matched tag and timestamp. Uses built-in
-  database search where possible. Later: a separate "similar meaning" section that can't pollute main results.
+  learns my slang spellings, boosts the result I pick for that search. Shows the matched tag and timestamp. Runs on the phone, so it works
+  offline (DECISIONS 2026-11-08); the database's own search index stays in reserve. Later: a separate "similar meaning" section that can't pollute main results.
 - **Acceptance test:** after ~50 tags I write 20 searches with known answers; re-run after every search change.
 - **Groups:** "Add to group / New group" button, not "same as last", since random play won't put versions back to back.
   Auto-name from title; strip a trailing number only when other files share the base ("Dome 1/2/3" → "Dome"; "Has 2" stays).

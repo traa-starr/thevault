@@ -119,7 +119,7 @@ with that line" · widgets · Whisper draft tags · "similar meaning" search sec
 | Before | Call | Note |
 |---|---|---|
 | 1.1 | Audio filing: fingerprint folder (C), mirrored names (D), or C plus a browse folder (E) | Shape C and tags-on-song decided. Report done: 1,395 files, names unique except `flip`. Mine to choose, no default |
-| Phase 3 | Does search run on the phone or the laptop? | The spike tested search on the laptop only; offline search needs it on the phone. Test before building |
+| Phase 3 | Does search run on the phone or the laptop? | **Answered 2026-11-08: on the phone (A), DECISIONS.** Real-phone timing is Phase 3's first check |
 | Phase 5 | FL project backup | Declined 2026-10-31. Parked; don't raise unless I do |
 
 **Known cost of keeping BandLab late:** those songs miss tagging until Phase 5, and the acceptance test won't cover them until they're tagged.

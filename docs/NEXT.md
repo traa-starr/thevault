@@ -1,41 +1,43 @@
-# NEXT: Session polish, laptop upkeep, search groundwork
+# NEXT: Fast session Next, centred player everywhere, search on the phone
 Format: goal
 Written by chat, 2026-11-08.
-Log: Phase 2 code-complete checks 4 of 4 pass, 2.2/2.4/2.5 ticked (results `PHASE-2-RESULTS.md`); bug: on every session Next a beat plays from 0:00, then it jumps in; session cards start at 15 s, Sort cards at 30 s, fixed times (owner); session has no Shuffle (fine) but its other player buttons are no longer centred (owner); session survives an app kill, Code's pitch promoted (chat); goal format kept after its 3-task trial (owner); double Next and Undo-after-Next stay as built (owner); NEXT sized by the new sizing check in CHAT-INSTRUCTIONS (owner); Phase 3 groundwork is spike and memo only, no app code (chat) (logged by chat)
-Size: (Read: also `docs/BATCH-PLAN.md` "My requests".) My real tagging sessions and wipe check (2.7) are mine and run alongside this. Everything Code can do without me: the review's 3 fixes, the laptop queue item, cheap parked pitches, and Phase 3's hard-to-undo question (search on phone or laptop) made ready for me to choose at review.
-Queue after this: Phase 2 closes after my sessions + wipe check; then Phase 3 build on the option I pick.
-Read: `docs/LESSONS.md` (every line a check in your plan), `docs/PHASE-2-RESULTS.md` "Phase 2 code-complete", the last 3 DECISIONS rows, `docs/BLUEPRINT.md` "Phase 2: tagging" (reading tags), `docs/ROADMAP.md` Phase 3, STATUS queue and parked list, the files you touch.
+Log: Session polish checks 3 of 3 pass, notes: session Next holds 3-5 s silent (seek bar 0:00, then 0:15) while Sort cards start near-instantly; player opened from a Sort card not centred (owner); search runs on the phone, option A (owner, hard to undo); Phase 3 builds alongside my 2.7 sessions + wipe check (chat); search opens from a field at the top of Library, a result plays from its tag's moment (chat-default) (logged by chat)
+Size: My real sessions and wipe check (2.7) run alongside. Code can do without me: both review notes, and Phase 3 up to the point where I must write my 20 searches (3.7 needs ~50 real tags). That is 3.1-3.3 and 3.6 in the app, 3.4 and 3.5 if room, the acceptance-test runner, and a real-phone timing. One board meeting covers it.
+Queue after this: my 20 acceptance searches (3.7) once I have ~50 tags; Phase 2 closes when I pass 2.7.
+Read: `docs/LESSONS.md` (every line a check in your plan), `docs/SEARCH-OPTIONS.md`, `spike/search/`, the last 3 DECISIONS rows, `docs/ROADMAP.md` Phase 3, `docs/VISION.md` "Search", `docs/BLUEPRINT.md` "Reading tags", `docs/BOARD.md`, STATUS parked list, the files you touch.
 
-## Part 0 (loop change, do first)
-Copy `docs/pending-skills/wrap-SKILL.md` over `.claude/skills/wrap/SKILL.md`, then delete the pending copy. From this `/wrap` on, you publish and restart the server yourself, and your last message is three lines. Use it at the end of this session.
+## Part 0: board meeting (test lines 1 and 2: a new screen, and what I hear after Next)
+One meeting for the milestone: the search field and results (where it sits in Library, what a result row shows, what a tap does, empty and no-match states) and the session Next timing. Notes in `docs/board/phase-3-search.md`. Taste calls the board splits on: pick one, say it in REPORT, I change it at review.
 
 ## Goal
-My real tagging sessions feel right from the first card, the laptop needs less babysitting, and Phase 3's big call is ready for me.
-A. **Clean starts (2.2, Sort cards).** Session cards start at 0:15, Sort cards at 0:30. The start time goes to the player when the song loads, so the first thing I hear is that spot, never a beat from 0:00. A song shorter than its start point starts at 0:00. An undone Sort card still carries on from where it was.
-B. **Session layout.** The session has no Shuffle, and that's fine, but the player buttons left behind must sit centred, not lopsided. Same 44 pt targets, no shift when the session opens or closes.
-C. **Session survives an app kill.** Save "in a session" with its lap, counter and place. After a kill and reopen, or lock-screen Nexts while the app slept, the player still shows the session look and the same lap.
-D. **Laptop upkeep (BATCH-PLAN "My requests" 2026-11-07 + parked).** I sort on the phone between builds, and the laptop never catches up on its own: 465 Mine, only 314 with phone copies. The server makes phone copies by itself: on start, and in the background soon after a song is marked Mine (never slowing playback; safe if it's stopped mid-copy). After a sort session, Library songs play without me running `import`. `/next` also prints "phone copies made now: N" as a backstop. Doctor warns about Mine songs without phone copies. The server stops printing harmless "connection reset" tracebacks. Update `COMMANDS.md` for anything I run.
-E. **Search groundwork (Phase 3, spike only).** In `spike/search/`: the ranking ladder (3.1-3.3: exact phrase > words in order with gaps > all words > rare words; common words down-weighted; slang endings like drip/drippin) as pure functions with tests, run on fake tags at my library's size (1,395 songs, ~20 tags each, slang and misspellings). Measure speed and size both ways: on the phone vs on the laptop, plus one option I didn't ask about. Write `docs/SEARCH-OPTIONS.md`: 2-3 options, numbers, what a senior engineer would pick and why. No app code; I choose at review.
+Tagging sessions move as fast as Sort cards, the player looks the same wherever I open it, and I can type a half-remembered line and land on the moment in the song.
+A. **Session Next as fast as Sort cards.** Find why Sort cards start near-instantly and session Next sits silent 3-5 s with the seek bar at 0:00, and give the session the fast path. First sound within about 1 s of Next, starting at 0:15; the seek bar never shows 0:00 first. Lock-screen Next and the 0:15 / 0:30 starts stay as they are.
+B. **Centred player everywhere.** Previous / Play / Next centred in every place the player opens: Library, a Sort card tap, a session, after a restore. Same 44 pt targets, no shift.
+C. **Search on the phone (3.1, 3.2, 3.3, 3.6).** Move the spike's ladder into the app as tested pure code that reads the phone's own tag copy (works offline, laptop asleep). Search field at the top of Library; results update as I type. Each result shows the song, the matched tag words and its time; a tap plays the song from that moment. Never hides a song that shares a word, only reorders. Ships by publish, no rebuild.
+D. **Real-phone timing + acceptance runner (3.7 groundwork).** The app sends its search timings (typical and slow end, tag count) to the laptop, and a laptop command prints them, so REPORT and I see the real phone's numbers. A script runs a searches file (search line + the song I expect) through the same ladder and prints pass/fail per line; ship it with a 5-line example file. Add both lines to `COMMANDS.md`.
+E. **If room: 3.4 then 3.5.** Misspelling tolerance plus a slang spelling table I can grow; the result I pick for a search ranks higher next time for that search. Both travel through the outbox like tags, so the laptop keeps them.
 
 ## The bar (how to work)
-- Board test from `BOARD.md` (B touches a screen; E is a hard-to-undo call). Say in REPORT whether it met.
-- Plan in STATUS "In progress", one line per goal. Before building each, list how it could break (fast Next taps, Next while loading, lock-screen Next, a short song, app killed mid-load, offline, Undo right after Next; for D, server already stopped or import failing) and turn each into a test or screenshot check.
-- Tests first. Screenshots can't hear: for A, a test proves the start time reaches the player at load and no seek follows.
-- Screenshot every changed screen, incl. the session look after a simulated restore. Hostile self-review of the whole diff before `/wrap`. One fresh-eyes review (new screens + risky logic). Anything you don't fix: say why, checked on the real path.
+- Board meets first (Part 0). Plan in STATUS "In progress", one line per goal.
+- Before building each goal, list how it could break and turn each into a test or screenshot: A: fast Next taps, Next while loading, lock-screen Next, short song, killed mid-load, offline; B: every entry point, after a restore; C: empty search, no match, one letter, emoji, 200-character line, keyboard covering results, typing fast, tags changing while results show, offline, laptop asleep, 1,400 songs. LESSONS lines are part of that list.
+- Tests first. Screenshots can't hear: for A, a test times Next-to-first-sound on the session and Sort paths and fails above 1 s.
+- Controls: instant pressed look, 44 pt, no swallowed tap, nothing shifts. Screenshot every changed screen in its edge states (empty, no match, long results, keyboard up) with the screenshot command.
+- Hostile self-review of the whole diff, then one fresh-eyes review (new screen + risky timing). Anything not taken: a reason checked on the real path.
 - Two failed fixes on a goal: write it up, move to the next goal. Don't stop the session.
 
 ## Done when
-Code proves: a server test where marking a song Mine makes its phone copy with no command, and a stop mid-copy leaves no broken file; start-time tests (session 15 s, Sort 30 s, short song 0, undone card resumes); session-restore test (same lap, counter, place after a reload); session screenshots show the controls centred; `/next`'s refresh prints the count on the real library; doctor shows the warning line; the spike's tests pass and `SEARCH-OPTIONS.md` has measured numbers for each option; `/verify` all PASS.
+Code proves: a timing test where session Next and Sort-card Next both reach first sound within 1 s, with no seek-bar 0:00 shown; screenshots of the player from Library, Sort card, session and restored session with the controls centred; ladder tests ported from the spike pass in the app; search screenshots for empty, no match, many results and keyboard up; a search test on 1,400 fake songs offline (no server) returns results; the acceptance runner passes its example file; the timings command prints after a fake phone report; `/verify` all PASS. REPORT says whether E was taken.
 I prove:
-1. Tag songs: the controls sit centred. Tap the big Next 5 times fast, then slowly. Pass: each song's first sound is about 0:15, never a beat from the start.
-2. Sort cards: mark 3 new songs Mine, then find them in Library and play them (no laptop command in between). Swipe through 5 cards. Pass: each starts about 0:30 with no blip. Undo one: it carries on where it was.
-3. In a session, swipe the app away, reopen. Pass: still in the session, same "N of M tagged", same order. Lock the phone, Next twice from the lock screen, unlock. Pass: session look, counter right.
-4. Read `SEARCH-OPTIONS.md` with chat at review and pick one.
+1. Tag songs: tap Next 5 times fast, then 3 slowly. Pass: each song starts about 0:15 within about a second, no long silent wait.
+2. Sort: tap a card to open the player; then open the player from Library. Pass: Previous / Play / Next centred both times.
+3. Library: type 2-3 words from a tag I wrote. Pass: that song is near the top, showing my tag words and time; tap it, and it plays from that moment. Type nonsense: a clear "no match", no crash.
+4. Turn on airplane mode, search again. Pass: same results. Then tell chat the timing command's numbers.
 
 ## Stretch (only if every goal is met and budget is left)
-Parked pitches in this order: song length stored at scan time; `/verify` under 1 min; Hidden count on the Hidden link. Say in REPORT which you took.
+Song length stored at scan time; Hidden count on the Hidden link; `/verify` under 1 min. Say in REPORT which you took.
 
 ## Limits
-- Order matters: A, B, C first (my sessions need them), then D, then E. If it runs long, E waits, not A-C.
-- E stays in `spike/` and docs: no `app/` or `server/` search code until I choose.
-- No change to tags, sync, Library or Shuffle behaviour. Music read-only, no git, public-repo rules as always.
+- Order: A and B first (my real sessions need them), then C, D, E. If it runs long, E waits.
+- Search is read-only: no change to tags, sync, journal or outbox rules except E's two new outbox kinds. No `server/` search route (option A).
+- No native modules, no full rebuild: publish only. If something needs a rebuild, stop that part and write it up.
+- Music read-only, no git, public-repo rules as always. My sessions keep running on the published app.

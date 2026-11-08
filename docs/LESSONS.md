@@ -13,3 +13,5 @@ The bar in `CHAT-INSTRUCTIONS.md` once they're standard.
 | 2026-11-08 | Eye button crash (screen state vs file on disk) | Test toggles repeatedly, and after a restart |
 | 2026-11-08 | Session cards played a beat from 0:00, then jumped in (wait for length, then seek) | Start point handed to the player at load; a test that no audio plays before it. Screenshots can't hear: list sound-timing failure modes too |
 | 2026-11-08 | REPORT dismissed a fresh-eyes catch ("Cards have the same") without checking | A catch is only "not taken" with a reason checked on the real path, written in REPORT |
+| 2026-11-08 | Session Next went silent for 3-5 s (seek bar at 0:00, then 0:15) while Sort cards start near-instantly | Time Next-to-first-sound on every path that plays a song, against the fastest path we have; a test fails above 1 s |
+| 2026-11-08 | Session buttons centred, but the player opened from a Sort card stayed lopsided | A layout fix gets a screenshot from every place that screen opens (Library, Sort card, session, after restore) |

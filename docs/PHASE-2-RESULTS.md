@@ -50,3 +50,12 @@ My phone results, one line each (written by chat). Measured results stay in REPO
 - Cause (chat read the code): the session and Sort cards use the same player; both wait for the song length, then jump to 30%. Call (owner): session cards start at 15 s, Sort cards at 30 s, both fixed times so the song starts there with no blip.
 4. Library Shuffle cycles Mine / Unsorted / off with no box; offline: two edits, a delete and an Undo reach the laptop (`tags` command shows the second words and both tags): **pass**
 - Result: 4 of 4 pass, 1 bug note (card start blip).
+
+## Session polish (2026-11-08, real app, OTA publish 18:21)
+1. Session: Previous / Play / Next centred; 5 fast + 3 slow Nexts, first sound about 0:15, no beat from 0:00: **pass**
+- Note: on Next the seek bar shows 0:00, nothing plays, then it finds 0:15 and plays: a 3-5 s silent hold per Next. Sort cards start close to instant ("super nice"). Session Next should feel as fast as Sort cards.
+2. Sort cards: 3 new Mine songs play from Library after ~1 min, no laptop command; 5 cards start about 0:30, no blip; Undo carries on: **pass**
+- Note: tapping a Sort card pulls up the player, and its Previous / Play / Next aren't centred either. Centre them there too.
+3. Session after closing the app and reopening: same session look, counter, song and order; lock-screen Next twice keeps the session, starts about 0:15: **pass**
+4. Search option (`SEARCH-OPTIONS.md`): **A, on the phone** (owner).
+- Result: 3 of 3 pass, 2 notes (3-5 s hold on session Next; player from a Sort card not centred).
