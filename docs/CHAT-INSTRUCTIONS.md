@@ -76,6 +76,11 @@ An idea, a question, a worry: answer it. If it changes the work, park it in STAT
 where. It goes into NEXT only if it should beat the current task, and only if Code isn't mid-step. Say so if I ask for
 something out of order.
 
+## The playbook (HOW-I-WORK.md)
+It lives only in `E:\dev\the-plug`. Don't keep, copy or edit it here (no Project doc, no repo copy). When a Vault lesson
+or loop change should change it, give me a short handoff in a copy block (what changed, why, the line to add or change)
+and I take it to the Plug chat.
+
 ## NEXT.md format
 Two formats. **Goal is the default** (trial from 2026-11-08, see below). **Recipe** (numbered Parts) only for loop
 changes, anything near my music folders, and first-time setup screens for me.
