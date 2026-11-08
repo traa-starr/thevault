@@ -1,6 +1,7 @@
 # Status
 
 **Phase 2 (tagging): last item is mine (2.7); Phase 3 (search, on the phone) builds alongside.** Updated 2026-11-08 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Ship line:** 2.7 passed (50 songs tagged in real sessions + wipe check) by 2026-11-15. No new phase before it (VISION).
 **In progress:** nothing.
 **Next up:** me: commit, close and reopen the app, then `Review.` in chat. Alongside: real tagging sessions + wipe check (2.7).
 **Current task:** Fast session Next, centred player everywhere, search on the phone (`NEXT.md`).
@@ -15,11 +16,11 @@
 - Phase 2 plan session 2026-11-07: board met (`board/phase-2-tagging.md`), 8 calls answered (DECISIONS), mockup `spike/mockups/tagging-card.html`, BLUEPRINT Phase 2 section, BATCH-PLAN Phase 2 (3 batches).
 - `/verify` built and reviewed 2026-11-07: one command, 11 checks, 11/11 PASS, about 6 min.
 - Phase 1 closed 2026-11-07 (away test passed). Library at `E:\VaultLibrary`: 1,395 songs. ROADMAP 1.11 built, unproven.
-- Phase 0 closed (`SPIKE-RESULTS.md`). Design ideas in `DESIGN-NOTES.md`.
+- Phase 0 closed (`archive/SPIKE-RESULTS.md`). Design ideas in `DESIGN-NOTES.md`.
 
 ## Queue
 1. Now: Code: fast session Next, centred player, search on the phone (`NEXT.md`). Me: real tagging sessions + wipe check (2.7).
-2. Then: my 20 acceptance searches (3.7) at ~50 tags; Phase 2 closes when I pass 2.7.
+2. Then: my 20 acceptance searches (3.7) at ~50 tags; Phase 2 closes when I pass 2.7, and chat folds its DECISIONS rows into `decisions/phase-2.md` (short summary left in DECISIONS).
 3. Parked (Code's pitches): split the 638-song folder set; server `/status` count-only answer; A-Z jump strip; doctor's fail line names changed files; Keychain note so a reinstall keeps the laptop address. (Stretch in NEXT: song length at scan time, Hidden count, `/verify` under 1 min.)
 
 ## Open questions

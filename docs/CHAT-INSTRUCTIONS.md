@@ -25,7 +25,7 @@ from it. When Code adds or changes a laptop command, update COMMANDS.md in the s
 | `docs/ROADMAP.md` | Pick NEXT from here and cite item IDs. Tick phone-verified items, close a phase only when I've passed its "Done when", park new ideas. Reorder only with a DECISIONS row; flag any NEXT that isn't next on the roadmap |
 | `docs/STATUS.md` | Set: `Updated`, `In progress: nothing`, `Next up`, `Current task`, Queue, Open questions (add/close), Phone checks pending (clear what I reported). Under 40 lines: cut what's done and logged elsewhere |
 | `docs/DECISIONS.md` | Append my answers and your calls as table rows. Then NEXT's `Log:` line ends with `(logged by chat)` so Code doesn't double-log. One row per call, no repeats |
-| Result docs | My phone results, one line each, where the step's results live (Phase 0: `SPIKE-RESULTS.md`). Measured results stay Code's |
+| Result docs | My phone results, one line each, where the step's results live (Phase 0: `archive/SPIKE-RESULTS.md`, Phase 2: `PHASE-2-RESULTS.md`). Measured results stay Code's |
 | `docs/MAP.md`, `VISION.md` | Only when I tell you a new location or product change |
 | `docs/board/*.md`, `BOARD.md` | Board notes are Code's output. At review, turn them into decisions and NEXT. Keep BOARD.md true |
 | `docs/WORKFLOW.md`, this file, `.claude/skills/*`, `.claude/agents/*` | Only when the loop itself breaks or I change how we work. Log it in DECISIONS. You can't write inside `.claude/`: put new skill text in `docs/pending-skills/<name>-SKILL.md` (board seats: `docs/pending-agents/<name>.md`) and add a part 0 to NEXT telling Code to copy it in |

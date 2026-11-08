@@ -10,7 +10,7 @@ Spike results are in `SPIKE-RESULTS.md`.
 | **Client** | A. Expo app, streams from laptop · B. Capacitor-wrapped web app · C. Expo app, songs on phone | **C.** Listening shouldn't depend on a laptop being awake |
 | **Library location** | A. All on `E:\VaultLibrary` · B. All on `C:\VaultLibrary` · C. Split: database on `C:\VaultData`, audio on `E:\VaultLibrary` | **C.** E: is a USB drive that can be unplugged, and C: is too full for the audio. Your tags stay on the drive that's always there |
 | **Database backup** | A. Nightly copy to the other drive · B. Copy to the phone at each sync · C. Nightly copy into an iCloud folder | **A now, B when sync exists.** No rule change. C is the only one that needs your exception, see below |
-| **BandLab method** | A. Hand export in the app · B. Browser automation with your session · C. Data request to BandLab | **A.** About 2-3 hours by hand isn't worth risking the account that holds unexported songs (`BANDLAB-OPTIONS.md`) |
+| **BandLab method** | A. Hand export in the app · B. Browser automation with your session · C. Data request to BandLab | **A.** About 2-3 hours by hand isn't worth risking the account that holds unexported songs (`../BANDLAB-OPTIONS.md`) |
 
 **The backup call touches rule 1.** iCloud is a new write location, and the rules forbid it today: "never write inside iCloud Drive". Option C would need your explicit exception and a narrow opening in the music guard. Options A and B need neither.
 

@@ -1,5 +1,5 @@
 # Board: Phase 2 tagging (2026-11-07)
-All four seats, one brief (ROADMAP 2.1-2.7, owner questions from `PLAN-SESSION.md`). Advisory. Owner's answers: DECISIONS.
+All four seats, one brief (ROADMAP 2.1-2.7, owner questions from `../archive/PLAN-SESSION.md`). Advisory. Owner's answers: DECISIONS.
 
 ## Agreed
 - **The tap is the moment.** The second is read from the player at the tap and frozen, however long typing takes. Shown on the field ("at 1:42") so I can nudge it.

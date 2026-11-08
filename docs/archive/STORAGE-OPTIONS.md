@@ -68,7 +68,7 @@ database (and journal) know the names. The journal also records each file's orig
   phone syncs again it re-sends what the laptop lacks, and nothing is doubled. That's the restore test, ROADMAP 2.7.
 - Under C the journal is backed up with the database; if the database file itself is bad, it's rebuilt from the journal.
 - **Not covered:** losing laptop and phone at the same moment. Tags from the last day or two would go. (Backup option C in
-  `ARCHITECTURE-OPTIONS.md`, the iCloud copy, is what would close that; G2 chose the C: copy and the phone copy instead.)
+  `ARCHITECTURE-OPTIONS.md` (same folder), the iCloud copy, is what would close that; G2 chose the C: copy and the phone copy instead.)
 
 ## If E: is unplugged
 - The library is **offline**, because the database and audio both live there (G2). The phone keeps playing its own copies and
