@@ -1,4 +1,4 @@
-# Blueprint: how the finished Phase 1 fits together
+# Blueprint: how Phases 1 and 2 fit together
 
 Written 2026-11-01 by the plan session. Choices behind it are in `DECISIONS.md`; build order is in `BATCH-PLAN.md`.
 Words used here:
@@ -113,12 +113,35 @@ Library (root) ── tap song ──> Player (full screen)
 
 "Away" needs Tailscale on the phone and internet at both ends.
 
-## Left open for Phase 2
-- `tags` table and journal kinds already exist. Tags attach to the song and quietly record the version.
-- The outbox and `POST /changes` carry tags with no new route.
-- The shared player exposes current time and seeking, which tap-a-moment and jump-to-tag need.
-- The sorting card's frame is built to take a tagging card.
-- 1.18 must pass before real tagging.
+## Phase 2: tagging
+Added 2026-11-07 by the Phase 2 plan session. Board notes: `board/phase-2-tagging.md`. Mockup: `spike/mockups/tagging-card.html`.
+
+**A tag** is a short typed line pinned to an exact second of a song. It attaches to the song and records the version that was playing.
+
+**Journal lines (whole-tag lines, DECISIONS 2026-11-07).** No new kinds and no schema bump: today's replay already does this.
+| I do | Line written |
+|---|---|
+| Add | `tag_add {tag_id, song_id, version_id, text, at_sec, made_at}` |
+| Edit words or time | `tag_add`, same `tag_id` and `made_at`, the new full values. Latest line wins |
+| Delete | `tag_remove {tag_id, song_id}` |
+| Undo | The line that puts the old full tag back (`tag_add`), or `tag_remove` for a new tag |
+- `tag_id` is made on the phone and never changes; it is also how a resend is spotted. `at_sec` keeps 3 decimals. `made_at` is set once.
+- Text: trimmed, up to 500 characters, any language and emoji. Empty text is allowed (a mark to fill in later).
+- `POST /changes` allows `tag_add` and `tag_remove`. A tag for a song that was merged away follows the merge to the surviving song; a tag for an unknown song is refused once, never retried forever.
+- Laptop ships before the phone, so an old server never meets a tag.
+
+**Reading tags.** New read route `GET /tags`: every live tag (id, song, version, text, second). The phone keeps a copy in its own storage, so tags show offline, and lays its outbox on top. That copy also keeps Phase 3 search open on either side.
+
+**Sync state (2.6).** A tag is "Saved on phone" while its change is in the outbox, "On laptop" once the laptop answered. One small grey word; nothing waits on it. The phone backup file already carries the outbox, so unsent tags survive a wipe.
+
+**Screens.** The shared player gets "Tag here" (thumb zone), the tag list under the seek bar, and ticks on the seek bar.
+- Tap "Tag here": the second is read from the player at the tap and frozen; the music keeps playing; a one-line field opens at once in a reserved line under the seek bar (above the keyboard) showing "‹ 1:42.3 ›" to nudge. Return saves, Cancel drops it. A second tap within 1 s doesn't start a second tag.
+- The draft (song, second, text) is saved on every keystroke and comes back after a kill or lock. Drafts never sync. Next or a song change saves the draft to the song it was tapped on.
+- List rows "1:42  line". Tap = jump. Hold = Change words · Move to now · Delete. Every change shows "· Undo" for 6 s in the reserved line. Rows never reorder while playing.
+- **Tagging session:** Library header link "Tag songs" (and the Sort tab). The player plus "N of M tagged", Not mine (with Undo) and Next. Pool: Mine songs that can play now; untagged 3x as likely; no repeats until the pool runs out. "Tagged" = at least one live tag. Cards start about 30% in. Close returns to where I came from, same song playing. Borrows the shared player like the sorting cards.
+- Taste: small text-like controls, no haptics, fixed-height rows so nothing moves.
+
+**Restore (2.7).** Wipe the phone; it restores from the laptop: `GET /tags` plus the outbox from the phone backup file. Pass = same tags, same seconds, deleted ones stay gone, unsent ones come back. Laptop side: delete the database, rebuild from the journal, compare tags row for row (an old-style `tag_add` without `made_at` included).
 
 ## Proposals and risks
 - **Pull-all (chosen):** 2.9 GB on C:, including songs I'll reject, in exchange for instant sorting cards. Hard to reverse in one sense: the Vault won't push files back to cloud-only, since that would change the locked folder. iCloud or Windows can free them.

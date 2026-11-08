@@ -1,79 +1,48 @@
-# Batch plan: the rest of Phase 1
+# Batch plan: Phase 2 (tagging)
 
-Written 2026-11-01 by the plan session. Design: `BLUEPRINT.md`. Each batch is one Code session with 2-3 phone checks. Batches 3, 4, 4b and 6 get a design board meeting first (`BOARD.md`). No owner calls are outstanding, so no batch is blocked. Chat writes each batch into `NEXT.md` at review.
+Written 2026-11-07 by the Phase 2 plan session. Design: `BLUEPRINT.md` "Phase 2: tagging". Board: `board/phase-2-tagging.md`.
+Each batch is one Code session with 2-3 phone checks. Chat writes each batch into `NEXT.md` at review.
 
-## Order, and why it differs from ROADMAP
-- **1.9 backup moves up:** phone writes start in batch 1, so backup follows right away.
-- **1.18 stamp runs early:** a free result that shapes 1.17. The final test stays in batch 6.
-- **1.15 and 1.16 come before 1.21:** the card should sit on the final player, and the riskiest work surfaces early.
+**Phase 1: done** (batches 1-6 and 3d, 4b-4d, 6.x; closed 2026-11-07). Its batch list is in git history.
 
-## Batch 1: First write
-**ROADMAP:** STATUS queue 1 (Not mine in the player), 1.18 first half. Written out in `NEXT.md`.
-**Phone checks:** Not mine and Undo; Mine and shuffle; stamp after a SideStore refresh.
+**Blocks batch 1:** I tap through the mockup on the phone (chat publishes it as a private page). Anything I change there changes batch 1 first.
+No other owner calls are open: the tag record, tag moment, where tagging lives, song picking, field and seek bar are in DECISIONS (2026-11-07).
+Board: batches 1 and 2 add screens, so the plan-session board covers them; chat calls a short one again only if the mockup changes much.
 
-## Batch 2: Safety and pull
-**ROADMAP:** 1.9, 1.3, 1.19.
-a. Nightly backup command and scheduled task: database and journal to a folder on C:, 14 copies, skipped with a warning while E: is unplugged. `/health` route and doctor report its age. MAP gets the path.
-b. Pull-all command: one at a time, progress count, stop under 10 GB free on C:, rerunnable. First prove on a few files that doctor's fingerprint doesn't fail on a pull. I run the full pull; a scan follows.
-c. Hidden songs list on the phone, with Restore per song.
-d. Sorting prototype with fake data: bulk sweep and card, buttons plus swipe.
-**Stop line:** the prototype waits if long.
-**Laptop check:** a backup file appears; pull finishes with the count expected.
-**Phone checks:** a former cloud song plays; Hidden restore brings a song back; prototype feel.
+## Batch 1: Tag from the player
+**ROADMAP:** 2.3, 2.4 (jump only), 2.6. Real build of what the mockup shows, in the normal player.
+a. **Laptop first.** `POST /changes` allows `tag_add` and `tag_remove`: song checked (following a merge), text trimmed and capped at 500, `made_at` kept on edits. `GET /tags`. Tests: allow-list flips (`test_server.py` "tags refused" check), resend does nothing, merged song, rebuild from journal compares tags row for row incl. an old line with no `made_at`.
+b. **Phone tag store:** copy of `GET /tags` in app storage, outbox on top, sync word per tag; tags go into the phone backup through the outbox.
+c. **Player:** "Tag here", second frozen at the tap, music keeps playing, field in the reserved line with nudge, Return saves, Cancel, one draft at a time, draft saved on every keystroke and back after a kill. "Tagged at 1:42 · Undo".
+d. **Tag list and seek bar ticks:** tap a row or tick to jump; the playing row marked; rows never reorder.
+**Stop line:** ticks wait if long; the list ships first.
+**Phone checks:**
+1. Playing a kept song, tap Tag here, wait 30 s typing, Return: the tag shows the tap's second; tapping it later jumps there.
+2. Airplane mode: tag, then mid-typing a second one kill the app; reopen: the draft is back, both say "Saved on phone".
+3. Airplane off at home: both turn "On laptop" within a minute.
 
-## Batch 3: The real player
-**ROADMAP:** 1.15 (queue, remaining-time tap), 1.16, parked now-playing bar.
-a. Shared player above all screens; Back no longer stops music. Controllable from every screen. Sorting borrows this player; the library queue pauses and resumes after (board refines).
-b. Switch to the playlist player with a moving window from `playOrder.ts`. If it fails twice, stop and report; the single player stays.
-c. Lock screen: title, seek, next, previous. Songs advance while locked.
-d. Queue, remaining-time tap, now-playing bar.
-**Stop line:** queue and remaining-time tap wait if long.
-**Phone checks:** locked play, next and auto-advance; queue; browse the Library with the bar.
+## Batch 2: Change tags, tagging session
+**ROADMAP:** 2.4 (edit, delete), 2.2, 2.5.
+a. Hold a row: Change words · Move to now · Delete, each with Undo (whole-tag lines, BLUEPRINT).
+b. Tagging session: Library header "Tag songs" (and the Sort tab); counter "N of M tagged"; pool = Mine songs that can play now, untagged 3x, no repeats until the pool runs out; cards start about 30% in; Next saves an open draft to its own song.
+c. Not mine on the card with Undo; the song keeps playing until Next; the Mine filter holds everywhere.
+**Stop line:** "Move to now" waits if long.
+**Phone checks:**
+1. Session: ten cards, counter moves when a song gets its first tag, no song twice, Close returns with the same song playing.
+2. Not mine then Undo on a card: the song is back, nothing on screen jumps.
+3. Offline: change one tag's words twice and delete another, then Undo the delete; back online, the laptop shows the second words and both tags.
 
-## Batch 3d: Queue and player feel
-**ROADMAP:** 1.15 polish, owner's notes 2026-11-02. Smooth edge-zone auto-scroll; Queue from the mini player and back to where it came from; Back button and swipe-up Queue on the player; eye icon with slide animation. Brief in `NEXT.md`.
+## Batch 3: Restore and real sessions
+**ROADMAP:** 2.7, Phase 2 "Done when".
+a. Restore test with one tag still unsent: wipe, restore, compare. A laptop script lists tags per song so I can compare.
+b. Small fixes from my real sessions ride along.
+**Phone checks:**
+1. Wipe with one unsent tag: every tag back, same words, jump lands on the same second, deleted ones stay gone.
+2. Real sessions done (my call), then Phase 2 closes.
 
-## Batch 4: Real sorting
-**ROADMAP:** 1.21, built from the batch 2 prototype.
-a. `/sorting/sets`: folders and repeated name patterns. Only songs with no verdict of mine from anywhere; a set with none left disappears. Set songs open inline in the list (prototype keeper).
-b. Bulk sweep: contents shown first, undo for the whole set.
-c. Cards: likely mine first, start about 30% in, buttons plus swipe, 5-second Undo, progress counter.
-d. Mine filter; shuffle gets a choice of unsorted or Mine.
-**Stop line:** name patterns wait if long; folders go first.
-**Phone checks:** sweep and undo; card flow; progress survives an app restart.
-
-## Batch 4b: Versions (manual)
-**ROADMAP:** 1.23. Shape set by the board (`board/batch-4-versions.md`); storage shape is owner picks.
-a. "Another version of…" action from library, player and sort, any time, with undo.
-b. Versions as a second layer in sort; a song's other versions visible from it.
-c. Rules the board settles: Not mine on one version, which version shuffle plays.
-**Phone checks:** link two songs from the player and from the library; undo a link; the versions layer in sort.
-
-## Batch 5: Import and copies
-**ROADMAP:** 1.22, 1.7.
-a. Import command for songs kept so far, rerunnable: copy to `audio/<code>/`, fingerprint checked. Audio route prefers the library copy.
-b. Phone copies: AAC about 192 kbps; compressed files at or under that are copied as is.
-c. `/kept` and `/songs/{id}/copy`; size report.
-**Stop line:** `/kept` waits if long.
-**Phone checks:** a kept copy plays from `/songs/{id}/copy` in Safari; a not-mine song stays out; sizes match the report.
-
-## Batch 4d: Compare versions (after Batch 5)
-**ROADMAP:** 1.23 follow-up. A-B switch in the full player and from a Library group: flip to another version at the same second. The picker is a dial (one version showing at a time, swipe up/down to the next, like the iOS time wheel). Board pass first: new screen.
-*Phone-verified 2026-11-06. No level match: versions play at true level (DECISIONS).*
-
-## Batch 6: Offline and finish
-**ROADMAP:** 1.17, 1.18 final.
-a. Downloads with progress, storage limit (starts at 8 GB, adjustable), newest first.
-b. Play from the phone when a copy exists.
-c. Restore from the laptop after a wipe.
-d. Final survival test on real kept songs.
-**Stop line:** the limit setting can start fixed.
-**Phone checks:** laptop asleep, screen locked, away from home; a refresh keeps songs; a wipe restores.
-**Closes Phase 1** once I pass ROADMAP's "Done when".
+## My requests (2026-11-07, for chat to place)
+- 465 songs are Mine but only 314 have phone copies: `import` makes the rest. I'd like sessions to refresh this by themselves.
+- A plain tour of the laptop commands: what each one is for and when to run it.
 
 ## Still parked
-Server `/status` count-only answer · A-Z jump strip · doctor's fail line naming changed files.
-
-## Known gaps carried over from STATUS
-- A song stays counted if its file later becomes not mine or vanishes (0 today). Doctor lists these.
-- A kept file that goes back to cloud-only shows unsorted after a rebuild until local again; the journal keeps the verdict. Check this in batch 2 with the pull.
+`/status` count-only answer · A-Z jump strip · doctor's fail line naming changed files · `/verify` under 1 min.

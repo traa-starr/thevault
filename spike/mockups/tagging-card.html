@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Vault: tagging card mockup</title>
+<!-- Throwaway mockup for ROADMAP 2.1. Fake songs, fake tags, no audio, no network. Saves only to this browser. -->
+<style>
+  :root {
+    --bg: #000; --text: #f2f2f2; --dim: #8e8e93; --faint: #3a3a3c; --line: #1c1c1e;
+    --accent: #ffb340; /* placeholder accent until the owner picks one */
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 16px/1.3 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    -webkit-user-select: none; user-select: none; touch-action: manipulation; overscroll-behavior: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  .app { position: fixed; inset: 0; max-width: 430px; margin: 0 auto; display: flex; flex-direction: column;
+    padding: calc(env(safe-area-inset-top) + 8px) 20px calc(env(safe-area-inset-bottom) + 6px); }
+
+  /* fixed rows: every row has a set height so nothing moves */
+  .top { height: 44px; display: flex; align-items: center; justify-content: space-between; color: var(--dim); font-size: 15px; }
+  .top button { height: 44px; color: var(--text); }
+  .top .right { text-align: right; line-height: 1.2; }
+  .top .sync { font-size: 12px; color: var(--dim); }
+  .title { height: 64px; display: flex; flex-direction: column; justify-content: flex-end; }
+  .title h1 { margin: 0; font-size: 26px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .title .meta { font-size: 13px; color: var(--dim); height: 18px; }
+
+  .seek { position: relative; height: 44px; margin-top: 10px; touch-action: none; }
+  .seek .rail { position: absolute; left: 0; right: 0; top: 21px; height: 2px; background: var(--faint); border-radius: 1px; }
+  .seek .fill { position: absolute; left: 0; top: 21px; height: 2px; background: var(--text); border-radius: 1px; }
+  .seek .knob { position: absolute; top: 16px; width: 12px; height: 12px; margin-left: -6px; border-radius: 6px; background: var(--text); }
+  .seek .tick { position: absolute; top: 0; width: 44px; height: 44px; margin-left: -22px; }
+  .seek .tick::after { content: ""; position: absolute; left: 21px; top: 12px; width: 2px; height: 10px; background: var(--accent); border-radius: 1px; }
+  .seek .tick.wide::after { left: 20px; width: 4px; }
+  .times { height: 18px; display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+
+  /* the reserved line: status, Undo, or the typing field. Always the same height. */
+  .slot { height: 52px; margin-top: 8px; display: flex; align-items: center; gap: 10px; font-size: 15px; }
+  .slot .msg { flex: 1; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .slot .msg b { color: var(--text); font-weight: 500; }
+  .slot .act { color: var(--accent); height: 44px; padding: 0 4px; }
+  .slot .at { display: flex; align-items: center; color: var(--accent); font-variant-numeric: tabular-nums; font-size: 14px; }
+  .slot .at button { width: 28px; height: 44px; color: var(--dim); font-size: 18px; }
+  .slot input { flex: 1; min-width: 0; height: 40px; background: var(--line); color: var(--text); border: 0; border-radius: 10px;
+    padding: 0 12px; font: inherit; font-size: 16px; outline: none; -webkit-user-select: text; user-select: text; }
+  .slot input::placeholder { color: #636366; }
+
+  .list { flex: 1; min-height: 0; overflow-y: auto; margin-top: 4px; border-top: 1px solid var(--line); -webkit-overflow-scrolling: touch; }
+  .row { height: 48px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid var(--line); font-size: 15px; }
+  .row .t { width: 44px; color: var(--dim); font-variant-numeric: tabular-nums; font-size: 14px; }
+  .row .w { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .w.none { color: #636366; font-style: italic; }
+  .row .s { font-size: 11px; color: #636366; }
+  .row.now .t, .row.now .w { color: var(--accent); }
+  .row.menu { gap: 0; justify-content: space-between; }
+  .row.menu button { height: 48px; padding: 0 6px; font-size: 14px; color: var(--text); }
+  .row.menu button.del { color: #ff6961; }
+  .row.menu button.cancel { color: var(--dim); }
+  .empty { height: 48px; display: flex; align-items: center; color: #636366; font-size: 14px; }
+
+  .transport { height: 64px; display: flex; align-items: center; justify-content: center; gap: 44px; }
+  .transport button { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; color: var(--text); font-size: 13px; }
+  .transport svg { width: 28px; height: 28px; fill: currentColor; }
+  .transport .skip { color: var(--dim); font-variant-numeric: tabular-nums; }
+
+  .tagbtn { height: 52px; width: 100%; font-size: 18px; font-weight: 500; color: var(--accent); }
+  .tagbtn.busy { color: var(--dim); font-weight: 400; font-size: 15px; }
+  .bottom { height: 44px; display: flex; justify-content: space-between; align-items: center; font-size: 15px; }
+  .bottom button { height: 44px; color: var(--dim); }
+  .bottom button.next { color: var(--text); }
+  .bottom.hide { visibility: hidden; }
+
+  .mock { height: 30px; display: flex; gap: 14px; align-items: center; justify-content: center; font-size: 11px; color: #48484a;
+    border-top: 1px dashed #2c2c2e; }
+  .mock button { color: #636366; height: 30px; }
+  .mock button.on { color: var(--dim); text-decoration: underline; }
+  .journal { position: fixed; left: 0; right: 0; bottom: 0; max-height: 45%; overflow: auto; background: #111; color: #9a9a9e;
+    font: 10px/1.4 ui-monospace, Menlo, monospace; padding: 10px 12px 30px; white-space: pre-wrap; word-break: break-all;
+    border-top: 1px solid #2c2c2e; display: none; -webkit-user-select: text; user-select: text; }
+  .journal.open { display: block; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="top">
+    <button id="leave">Close</button>
+    <div class="right"><div id="progress"></div><div class="sync" id="sync"></div></div>
+  </div>
+  <div class="title"><h1 id="title"></h1><div class="meta" id="meta"></div></div>
+  <div class="seek" id="seek"><div class="rail"></div><div class="fill" id="fill"></div><div id="ticks"></div><div class="knob" id="knob"></div></div>
+  <div class="times"><span id="pos">0:00</span><span id="dur">0:00</span></div>
+  <div class="slot" id="slot"></div>
+  <div class="list" id="list"></div>
+  <div class="transport">
+    <button class="skip" id="back15" aria-label="Back 15 seconds">−15</button>
+    <button id="play" aria-label="Play"></button>
+    <button class="skip" id="fwd15" aria-label="Forward 15 seconds">+15</button>
+  </div>
+  <button class="tagbtn" id="tag">Tag here</button>
+  <div class="bottom" id="bottom"><button id="notmine">Not mine</button><button class="next" id="next">Next</button></div>
+  <div class="mock">
+    <span>mockup:</span>
+    <button id="mSession">Session</button><button id="mPlayer">Player</button>
+    <button id="mLaptop"></button><button id="mJournal">Journal</button><button id="mReset">Reset</button>
+  </div>
+</div>
+<div class="journal" id="journal"></div>
+
+<script>
+// ---------- fake data ----------
+const SONGS = [
+  ['s01', 'Project_31', 184], ['s02', 'night drive 2', 212], ['s03', 'Untitled 7', 158], ['s04', 'cold hands', 201],
+  ['s05', '2024-03-11', 176], ['s06', 'Dome 3', 233], ['s07', 'paper planes ruff', 169], ['s08', 'Project_58', 195],
+  ['s09', 'late checkout', 221], ['s10', 'beat 4 (open verse)', 147], ['s11', 'blue room', 188], ['s12', 'Project_102', 204],
+].map(([id, title, dur]) => ({ id, title, dur }));
+const SEED_TAGS = [
+  { song: 's02', at: 41.2, text: 'headlights on the ceiling' },
+  { song: 's02', at: 96.8, text: 'i was counting every exit' },
+  { song: 's06', at: 63.0, text: 'built it twice, still standing' },
+  { song: 's09', at: 120.5, text: '' },
+];
+const UNTAGGED_WEIGHT = 3;   // the one number to tune: untagged songs are this many times as likely
+const KEY = 'vault-tagging-mockup-v1';
+
+// ---------- state (kept in this browser so a reload is like reopening the app) ----------
+let S = load() || fresh();
+function fresh() {
+  const tags = {};
+  SEED_TAGS.forEach((t, i) => { const id = 'seed' + i; tags[id] = { id, song: t.song, text: t.text, at: t.at, made: '2026-11-01T20:00:00.000Z', synced: true }; });
+  return { mode: 'session', laptop: true, tags, hidden: {}, seen: [], cur: 's01', pos: 30, playing: false, draft: null, journal: [] };
+}
+function load() { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } }
+function save() { localStorage.setItem(KEY, JSON.stringify(S)); }
+S.playing = false;            // reopening never starts music by itself
+
+const $ = id => document.getElementById(id);
+const song = () => SONGS.find(s => s.id === S.cur);
+const tagsOf = id => Object.values(S.tags).filter(t => t.song === id && !t.gone).sort((a, b) => a.at - b.at);
+const pool = () => SONGS.filter(s => !S.hidden[s.id]);
+const fmt = sec => { sec = Math.max(0, sec); const m = Math.floor(sec / 60), s = Math.floor(sec % 60); return m + ':' + String(s).padStart(2, '0'); };
+const fmtExact = sec => fmt(sec) + '.' + Math.floor((sec % 1) * 10);
+const uid = () => 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+// ---------- journal: whole-tag lines (DECISIONS 2026-11-07) ----------
+function journal(kind, data) {
+  S.journal.push(JSON.stringify({ kind, data, ts: new Date().toISOString() }));
+  if (S.journal.length > 60) S.journal.shift();
+}
+function writeTag(t) {
+  t.synced = false; t.gone = false; S.tags[t.id] = t;
+  journal('tag_add', { tag_id: t.id, song_id: t.song, version_id: 'v-' + t.song, text: t.text, at_sec: +t.at.toFixed(3), made_at: t.made });
+  sync();
+}
+function removeTag(t) { t.gone = true; t.synced = false; journal('tag_remove', { tag_id: t.id, song_id: t.song }); sync(); }
+let syncTimer = null;
+function sync() {
+  clearTimeout(syncTimer);
+  if (!S.laptop) return;
+  syncTimer = setTimeout(() => { Object.values(S.tags).forEach(t => t.synced = true); save(); render(); }, 1800);
+}
+
+// ---------- playback (a clock, no audio) ----------
+let last = performance.now();
+function tick(now) {
+  const dt = (now - last) / 1000; last = now;
+  if (S.playing) {
+    S.pos += dt;
+    if (S.pos >= song().dur) { S.pos = song().dur; S.playing = false; }
+    renderPlayhead();
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+setInterval(save, 2000);
+
+// ---------- the reserved line ----------
+let note = null, noteTimer = null;   // { html, undo }
+function say(html, undo) {
+  note = { html, undo }; clearTimeout(noteTimer);
+  noteTimer = setTimeout(() => { note = null; renderSlot(); }, undo ? 6000 : 3000);
+  renderSlot();
+}
+
+// ---------- tagging ----------
+let lastTap = 0;
+function tagHere() {
+  const now = Date.now();
+  if (S.draft || now - lastTap < 1000) { lastTap = now; focusField(); return; }   // double tap guard: one draft only
+  lastTap = now;
+  S.draft = { id: uid(), song: S.cur, at: S.pos, text: '', made: new Date().toISOString(), editing: false };
+  save(); render(); focusField();
+}
+function focusField() { const i = document.querySelector('.slot input'); if (i) i.focus({ preventScroll: true }); }
+function finishDraft() {
+  const d = S.draft; if (!d) return;
+  S.draft = null;
+  const before = S.tags[d.id] ? { ...S.tags[d.id] } : null;
+  writeTag({ id: d.id, song: d.song, text: d.text.trim(), at: d.at, made: d.made });
+  const where = d.song === S.cur ? '' : ' on ' + SONGS.find(s => s.id === d.song).title;
+  say((before ? 'Changed' : 'Tagged') + ' at <b>' + fmt(d.at) + '</b>' + where, () => {
+    if (before) writeTag(before); else removeTag(S.tags[d.id]);
+  });
+  document.activeElement && document.activeElement.blur();
+  save(); render();
+}
+function cancelDraft() { S.draft = null; document.activeElement && document.activeElement.blur(); save(); render(); }
+function nudge(by) {
+  if (!S.draft) return;
+  S.draft.at = Math.min(Math.max(0, S.draft.at + by), SONGS.find(s => s.id === S.draft.song).dur);
+  save(); renderSlot();
+}
+
+// ---------- tag rows: tap jumps, hold opens actions ----------
+let menuFor = null;
+function jump(t) { S.pos = t.at; menuFor = null; renderPlayhead(); renderList(); say('<b>' + fmt(t.at) + '</b>&nbsp; ' + (t.text ? esc(t.text) : 'no words yet')); }
+function rowAction(kind, t) {
+  menuFor = null;
+  if (kind === 'words') { S.draft = { id: t.id, song: t.song, at: t.at, text: t.text, made: t.made, editing: true }; render(); focusField(); return; }
+  if (kind === 'now') {
+    const before = { ...t };
+    writeTag({ ...t, at: S.pos }); say('Moved to <b>' + fmt(S.pos) + '</b>', () => writeTag(before));
+  }
+  if (kind === 'delete') {
+    const before = { ...t };
+    removeTag(t); say('Deleted <b>' + fmt(t.at) + '</b>', () => writeTag(before));
+  }
+  save(); render();
+}
+
+// ---------- session: Not mine, Next, picking ----------
+function notMine() {
+  const id = S.cur; S.hidden[id] = true;
+  journal('mine_set', { song_id: id, value: 'not mine' });
+  say('Marked not mine', () => { delete S.hidden[id]; journal('mine_restore', { song_id: id }); renderTop(); });
+  save(); renderTop();
+}
+function pick() {
+  const p = pool().filter(s => s.id !== S.cur);
+  let fresh = p.filter(s => !S.seen.includes(s.id));
+  if (!fresh.length) { S.seen = []; fresh = p; say('Every song shown once. Starting over'); }
+  const w = fresh.map(s => tagsOf(s.id).length ? 1 : UNTAGGED_WEIGHT);
+  let r = Math.random() * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < fresh.length; i++) { r -= w[i]; if (r <= 0) return fresh[i]; }
+  return fresh[fresh.length - 1];
+}
+function next() {
+  if (S.draft) finishDraft();                // a draft always lands on the song it was tapped on
+  if (!pool().length) return;
+  const n = pick(); if (!n) return;
+  S.seen.push(S.cur); S.cur = n.id; S.pos = Math.round(n.dur * 0.3); menuFor = null;   // cards start about 30% in
+  save(); render();
+}
+
+// ---------- seek bar ----------
+function seekFrom(e) {
+  const r = $('seek').getBoundingClientRect();
+  S.pos = Math.min(Math.max(0, (e.clientX - r.left) / r.width), 1) * song().dur;
+  renderPlayhead();
+}
+let dragging = false;
+$('seek').addEventListener('pointerdown', e => {
+  const tk = e.target.closest('.tick');
+  if (tk) { jump(S.tags[tk.dataset.id]); return; }
+  dragging = true; $('seek').setPointerCapture(e.pointerId); seekFrom(e);
+});
+$('seek').addEventListener('pointermove', e => { if (dragging) seekFrom(e); });
+$('seek').addEventListener('pointerup', () => { dragging = false; save(); });
+
+// ---------- drawing ----------
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ICON = {
+  play: '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24"><path d="M6.5 4.5h4v15h-4zM13.5 4.5h4v15h-4z"/></svg>',
+};
+function renderTop() {
+  const session = S.mode === 'session';
+  $('leave').textContent = session ? 'Close' : '‹ Library';
+  const p = pool(), tagged = p.filter(s => tagsOf(s.id).length).length;
+  $('progress').textContent = session ? tagged + ' of ' + p.length + ' tagged' : '';
+  const waiting = Object.values(S.tags).filter(t => !t.synced).length;
+  $('sync').textContent = waiting ? (S.laptop ? 'Saved on phone' : 'Saved on phone · ' + waiting + ' waiting') : 'On laptop';
+  $('bottom').classList.toggle('hide', !session);
+  $('mSession').classList.toggle('on', session); $('mPlayer').classList.toggle('on', !session);
+  $('mLaptop').textContent = 'Laptop ' + (S.laptop ? 'on' : 'off');
+  const n = tagsOf(S.cur).length;
+  $('meta').textContent = (S.hidden[S.cur] ? 'Not mine' : 'Mine') + ' · ' + (n ? n + (n === 1 ? ' tag' : ' tags') : 'no tags yet');
+}
+function renderPlayhead() {
+  const s = song(), f = S.pos / s.dur * 100;
+  $('fill').style.width = f + '%'; $('knob').style.left = f + '%';
+  $('pos').textContent = fmt(S.pos); $('dur').textContent = fmt(s.dur);
+  $('play').innerHTML = S.playing ? ICON.pause : ICON.play;
+  $('play').setAttribute('aria-label', S.playing ? 'Pause' : 'Play');
+  const ts = tagsOf(S.cur); let cur = null;
+  ts.forEach(t => { if (t.at <= S.pos + 0.05) cur = t.id; });
+  document.querySelectorAll('.row[data-id]').forEach(r => r.classList.toggle('now', r.dataset.id === cur));
+}
+function renderTicks() {
+  const s = song(), out = []; let lastPct = -10;
+  tagsOf(S.cur).forEach(t => {
+    const pct = t.at / s.dur * 100;
+    if (pct - lastPct < 2.5 && out.length) { out[out.length - 1].wide = true; return; }   // close ticks merge
+    out.push({ id: t.id, pct, wide: false }); lastPct = pct;
+  });
+  $('ticks').innerHTML = out.map(o => `<div class="tick${o.wide ? ' wide' : ''}" data-id="${o.id}" style="left:${o.pct}%"></div>`).join('');
+}
+function renderSlot() {
+  const slot = $('slot'), d = S.draft;
+  if (d) {
+    // the same draft's field stays put (keyboard stays up); only its time is redrawn
+    if (slot.dataset.draft === d.id && slot.querySelector('input')) { slot.querySelector('.at span').textContent = fmtExact(d.at); return; }
+    slot.dataset.draft = d.id;
+    slot.innerHTML = `<div class="at"><button data-n="-0.5">‹</button><span>${fmtExact(d.at)}</span><button data-n="0.5">›</button></div>
+      <input id="field" type="text" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" maxlength="500"
+        placeholder="${d.editing ? 'Change the words' : 'A line you’ll remember'}" value="${esc(d.text)}">
+      <button class="act" id="cancel" style="color:var(--dim)">Cancel</button>`;
+    const i = $('field');
+    i.addEventListener('input', () => { S.draft.text = i.value; save(); });   // draft kept on every keystroke
+    i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); finishDraft(); } });
+    slot.querySelectorAll('.at button').forEach(b => b.addEventListener('click', () => nudge(+b.dataset.n)));
+    $('cancel').addEventListener('click', cancelDraft);
+    return;
+  }
+  slot.dataset.draft = "";
+  if (note) {
+    slot.innerHTML = `<div class="msg">${note.html}</div>` + (note.undo ? '<button class="act" id="undo">Undo</button>' : '');
+    if (note.undo) $('undo').addEventListener('click', () => { const u = note.undo; note = null; u(); save(); render(); });
+  } else {
+    slot.innerHTML = `<div class="msg"></div>`;
+  }
+}
+function renderList() {
+  const ts = tagsOf(S.cur), L = $('list');
+  if (!ts.length) { L.innerHTML = '<div class="empty">No tags yet. Tap Tag here at a line you remember.</div>'; return; }
+  L.innerHTML = ts.map(t => menuFor === t.id
+    ? `<div class="row menu" data-menu="${t.id}"><button data-a="words">Change words</button><button data-a="now">Move to ${fmt(S.pos)}</button><button class="del" data-a="delete">Delete</button><button class="cancel" data-a="cancel">Cancel</button></div>`
+    : `<div class="row" data-id="${t.id}"><span class="t">${fmt(t.at)}</span><span class="w${t.text ? '' : ' none'}">${t.text ? esc(t.text) : 'no words yet'}</span>${t.synced ? '' : '<span class="s">on phone</span>'}</div>`).join('');
+  renderPlayhead();
+}
+function render() { renderTop(); renderTicks(); renderSlot(); renderList(); renderPlayhead(); $('title').textContent = song().title;
+  $('tag').textContent = S.draft ? (S.draft.editing ? 'Changing a tag' : 'Tagging at ' + fmt(S.draft.at)) : 'Tag here';
+  $('tag').classList.toggle('busy', !!S.draft);
+  $('journal').textContent = S.journal.length ? S.journal.join('\n') : 'Journal lines appear here as you tag (whole-tag lines).'; }
+
+// row press: short = jump, hold = actions
+let pressT = null, pressRow = null, held = false;
+$('list').addEventListener('pointerdown', e => {
+  const r = e.target.closest('.row[data-id]'); if (!r) return;
+  pressRow = r; held = false;
+  pressT = setTimeout(() => { held = true; menuFor = r.dataset.id; renderList(); }, 450);
+});
+$('list').addEventListener('pointermove', () => { /* scrolling cancels the hold */ });
+$('list').addEventListener('scroll', () => { clearTimeout(pressT); pressRow = null; });
+$('list').addEventListener('pointerup', e => {
+  clearTimeout(pressT);
+  if (pressRow && !held && e.target.closest('.row[data-id]') === pressRow) jump(S.tags[pressRow.dataset.id]);
+  pressRow = null;
+});
+$('list').addEventListener('click', e => {
+  const b = e.target.closest('.row.menu button'); if (!b) return;
+  const t = S.tags[b.closest('.row.menu').dataset.menu];
+  if (b.dataset.a === 'cancel') { menuFor = null; renderList(); } else rowAction(b.dataset.a, t);
+});
+$('list').addEventListener('contextmenu', e => e.preventDefault());
+
+// controls
+$('play').addEventListener('click', () => { if (S.pos >= song().dur) S.pos = 0; S.playing = !S.playing; renderPlayhead(); });
+$('back15').addEventListener('click', () => { S.pos = Math.max(0, S.pos - 15); renderPlayhead(); });
+$('fwd15').addEventListener('click', () => { S.pos = Math.min(song().dur, S.pos + 15); renderPlayhead(); });
+$('tag').addEventListener('click', tagHere);
+$('notmine').addEventListener('click', notMine);
+$('next').addEventListener('click', next);
+$('leave').addEventListener('click', () => say(S.mode === 'session' ? 'Would go back to the player, same song still playing' : 'Would go back to the Library'));
+$('mSession').addEventListener('click', () => { S.mode = 'session'; save(); render(); });
+$('mPlayer').addEventListener('click', () => { S.mode = 'player'; save(); render(); });
+$('mLaptop').addEventListener('click', () => { S.laptop = !S.laptop; if (S.laptop) sync(); save(); render(); });
+$('mJournal').addEventListener('click', () => $('journal').classList.toggle('open'));
+$('mReset').addEventListener('click', () => { if (confirm('Reset the mockup to its fake starting data?')) { S = fresh(); save(); note = null; render(); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+
+
+render();
+if (S.draft) setTimeout(focusField, 300);
+</script>
+</body>
+</html>
