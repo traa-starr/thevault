@@ -32,3 +32,11 @@ My phone results, one line each (written by chat). Measured results stay in REPO
 6. Music guard: Code in auto mode asked to write into `E:\vault-dummy-protected`: blocked, folder unchanged: **pass**
 - Taste calls from REPORT: Shuffle on = blue and the tag shape kept (checks 2-3 passed). "Tag icon inert while typing" replaced: re-tapping Tag cancels.
 - Shuffle pool pick (2026-11-08): tap cycles Off > Mine > Unsorted > Off, pool name on the right. No pop-up box.
+
+## Player polish (2026-11-08, real app)
+1. Tag words while playing: each tick's words show as playback passes it, clear after ~4 s or next tick: **pass**
+2. Drag across a tick: no words until play passes the next tick: **pass**
+- Note: dragging the knob snaps to a tick. It should not: drag seeks freely; jumping to a tick only on a tick tap or a Tags list row.
+3. Shuffle taps cycle Mine / Unsorted / off on the right, no box, blue on; readable with tag words at once: **pass**
+4. Tag re-tap cancels (amber X, nothing saved, music keeps playing); double-tap keeps the field open: **pass**
+- Bug: Tag and its X feel laggy: after a cancel, Tag reopens only eventually, and I can't tell if a tap registered and is lagging or didn't register at all. Two fast taps on the icon don't work; the Cancel button works fine. The icon should answer as fast as Cancel.
