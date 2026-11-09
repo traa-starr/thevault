@@ -53,6 +53,15 @@ export const fixtures = [
   { name: 'centre-sort-card', ...player({ player: playing({ sorting: true, song: { ...song, mine: 'unknown', sorted: false } }), files: tagFile([]) }) },
   { name: 'centre-session', ...player({ player: playing(), songs, files: tagFile(tags(2)) }, ["app.session.start('http://laptop')"]) },
   { name: 'centre-restored', ...player({ player: playing({ sheet: 'none', order: { shuffle: false, list: LAP } }), songs, files: { ...tagFile(tags(2)), 'session.json': JSON.stringify({ v: 1, pool: MINE, out: [], lap: LAP }) } }, ['app.session.restore()']) },
+  // play first, info after (2026-11-08): the first frame after a tap (start spot, no length, no tags yet) and the same
+  // song once its length and tags arrived. `same`: every button and box must sit exactly where it did in that shot
+  { name: 'info-before-library', ...player({ player: playing({ time: 0, duration: 0 }), files: tagFile([]) }) },
+  { name: 'info-after-library', same: 'info-before-library', ...player({ player: playing({ time: 0, duration: 214 }), files: tagFile(tags(3)) }) },
+  { name: 'info-before-sort-card', ...player({ player: playing({ time: 30, duration: 0, sorting: true, song: { ...song, mine: 'unknown', sorted: false } }), files: tagFile([]) }) },
+  { name: 'info-after-sort-card', same: 'info-before-sort-card', ...player({ player: playing({ time: 30, duration: 214, sorting: true, song: { ...song, mine: 'unknown', sorted: false } }), files: tagFile(tags(3)) }) },
+  { name: 'info-before-session', ...player({ player: playing({ time: 15, duration: 0 }), songs, files: tagFile([]) }, ["app.session.start('http://laptop')"]) },
+  { name: 'info-after-session', same: 'info-before-session', ...player({ player: playing({ time: 15, duration: 214 }), songs, files: tagFile(tags(3)) }, ["app.session.start('http://laptop')"]) },
+  { name: 'info-after-session-time-left', same: 'info-before-session', ...player({ player: playing({ time: 15, duration: 3725, timeLeft: true }), songs, files: tagFile(tags(3)) }, ["app.session.start('http://laptop')"]) },
   { name: 'centre-finding-start', ...player({ player: playing({ time: 15, duration: 0 }), songs, files: tagFile([]) }, ["app.session.start('http://laptop')"]) },
   // search on the phone: empty field, a match, no match, many results, keyboard up
   { name: 'search-empty', fix: { screen: 'library', songs, files: SEARCH_TAGS } },

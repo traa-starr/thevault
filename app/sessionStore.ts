@@ -66,7 +66,7 @@ export const session = {
     // the sheet opens first: a closed sheet ends the session, and the new list's first update would see it closed
     player.open('player');
     update({ on: true, pool, out: [] });
-    player.playList(url, lap.map((id) => byId.get(id)!), lap[0], false, 'mine');
+    player.playList(url, lap.map((id) => byId.get(id)!), lap[0], false, 'mine', undefined, 'session');
     save(); // now the player holds the lap
   },
 

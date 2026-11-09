@@ -1,32 +1,46 @@
-// Real-phone timings (NEXT D, 3.7 groundwork): how long a search takes and how long Next takes to make sound, sent to
+// Real-phone timings (NEXT D, 3.7 groundwork): how long a search takes and how long a tap takes to make sound, sent to
 // the laptop so REPORT and I see the phone's own numbers. Numbers only: never the search text or a song title.
 // Best effort: a laptop that is off, asleep or too old to know /timings never slows or breaks anything.
+// Play first (2026-11-08): each tap names its path when it happens, and each sample says where its time went.
 // No React Native here, so a test can load it.
+import type { Started } from './playlistCore';
+
+/** Every way a song starts from a tap. Named at the tap, never guessed at first sound. */
+export const PATHS = ['session', 'sort', 'library', 'previous', 'lockscreen', 'search', 'restore'] as const;
+export type Path = (typeof PATHS)[number];
+/** Where the song plays from: the phone's own copy (and its file type) or the laptop's stream. */
+export type Source = { src: 'phone' | 'stream'; ext: string };
 
 export type Sample =
   | { kind: 'search'; ms: number; tags: number }
-  | { kind: 'next'; ms: number; path: 'session' | 'sort' | 'library' };
+  | ({ kind: 'next'; ms: number; path: Path } & Partial<Started> & Partial<Source>);
 
 const KEPT = 50; // the newest ones wait on the phone; older ones drop
 const SEND_AT = 10; // send once this many are waiting (and on going to the background)
 const NO_SOUND_MS = 15000; // a tap that never led to sound isn't a timing
 
 let waiting: Sample[] = [];
-let tapAt = 0;
+let pending: { at: number; path: Path; source: Source | null } | null = null;
 let sending = false;
 let version = '';
 
 export const timing = {
-  /** A Next or Previous tap: the clock starts. A newer tap restarts it (five fast taps time the last one). */
-  tap(now = Date.now()) {
-    tapAt = now;
+  /** A tap that starts a song: the clock starts. A newer tap replaces it (five fast taps time the last one). */
+  tap(path: Path, source: Source | null = null, now = Date.now()) {
+    pending = { at: now, path, source };
   },
-  /** The player reports sound coming out (playing, loaded, not waiting for its spot). Only the first after a tap counts. */
-  heard(path: 'session' | 'sort' | 'library', now = Date.now()) {
-    if (!tapAt) return;
-    const ms = now - tapAt;
-    tapAt = 0;
-    if (ms <= NO_SOUND_MS) add({ kind: 'next', ms, path });
+  /** The tap that was waiting gave no sound (a pause, a song that isn't here): nothing to time. */
+  cancel() {
+    pending = null;
+  },
+  /** Sound is really coming out (the player heard the time move on, volume up). Only the first after a tap counts. */
+  heard(stages: Started | null = null, now = Date.now()) {
+    if (!pending) return;
+    const { at, path, source } = pending;
+    pending = null;
+    const ms = now - at;
+    if (ms > NO_SOUND_MS) return;
+    add({ kind: 'next', ms, path, ...(stages ?? {}), ...(source ?? {}) });
   },
   search(ms: number, tags: number) {
     add({ kind: 'search', ms: Math.round(ms * 10) / 10, tags });
@@ -59,7 +73,7 @@ export const timing = {
   /** Tests only. */
   reset() {
     waiting = [];
-    tapAt = 0;
+    pending = null;
     sending = false;
   },
 };

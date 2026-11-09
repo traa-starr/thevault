@@ -15,7 +15,7 @@ from pathlib import Path
 from .backup import BACKUP_DIR, check_backup
 from .importer import mine_without_phone_copy
 from .library import MARKER_NAME, REPO_ROOT, LibraryMissing, LibraryRefused
-from .scanner import fingerprint, scan
+from .scanner import changed_files, fingerprint, listing, scan
 from .server import LOOPBACK, PORT, SERVER_LEVEL, connect_readonly, start_servers, stop_servers, tailscale_info
 from .store import now
 
@@ -32,19 +32,25 @@ NOT_MINE_OR_GONE = """
 
 # --- fingerprint around a scan ----------------------------------------------------------------
 
-def _try_fingerprint(root):
+SHOWN_CHANGES = 5  # names in the fail line; the record keeps up to 50
+
+
+def _try_listing(root):
     try:
-        return fingerprint(root)
+        return listing(root)
     except OSError:  # a file vanished while listing: no answer, which isn't the same as a change
         return None
 
 
 def fingerprinted_scan(lib, root):
     """A scan, with the music folders compared before and after. (scan result, record). A scan that stops records nothing."""
-    before = _try_fingerprint(root)
+    before = _try_listing(root)
     result = scan(lib, root)
-    after = _try_fingerprint(root)
-    record = {"before": before, "after": after, "finished": now()}
+    after = _try_listing(root)
+    print_of = lambda files: None if files is None else fingerprint(root, files)  # an empty folder is still an answer
+    record = {"before": print_of(before), "after": print_of(after), "finished": now()}
+    if before is not None and after is not None and record["before"] != record["after"]:
+        record["changed"] = changed_files(before, after, root)[:50]  # which files, so the fail line can say
     path = lib.root / RECORD_NAME
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
@@ -57,7 +63,10 @@ def fingerprint_line(record):
     if not record["before"] or not record["after"]:
         return WARN, "couldn't be compared on the last scan (a file moved while listing). Scan again."
     if record["before"] != record["after"]:
-        return FAIL, f"music folders CHANGED during the last scan: {record['before']} became {record['after']}."
+        changed = record.get("changed") or []
+        named = ", ".join(changed[:SHOWN_CHANGES]) + (f" and {len(changed) - SHOWN_CHANGES} more" if len(changed) > SHOWN_CHANGES else "")
+        return FAIL, (f"music folders CHANGED during the last scan: {record['before']} became {record['after']}."
+                      + (f" Changed: {named}." if named else ""))
     return PASS, f"music folders unchanged by the last scan ({record['after'].split(',')[0]})."
 
 

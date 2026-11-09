@@ -47,4 +47,4 @@ b. Small fixes from my real sessions ride along.
 - A plain tour of the laptop commands: what each one is for and when to run it. *(done by chat in review chat 2026-11-08)*
 
 ## Still parked
-`/status` count-only answer · A-Z jump strip · doctor's fail line naming changed files · `/verify` under 1 min.
+A-Z jump strip. *(`/status` count, doctor naming changed files, `/verify` under 1 min: built 2026-11-08, play-first step)*

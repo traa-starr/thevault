@@ -29,6 +29,8 @@ export type LibSong = {
   main: string | null;
   /** This Main was picked by hand with Make main, so it stays Main. */
   picked?: boolean;
+  /** Seconds, measured on the laptop; null: not known yet. An older laptop or saved list has none. */
+  length?: number | null;
 };
 /** What one action sent, so its Undo can take it back or turn it round. */
 export type Sent = { changes: Change[]; edit: FamilyEdit; minedIds: string[] };

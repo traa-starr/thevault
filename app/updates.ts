@@ -43,3 +43,7 @@ export function updateLine(buildLine: string) {
   const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
   return `Update ${day}, ${time}`;
 }
+
+/** Which app code is running, for the timings: the update's publish time, or the build itself. */
+export const codeVersion = (build: string) =>
+  !Updates.isEmbeddedLaunch && Updates.createdAt ? Updates.createdAt.toISOString().slice(0, 19) : `build ${build}`.slice(0, 40);

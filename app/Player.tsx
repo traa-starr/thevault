@@ -215,7 +215,6 @@ export function NowPlayingBar() {
 
 export function FullPlayer() {
   const { song, order, wanted: playerWanted, time: playerTime, duration: playerDuration, note, trouble, timeLeft, sorting, buttonsHidden, pool } = usePlayer();
-  const [dragAt, setDragAt] = useState<number | null>(null);
   const [seekingTo, setSeekingTo] = useState<number | null>(null);
   const swipe = useBlankSwipeUp(() => player.open('queue'));
   const hidden = useRef(new Animated.Value(buttonsHidden ? 1 : 0)).current;
@@ -224,7 +223,12 @@ export function FullPlayer() {
   const cmp = useCompare();
   const comparing = cmp.open;
   const time = comparing ? cmp.sound.time : playerTime;
-  const duration = comparing ? cmp.sound.duration : playerDuration;
+  const reported = comparing ? cmp.sound.duration : playerDuration;
+  // a length that changes (the phone's own replacing the laptop's) waits until the finger is off the bar
+  const [dragAt, setDragAt] = useState<number | null>(null);
+  const heldLength = useRef(reported);
+  if (dragAt === null) heldLength.current = reported;
+  const duration = heldLength.current;
   const shownId = comparing ? cmp.sound.sounding || cmp.ids[0] : song?.id;
   const wanted = comparing ? cmp.sound.playing : playerWanted;
   const pulse = useRef(new Animated.Value(1)).current;
@@ -298,7 +302,10 @@ export function FullPlayer() {
         </View>
         <SeekBar value={shown} max={duration} onDrag={setDragAt} onDrop={drop} ticks={tags} onTick={comparing ? undefined : (tag) => (setDragAt(null), jumpToTag(tag))} />
         <View style={s.times}>
-          <Text style={s.time}>{clock(shown)}</Text>
+          {/* both times in fixed boxes: "–:––" becoming "3:42" (or a late length) moves nothing */}
+          <View style={s.timeBox}>
+            <Text style={s.time}>{clock(shown)}</Text>
+          </View>
           <Pressable style={s.timeTap} onPress={player.toggleTimeLeft}>
             <Text style={s.time}>{!duration ? '–:––' : timeLeft ? `-${clock(Math.max(duration - shown, 0))}` : clock(duration)}</Text>
           </Pressable>
@@ -651,7 +658,8 @@ const s = StyleSheet.create({
   knob: { position: 'absolute', width: 18, height: 18, borderRadius: 9, marginLeft: -9, backgroundColor: '#fff' },
   times: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: -12 },
   time: { color: '#ddd', fontSize: 14, fontVariant: ['tabular-nums'] },
-  timeTap: { paddingVertical: 14, paddingLeft: 32 },
+  timeBox: { width: 64 },
+  timeTap: { paddingVertical: 14, paddingLeft: 32, width: 96, alignItems: 'flex-end' },
   slot: { height: SLOT_HEIGHT, marginTop: 8, justifyContent: 'center' },
   controls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 },
   shuffle: { width: 44, alignItems: 'center' },

@@ -17,9 +17,11 @@ import { VersionsLayer } from './Versions';
 import { RestoreNotice, WaitingLine } from './Notices';
 import { phoneBackup, survivalStamp, usePhoneBackup } from './phoneBackup';
 import { compare } from './compareStore';
-import { pointUpdatesAt, updateLine, useReloadOnUpdate } from './updates';
+import { codeVersion, pointUpdatesAt, updateLine, useReloadOnUpdate } from './updates';
 import { logText } from './pressLog';
 import { timing } from './timings';
+
+timing.setVersion(codeVersion(buildInfo.build)); // so the laptop judges only the newest code's timings
 
 const PORT = 8787;
 // Stamped by the GitHub build; "dev" when run from the laptop.
@@ -50,9 +52,13 @@ async function songCount(address: string) {
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), TIMEOUT_MS);
   try {
-    const r = await fetch(`${serverUrl(address)}/songs`, { signal: abort.signal });
-    if (!r.ok) throw new Error(`Server said ${r.status}`);
-    const data: { songs: unknown[] } = await r.json();
+    // just the count; a laptop too old to know /status sends the whole list to count instead
+    const r = await fetch(`${serverUrl(address)}/status`, { signal: abort.signal });
+    if (r.ok) return ((await r.json()) as { songs: number }).songs;
+    if (r.status !== 404) throw new Error(`Server said ${r.status}`);
+    const old = await fetch(`${serverUrl(address)}/songs`, { signal: abort.signal });
+    if (!old.ok) throw new Error(`Server said ${old.status}`);
+    const data: { songs: unknown[] } = await old.json();
     return data.songs.length;
   } finally {
     clearTimeout(timer);

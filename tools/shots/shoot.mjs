@@ -65,6 +65,7 @@ const only = process.argv[2];
 const chosen = fixtures.filter((f) => !only || f.name.includes(only));
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 let bad = 0;
+const boxes = {};
 for (const f of chosen) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
   const errors = [];
@@ -81,6 +82,16 @@ for (const f of chosen) {
   await page.waitForTimeout(250);
   const file = join(out, `${f.name}.png`);
   await page.screenshot({ path: file });
+  // where every button sits, so a pair of shots (`same`) can prove nothing moved when info arrived
+  boxes[f.name] = await page.evaluate(() =>
+    [...document.querySelectorAll('[tabindex]')].map((el) => { const r = el.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round).join(','); }));
+  if (f.same) {
+    const was = boxes[f.same];
+    const moved = !was ? ['the shot to compare with was not drawn'] : boxes[f.name].length !== was.length ? [`${was.length} buttons became ${boxes[f.name].length}`]
+      : boxes[f.name].flatMap((box, i) => (box === was[i] ? [] : [`button ${i + 1}: ${was[i]} became ${box}`]));
+    if (moved.length) errors.push(`moved since ${f.same}: ${moved.slice(0, 3).join('; ')}`);
+    else console.log(`     same boxes as ${f.same} (${was.length} buttons)`);
+  }
   const real = errors.filter((e) => !/Warning:|is deprecated|findDOMNode|pointerEvents|shadow\*/.test(e));
   if (real.length) bad++;
   console.log(`${real.length ? 'ERR ' : 'ok  '} ${f.name}${real.length ? `\n     ${real.slice(0, 3).join('\n     ')}` : ''}`);

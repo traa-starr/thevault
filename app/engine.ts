@@ -38,7 +38,10 @@ function singleEngine({ onSound, onStarted }: Handlers): Engine {
       player.pause(); // replacing keeps a playing player playing
       player.replace({ uri: uris[index] });
       if (at > 0) gate.hold(at, play);
-      else if (play) player.play();
+      else if (play) {
+        player.play();
+        gate.listen();
+      }
     },
     startHere: () => {}, // it never moves on by itself
     abandonWait: () => gate.drop(),
@@ -51,17 +54,23 @@ function singleEngine({ onSound, onStarted }: Handlers): Engine {
     skip: () => {}, // never asked: it isn't windowed
     play: () => {
       const waiting = gate.now();
-      if (waiting) waiting.play = true;
-      else player.play();
+      if (waiting) {
+        waiting.play = true;
+        gate.kick();
+      } else {
+        player.play();
+        gate.listen();
+      }
     },
     pause: () => {
       const waiting = gate.now();
       if (waiting) waiting.play = false;
       player.pause();
     },
-    seek: async (seconds) => {
+    seek: async (seconds, play) => {
       const waiting = gate.now();
       if (waiting) return gate.hold(seconds, waiting.play);
+      if (!player.isLoaded) return gate.hold(seconds, play ?? player.playing);
       await player.seekTo(seconds);
     },
     setLoop: (loop) => {

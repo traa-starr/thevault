@@ -4,6 +4,7 @@ import ctypes
 import hashlib
 import http.client
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -28,6 +29,17 @@ def check(name, ok, detail=""):
     print(("PASS  " if ok else "FAIL  ") + name + (f"  {detail}" if detail and not ok else ""))
     if not ok:
         failures.append(name)
+
+
+def pad_journal(lib, song_id, lines=7200):
+    """A journal the size of the real one, for the timing checks. Setup only: the lines are written in one go and taken
+    in by the store's own catch-up (one transaction), not 7,200 separate writes (4.5 minutes a run). Every write the
+    checks then time goes through the normal path."""
+    entries = [{"id": str(uuid.uuid4()), "ts": now(), "kind": "song_place",
+                "data": {"path": "x" * 200, "song_id": song_id, "state": "likely", "why": "timing"}} for _ in range(lines)]
+    with open(lib.store.journal_path, "ab") as f:
+        f.write("".join(json.dumps(e, ensure_ascii=False, sort_keys=True) + chr(10) for e in entries).encode("utf-8"))
+    lib.store._catch_up()
 
 
 def add_song(lib, path, data, cloud=False, state="sure", title=None):
@@ -139,6 +151,10 @@ def write_path(tmp):
         check("not mine saved", send(good) == ["saved"])
         check("not mine leaves the list and joins the hidden list", guessed not in listed() and guessed in listed("/songs?hidden=1"))
         check("the hidden song is flagged sorted", listed("/songs?hidden=1")[guessed]["sorted"] is True)
+        c = http.client.HTTPConnection(server.LOOPBACK, port, timeout=10)
+        c.request("GET", "/songs")
+        check("the song list counts it as hidden", json.loads(c.getresponse().read())["hidden"] == len(listed("/songs?hidden=1")))
+        c.close()
         n = lines()
         check("repeated id does nothing", send(good) == ["nothing to do"] and lines() == n)
         check("same call under a new id does nothing", send(change("mine_set", guessed, "not mine")) == ["nothing to do"] and lines() == n)
@@ -253,8 +269,7 @@ def write_path(tmp):
 
     # how long a write takes with a journal the size of the real one
     lib = open_library(root)
-    for _ in range(7200):
-        lib.store.record("song_place", {"path": "x" * 200, "song_id": merged_into, "state": "likely", "why": "timing"})
+    pad_journal(lib, merged_into)
     lib.close()
     start = time.perf_counter()
     results = server.apply_changes(root, [change("mine_set", blank, "not mine")])
@@ -389,8 +404,7 @@ def sorting_path(tmp):
 
     # a big sweep and its Undo, with a journal the size of the real one
     lib = open_library(root)
-    for _ in range(7200):
-        lib.store.record("song_place", {"path": "x" * 200, "song_id": lone, "state": "likely", "why": "timing"})
+    pad_journal(lib, lone)
     many = [add_song(lib, music / "Big" / f"song {n}.mp3", b"big%d" % n) for n in range(300)]
     lib.close()
     change = lambda kind, song, value=None: {"id": str(uuid.uuid4()), "kind": kind, "data": {"song_id": song, **({"value": value} if value else {})}}
@@ -492,12 +506,66 @@ def timings_path(tmp):
     print("      " + (chr(10) + "      ").join(lines))
     check("timings: command prints search typical and slow end", lines[0].startswith("Search: typical") and "27,000 tags" in lines[0] or "3 tags" in lines[0])
     check("timings: command prints Next per path, with how many went over 1 s",
-          any(line.startswith("Next to first sound, session") and "over 1 s: 1" in line for line in lines)
-          and any("sort" in line for line in lines))
+          any(line.strip().startswith("session:") and "over 1 s: 1" in line for line in lines)
+          and any("sort:" in line for line in lines))
+    check("timings: too few samples aren't judged", any("session:" in line and "not enough yet" in line for line in lines))
     (root / TIMINGS_NAME).write_text(saved + "broken line" + chr(10), encoding="utf-8")
     check("timings: a broken line is skipped", len(timings_report(root)) == len(lines))
+    # play first (2026-11-08): every path by name, its stages and source; judged against Sort, newest app code only
+    staged = lambda path, ms, **more: {"kind": "next", "ms": ms, "path": path, "load": 5, "seek": 40, "start": 10, "reseek": False,
+                                       "src": "phone", "ext": "mp3", **more}
+    newer = {"version": "newer", "samples": [staged("sort", 90) for _ in range(5)]
+             + [staged("session", 150) for _ in range(5)] + [staged("previous", 700, src="stream", ext="") for _ in range(5)]
+             + [staged("lockscreen", 100), staged("search", 120), staged("restore", 130), staged("library", 50),
+                staged("session", 120, ext="../x", src="disk", title="secret")]}
+    check("timings: every path's samples are taken", post(newer) == (200, {"kept": 20}))
+    lines = timings_report(root)
+    print("      " + (chr(10) + "      ").join(lines))
+    text = chr(10).join(lines)
+    check("timings: only the newest app code is judged", "app code newer (20 of 23 samples" in text)
+    check("timings: PASS within 2x Sort", any("session:" in l and l.endswith("PASS") for l in lines))
+    check("timings: FAIL over 2x Sort, said why", any("previous:" in l and "FAIL (typical over 2x Sort's 90 ms)" in l for l in lines))
+    check("timings: every path named", all(f"  {p}:" in text for p in ("session", "sort", "library", "previous", "lockscreen", "search", "restore")))
+    check("timings: stages shown", "load 5, seek 40, start 10, app 95 ms; second seek 0 of 6" in text)
+    check("timings: by source, file type kept, a bad one dropped", "phone mp3 150 ms (5)" in text and "stream 700 ms (5)" in text
+          and "../x" not in (root / TIMINGS_NAME).read_text(encoding="utf-8") and "disk" not in text)
+    check("timings: still never text", "secret" not in (root / TIMINGS_NAME).read_text(encoding="utf-8"))
     check("timings: the journal never sees them", (root / JOURNAL_NAME).read_bytes() == journal_before)
     server.stop_servers(servers)
+
+
+def lengths_path(tmp):
+    """Song lengths (NEXT C): measured from the file the phone plays, never a cloud-only one, never journaled, sent in
+    the song list; a failed one isn't retried every run."""
+    from vault_server.lengths import fill_lengths, length_counts
+    music, root = tmp / "lmusic", tmp / "llib"
+    lib = init_library(root)
+    here = add_song(lib, music / "here.mp3", b"a" * 100)
+    cloud = add_song(lib, music / "cloud.mp3", b"never read", cloud=True)
+    broken = add_song(lib, music / "broken.mp3", b"not audio")
+    likely = add_song(lib, music / "likely.mp3", b"maybe another file", state="likely")
+    lib.close()
+    ok = ctypes.windll.kernel32.SetFileAttributesW(str(music / "cloud.mp3"), OFFLINE)
+    check("lengths: test can mark a file cloud-only", ok)
+    journal_before = (root / JOURNAL_NAME).read_bytes()
+    probed = []
+    fake = lambda path: (probed.append(Path(path).name), None if "broken" in str(path) else 183.4)[1]
+    lib = open_library(root)
+    counts = fill_lengths(lib, probe=fake)
+    check("lengths: measured, unreadable and not-here counted", counts == {"measured": 1, "failed": 1, "not on this laptop": 2}, counts)
+    check("lengths: a cloud-only or 'likely' file is never read", sorted(probed) == ["broken.mp3", "here.mp3"], probed)
+    probed.clear()
+    again = fill_lengths(lib, probe=fake)
+    check("lengths: a second run measures nothing again (failed is remembered)", probed == [] and again["measured"] == 0, again)
+    check("lengths: counts for the doctor", length_counts(lib.store.conn) == (4, 1))
+    lib.close()
+    check("lengths: the journal never sees them", (root / JOURNAL_NAME).read_bytes() == journal_before)
+    conn = server.connect_readonly(root)
+    listed = {song["id"]: song.get("length") for song in server.list_songs(conn)}
+    sorting = {song["id"]: song.get("length") for song in server.sorting_view(conn)["songs"]}
+    conn.close()
+    check("lengths: the song list carries them (none where unknown)", listed == {here: 183.4, cloud: None, broken: None, likely: None}, listed)
+    check("lengths: so does Sort's list", sorting.get(here) == 183.4, sorting)
 
 
 def family_path(tmp):
@@ -686,6 +754,9 @@ def main():
           and songs[cloud]["mine"] == "unknown")
     check("list says local or cloud-only", songs[local]["where"] == "laptop" and songs[cloud]["where"] == "cloud")
     check("list gives the date, or nothing if unknown", songs[local]["date"] == "2024-05-01" and songs[cloud]["date"] is None)
+    check("the list says how many are hidden", json.loads(ask("/songs")[1])["hidden"] == 0)
+    r, body = ask("/status")
+    check("/status: just the count, the same as the list's", r.status == 200 and json.loads(body) == {"songs": len(songs)})
     r, body = ask("/")
     check("the page opens and shows titles as plain text", r.status == 200 and b"textContent = song.title" in body and b"innerHTML" not in body)
 
@@ -776,6 +847,7 @@ def main():
     family_path(tmp)
     phone_backup_path(tmp)
     timings_path(tmp)
+    lengths_path(tmp)
     family_pick_path(tmp)
     hand_pick_history_path(tmp)
     date_year_path()

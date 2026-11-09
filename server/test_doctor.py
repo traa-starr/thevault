@@ -77,6 +77,7 @@ def main():
     doctor.scan = real_scan
     check("a change during a scan is seen", changed["before"] != changed["after"])
     check("that counts as a fail", doctor.fingerprint_line(changed)[0] == doctor.FAIL)
+    check("the fail line names the changed file", "Changed: " + str(Path("Music") / "new.mp3") in doctor.fingerprint_line(changed)[1], doctor.fingerprint_line(changed)[1])
     code, out = run(root)
     check("doctor reports it, overall fail", code == 2 and line(out, "Music fingerprint").startswith("FAIL") and out[-1].startswith("Overall: FAIL"), str(out))
     (music / "Music" / "new.mp3").unlink()

@@ -138,8 +138,9 @@ def list_songs(conn, hidden=False):
     when `hidden` is asked for, and then on their own, newest-hidden first (an undo is at the top). `main` is the song's Main if it is one of several versions; `picked`: a Main I picked by hand."""
     rows = conn.execute(f"""
         SELECT g.id, g.title, COALESCE(f.value, 'unknown') AS mine, d.value AS date, COALESCE(f.origin = 'manual', 0) AS sorted,
-               {PLACE_SQL} AS place, {FOLDER_SQL} AS folder, m.main_id AS main, k.main_id IS NOT NULL AS picked
+               {PLACE_SQL} AS place, {FOLDER_SQL} AS folder, m.main_id AS main, k.main_id IS NOT NULL AS picked, l.seconds AS length
         FROM songs g LEFT JOIN song_fields f ON f.song_id=g.id AND f.field='mine'
+        LEFT JOIN song_lengths l ON l.song_id=g.id
         LEFT JOIN song_fields d ON d.song_id=g.id AND d.field='date'
         LEFT JOIN song_family m ON m.song_id=g.id
         LEFT JOIN family_pick k ON k.main_id=g.id
@@ -147,7 +148,18 @@ def list_songs(conn, hidden=False):
         ORDER BY {"f.ts DESC, " if hidden else "place='laptop' DESC, "}g.title COLLATE NOCASE""")
     return [{"id": r["id"], "title": r["title"], "mine": r["mine"], "where": r["place"], "date": r["date"],
              "sorted": bool(r["sorted"]), "folder": show_folder(r["folder"]), "main": r["main"],
-             "picked": bool(r["picked"])} for r in rows]
+             "picked": bool(r["picked"]), "length": r["length"]} for r in rows]
+
+
+def song_count(conn):
+    """How many songs the song list holds (Hidden ones aren't in it), counted in the database."""
+    return conn.execute("""SELECT COUNT(*) FROM songs g LEFT JOIN song_fields f ON f.song_id=g.id AND f.field='mine'
+                           WHERE COALESCE(f.value, 'unknown') != 'not mine'""").fetchone()[0]
+
+
+def hidden_count(conn):
+    """How many songs are Not mine, for the count on Library's Hidden link."""
+    return conn.execute("SELECT COUNT(*) FROM song_fields WHERE field='mine' AND value='not mine'").fetchone()[0]
 
 
 def name_stem(title):
@@ -161,12 +173,13 @@ def sorting_view(conn):
     repeated name patterns. Judged means my call, from the phone or from the Phase 0 triage."""
     rows = conn.execute(f"""
         SELECT g.id, g.title, COALESCE(f.value, 'unknown') AS mine, d.value AS date, {PLACE_SQL} AS place,
-               {FOLDER_SQL} AS folder
+               {FOLDER_SQL} AS folder, l.seconds AS length
         FROM songs g LEFT JOIN song_fields f ON f.song_id=g.id AND f.field='mine'
         LEFT JOIN song_fields d ON d.song_id=g.id AND d.field='date'
+        LEFT JOIN song_lengths l ON l.song_id=g.id
         WHERE f.song_id IS NULL OR (f.origin != 'manual' AND COALESCE(f.basis, '') != 'verdict' AND f.value != 'not mine')""")
     songs = sorted(({"id": r["id"], "title": r["title"], "mine": r["mine"], "where": r["place"], "date": r["date"],
-                     "folder": show_folder(r["folder"]), "sorted": False} for r in rows),
+                     "folder": show_folder(r["folder"]), "sorted": False, "length": r["length"]} for r in rows),
                    key=lambda s: (LIKELY_FIRST.get(s["mine"], len(LIKELY_FIRST)), s["folder"].casefold(), s["title"].casefold()))
     by_folder, by_name, names = {}, {}, {}
     for s in songs:
@@ -394,6 +407,12 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR, on_mine=None):
                     return self._json(200, {"backup": read_phone_backup(root)})
                 if route == "/health":
                     return self._json(200, health(root, backup_dir))
+                if route == "/status":  # the home screen's count, without sending all 1,395 songs to count them
+                    conn = connect_readonly(root)
+                    try:
+                        return self._json(200, {"songs": song_count(conn)})
+                    finally:
+                        conn.close()
                 if route == "/update":  # new app code for the phone, made by `publish` (updates.py)
                     status, headers, body = update_answer(root, self.headers.get("expo-platform", ""),
                                                           self.headers.get("expo-runtime-version", ""),
@@ -429,7 +448,9 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR, on_mine=None):
                     hidden = parse_qs(urlsplit(self.path).query).get("hidden") == ["1"]
                     conn = connect_readonly(root)
                     try:
-                        return self._json(200, {"songs": list_songs(conn, hidden)})
+                        if hidden:
+                            return self._json(200, {"songs": list_songs(conn, True)})
+                        return self._json(200, {"songs": list_songs(conn), "hidden": hidden_count(conn)})
                     finally:
                         conn.close()
                 m = AUDIO_ROUTE.fullmatch(route)

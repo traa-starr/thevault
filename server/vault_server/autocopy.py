@@ -12,6 +12,7 @@ from pathlib import Path
 import time
 
 from .importer import ToolMissing, import_mine, make_phone_copies
+from .lengths import fill_lengths
 from .library import open_library
 from .store import Busy, write_lock
 
@@ -45,12 +46,15 @@ def _run(root, stop, log):
         quiet = lambda *_: None
         added = import_mine(lib, quiet, drop=False, stop=stop)
         made = make_phone_copies(lib, quiet, background=True, stop=stop)
+        measured = fill_lengths(lib, stop)  # song lengths for the phone's list (lengths.py): only songs without one
     finally:
         lib.close()
     phone = made["made now (AAC 192 kbps)"] + made["copied as is (already small)"]
     if added["copied now"] or phone or made["failed"]:
         failed = f", {made['failed']} failed (run import to see why)" if made["failed"] else ""
         _say(log, f"Phone copies: {phone} made now, {added['copied now']} songs copied into the library{failed}.")
+    if measured["measured"] or measured["failed"]:
+        _say(log, f"Song lengths: {measured['measured']} measured now" + (f", {measured['failed']} unreadable" if measured["failed"] else "") + ".")
     return added["copied now"], phone
 
 

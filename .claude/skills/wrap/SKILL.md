@@ -11,6 +11,9 @@ Do these in order. Say in REPORT if one was skipped, and why.
 2. **`docs/REPORT.md`**, overwritten, under 40 lines, these headings:
    - **Step:** NEXT's exact step name, and date. Chat matches REPORT to NEXT by this.
    - **Verified by running:** what ran, what came out.
+   - **Phone timings:** the output of `python server/vault_cli.py timings E:\VaultLibrary`, pasted as is in a code
+     block (one PASS/FAIL line per play path, newest app code only). Run it now, never from memory, so I never relay
+     numbers. If it says "not enough yet", say so; that's not a pass.
    - **Phone update:** exactly one of: `none` (no app code changed) · `published <time>` (app code changed: you ran
      publish yourself in step 6b; I only close and reopen the app) · `full rebuild` (app.json, package.json or native
      code changed: GitHub build plus SideStore, mine). Decide from `git status --short` on `app/`, not memory. Add

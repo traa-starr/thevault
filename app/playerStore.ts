@@ -2,18 +2,19 @@
 // The song, its spot and its list are saved to the phone as they change, so the app reopens on the last song, paused.
 import { setAudioModeAsync } from 'expo-audio';
 import { File, Paths } from 'expo-file-system';
-import { useSyncExternalStore } from 'react';
+import { useRef, useSyncExternalStore } from 'react';
 import type { Voice } from './compareEngine';
 import { createEngine, type Engine, type Sound } from './engine';
 import type { FamilyEdit } from './family';
 import { offline } from './offline';
 import { addChange, addChanges } from './outbox';
 import { note } from './pressLog';
-import { timing } from './timings';
-import { currentId, jumpTo, moveBy, SORT_START_SEC, startSpot, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setFlag, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
+import { timing, type Path } from './timings';
+import { currentId, jumpTo, moveBy, shownLength, SORT_START_SEC, startSpot, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setFlag, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
 import { isVersion, members, removeEditFor, sendEdit, showToast, songTitle, undo as undoVersions, type Sent } from './versionStore';
 
-export type PlayerSong = { id: string; title: string; mine: string; sorted: boolean };
+/** `length`: seconds, measured on the laptop (NEXT C), so the length shows at the tap; null or missing: not known yet. */
+export type PlayerSong = { id: string; title: string; mine: string; sorted: boolean; length?: number | null };
 type Mark = { mine: string; sorted: boolean };
 type Undo = { order: Order; id: string; title: string; at: number; family: Sent | null };
 type Spot = { order: Order; at: number };
@@ -148,7 +149,16 @@ const update = (changes: Partial<State>) => {
 // the phone's own copy first: no network, and it plays with the laptop off
 const audioUrl = (id: string) => offline.uri(id) ?? `${url}/songs/${id}/audio`;
 const cantReach = (id: string) => offline.reachable() === false && !offline.uri(id);
+/** Where a song plays from, for its timing: the phone's copy and its file type, or the laptop's stream. */
+const sourceOf = (id: string) => {
+  const uri = offline.uri(id);
+  return uri ? { src: 'phone' as const, ext: (uri.split('.').pop() ?? '').toLowerCase().slice(0, 5) } : { src: 'stream' as const, ext: '' };
+};
+/** A tap that starts this song: its timing starts now, under the path's own name. */
+const tapFor = (path: Path, id: string) => timing.tap(path, sourceOf(id));
 const titleOf = (id: string) => songs.get(id)?.title ?? '';
+/** The laptop's measured length, 0 if not known. For showing only: the short-song rule waits for the phone's own. */
+const storedLength = (id: string | undefined) => (id ? Math.max(songs.get(id)?.length ?? 0, 0) : 0);
 const songNow = (order: Order) => songs.get(currentId(order)) ?? null;
 const markOf = (song: PlayerSong): Mark => state.marks[song.id] ?? song;
 
@@ -185,8 +195,12 @@ function saveSpot(force = false) {
   }
 }
 
+let restored = false; // the song on screen came back from the last launch, paused: its first Play is the restore path
+let phoneLength = 0; // the phone's own length of the song playing (0: not loaded yet)
 const newTrackStarted = () => {
   everLoaded = false;
+  restored = false; // a song after the restored one: its Play is a plain Play
+  phoneLength = 0;
   trackStarted = Date.now();
   stuckProbes = 0;
   lastProgress = Date.now();
@@ -206,9 +220,11 @@ function onSound(sound: Sound) {
   }
   if (state.comparing) return; // paused and waiting: nothing it says counts
   if (sound.loaded) everLoaded = true;
-  if (sound.playing && !sound.buffering && sound.loaded) timing.heard(timedPath()); // a start with no spot to find
+  if (sound.duration > 0) phoneLength = sound.duration;
   if (timing.ready()) timing.send(url);
-  const changes: Partial<State> = { time: sound.time, duration: sound.duration };
+  // the song the player really holds (it may have moved on before saying so)
+  const holding = engine?.windowed ? track[engine.index()]?.id : state.song?.id;
+  const changes: Partial<State> = { time: sound.time, duration: shownLength(storedLength(holding), sound.duration) };
   timeStampedAt = Date.now();
   if (sound.time !== lastTime) {
     if (lastTime >= 0 && sound.playing) {
@@ -258,10 +274,19 @@ function onTrack(index: number) {
   ownMoves = own ? ownMoves.slice(at + 1) : [];
   if (!own || !ownMoves.length) ahead = null;
   let restarted = false; // adding a song in front restarts this one from 0:00: it finds its spot again
+  // the lock screen's Next or Previous (a song's own end is not a tap): timed from now, under its own name
+  // the phone's own length (the shown one can be the laptop's, up to 2 s off) and reports come every 0.5 s. A song that
+  // never loaded moved on by itself (a bad song): not a tap either
+  const length = phoneLength || state.duration;
+  const ended = !everLoaded || (length > 0 && state.time >= length - 2.5);
+  if (!own && !ended) tapFor('lockscreen', entry.id);
+  // play first: the silence and the start spot go to the player before the screen catches up
+  if (startPoint > 0 && !own && index !== 0) engine?.startHere(startPoint);
+  else if (startPoint <= 0 && !own) engine?.startHere(0);
   newTrackStarted();
   settleUntil = Date.now() + SETTLE_MS;
   // the start spot shows at once, never 0:00 first (the player is finding it)
-  update({ order, song: songNow(order), time: startPoint, duration: 0, note: '', trouble: '' });
+  update({ order, song: songNow(order), time: startPoint, duration: storedLength(entry.id), note: '', trouble: '' });
   if (!state.sorting) heard(entry.id);
   saveSpot(true);
   engine?.setTitle(titleOf(entry.id));
@@ -278,7 +303,7 @@ function onTrack(index: number) {
   }
   // the lock screen or a song's end moved on: the player began it at 0:00, so it goes silent and finds its start point.
   // A Next or Previous tap already did that on its way (skip), so its own report never seeks twice.
-  if (startPoint > 0 && (!own || restarted)) engine?.startHere(startPoint);
+  if (startPoint > 0 && (index === 0 ? !own || restarted : restarted)) engine?.startHere(startPoint);
   if (badInARow >= MAX_BAD_IN_A_ROW) stopForBadSongs();
 }
 
@@ -313,10 +338,14 @@ function stopForBadSongs() {
   badInARow = 0;
 }
 
-const timedPath = () => (state.sorting ? 'sort' : startPoint > 0 ? 'session' : 'library');
-const ensureEngine = () => (engine ??= createEngine(ENGINE, { onSound, onTrack, onStarted: () => timing.heard(timedPath()) }));
+/** The path a Next or a Queue tap is timed under. */
+const nextPath = (): Path => (state.sorting ? 'sort' : startPoint > 0 ? 'session' : 'library');
+const ensureEngine = () => (engine ??= createEngine(ENGINE, { onSound, onTrack, onStarted: (stages) => timing.heard(stages) }));
+let modeReady = false;
 const ensureMode = () =>
-  (modeSet ??= setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'doNotMix' }).catch(() => {}));
+  (modeSet ??= setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'doNotMix' })
+    .catch(() => {})
+    .finally(() => (modeReady = true)));
 
 /** Starts this order from scratch. Restarts the sound, so ordinary moves between songs let the player do it instead.
  * `at` undefined: a fresh song, which starts at the mode's start point (session 0:15, Sort 0:30, else 0:00). */
@@ -332,24 +361,23 @@ function loadOrder(order: Order, asked: number | undefined, play: boolean) {
       return;
     }
     engine?.pause();
+    timing.cancel();
     update({ order, song: songNow(order), time: 0, duration: 0, wanted: false, note: '', trouble: NOT_HERE });
     return;
   }
+  restored = false;
   newTrackStarted();
   ownMoves = []; // a fresh list: no move of the old one is still on its way
   ahead = null;
   settleUntil = play ? Date.now() + SETTLE_MS : 0;
   holdPausedUntil = play ? 0 : Date.now() + HOLD_PAUSED_MS;
   const id = currentId(order);
-  update({ order, song: songNow(order), time: at, duration: 0, wanted: play, note: '', trouble: '' });
-  if (!state.sorting) heard(id);
-  saveSpot(true);
-  startStallWatch();
   const ticket = ++loadTicket;
-  ensureMode().finally(() => {
+  const toSound = (later: boolean) => {
     if (ticket !== loadTicket) return; // a newer load got there first
-    // the same song, its order changed meanwhile (a restored session's Not mine, a Queue drag): load the order as it is now
-    const now = state.order && currentId(state.order) === id ? state.order : order;
+    // loaded later (the first song after launch): the same song, its order changed meanwhile (a restored session's Not
+    // mine, a Queue drag), loads the order as it is now. Right away: this order (state still holds the last one)
+    const now = later && state.order && currentId(state.order) === id ? state.order : order;
     const sound = ensureEngine();
     if (sound.windowed) {
       const behind = walkBack(now, BEHIND);
@@ -361,7 +389,15 @@ function loadOrder(order: Order, asked: number | undefined, play: boolean) {
     }
     sound.setLoop(state.sorting);
     sound.setTitle(titleOf(id));
-  });
+  };
+  // play first: once the audio mode is set (every load after the first), the sound is asked for before the screen
+  // redraws, so no title, length or tag list sits in front of it
+  if (modeReady) toSound(false);
+  update({ order, song: songNow(order), time: at, duration: storedLength(id), wanted: play, note: '', trouble: '' });
+  if (!state.sorting) heard(id);
+  saveSpot(true);
+  startStallWatch();
+  if (!modeReady) ensureMode().finally(() => toSound(true));
 }
 
 // A stuck player doesn't say why, so ask the server. HEAD opens no music file.
@@ -444,12 +480,12 @@ function stepQueue(step: 1 | -1, moved: Order) {
   ownMoves.push(currentId(moved));
   ahead = moved;
   engine!.skip(step, startPoint);
-  update({ wanted: true, time: startPoint, duration: 0 });
+  update({ wanted: true, time: startPoint, duration: storedLength(currentId(moved)) });
 }
 
 export const player = {
   /** A tap on a song in a list. During Sort it replaces the saved library spot, so the sort song keeps playing. */
-  playList(serverUrl: string, list: PlayerSong[], startId: string, shuffle: boolean, pool: Pool = 'unsorted', at?: number) {
+  playList(serverUrl: string, list: PlayerSong[], startId: string, shuffle: boolean, pool: Pool = 'unsorted', at?: number, path: Path = 'library') {
     url = serverUrl;
     list.forEach((song) => songs.set(song.id, song));
     const ids = list.map((song) => song.id);
@@ -458,7 +494,10 @@ export const player = {
     update({ marks, pool });
     const order = startOrder(ids, startId, shuffle);
     if (state.sorting) saved = { order, at: at ?? 0 };
-    else loadOrder(order, at, true);
+    else {
+      tapFor(path, currentId(order));
+      loadOrder(order, at, true);
+    }
   },
 
   toggle() {
@@ -467,12 +506,15 @@ export const player = {
     if (!state.order || state.comparing) return;
     if (cantReach(currentId(state.order))) return update({ trouble: NOT_HERE });
     if (state.wanted) {
+      timing.cancel(); // a tap still waiting for sound: paused, so no timing (a Play much later isn't its sound)
       engine?.pause();
       update({ wanted: false });
       saveSpot(true);
     } else {
       settleUntil = Date.now() + SETTLE_MS;
       holdPausedUntil = 0;
+      if (restored) tapFor('restore', currentId(state.order));
+      restored = false;
       engine?.play();
       update({ wanted: true, note: '' });
     }
@@ -480,6 +522,7 @@ export const player = {
 
   pause() {
     settleHandOff();
+    timing.cancel();
     engine?.pause();
     update({ wanted: false });
   },
@@ -493,7 +536,7 @@ export const player = {
       return;
     }
     badInARow = 0;
-    timing.tap();
+    tapFor(nextPath(), currentId(moved));
     if (moveBy(startPoint, queueHolds(1, moved)) === 'queue') {
       stepQueue(1, moved);
     } else {
@@ -510,7 +553,7 @@ export const player = {
       return;
     }
     badInARow = 0;
-    timing.tap();
+    tapFor('previous', currentId(moved));
     // landing on the queue's first song makes the player add one in front, which restarts it: a fresh load instead
     const landsFirst = !!engine?.windowed && engine.index() - 1 === 0 && !!previousInOrder(moved);
     if (!landsFirst && moveBy(startPoint, queueHolds(-1, moved)) === 'queue') {
@@ -523,7 +566,7 @@ export const player = {
   async seek(seconds: number) {
     settleHandOff();
     try {
-      await engine?.seek(seconds);
+      await engine?.seek(seconds, state.wanted); // a drag before the song has loaded waits and lands
     } catch {
       // the song changed while seeking: nothing to do
     }
@@ -536,7 +579,7 @@ export const player = {
     if (!state.order) return;
     badInARow = 0;
     const moved = jumpTo(ahead ?? state.order, id);
-    if (at === undefined) timing.tap(); // a fresh card or song: timed to first sound
+    if (at === undefined) tapFor(nextPath(), id); // a fresh card or song: timed to first sound
     // the next Sort card is usually the queued song: the same fast path as Next
     if (at === undefined && !state.comparing && queueHolds(1, moved)) {
       settleHandOff();
@@ -822,6 +865,7 @@ export const player = {
       if (!songs.has(currentId(last.order))) return;
       update({ pool: last.pool ?? 'unsorted' });
       loadOrder(last.order, last.at ?? 0, false);
+      restored = true;
     } catch {
       // nothing usable saved: start empty, as before
     }
@@ -922,6 +966,19 @@ const subscribe = (listener: () => void) => {
 };
 
 export const usePlayer = () => useSyncExternalStore(subscribe, () => state);
+
+/** Only some of the player, for a screen that mustn't redraw on every tick (Library: 1,395 rows under the player). It
+ * redraws only when one of the picked values changes. */
+export function usePlayerWith<T extends readonly unknown[]>(pick: (now: State) => T): T {
+  const last = useRef<T | null>(null);
+  return useSyncExternalStore(subscribe, () => {
+    const next = pick(state);
+    const was = last.current;
+    if (was && was.length === next.length && was.every((one, i) => one === next[i])) return was;
+    last.current = next;
+    return next;
+  });
+}
 
 /** Any change to the player, for code outside React (Compare's wait watches for the song changing). */
 export const onPlayerChange = subscribe;

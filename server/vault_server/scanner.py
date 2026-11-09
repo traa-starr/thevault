@@ -248,11 +248,25 @@ def apply_sorting(lib, root):
                                                  and verdicts.get(r["path"]) == "not_mine")}
 
 
-def fingerprint(root):
-    """One line summing every file's path, size and modified time under `root`. Listing only: opens nothing."""
-    h, count = hashlib.sha256(), 0
+def listing(root):
+    """{path: (size, modified time)} for every file under `root`. Listing only: opens nothing."""
+    out = {}
     for path in sorted(str(p) for p in _files_in(root, [])):
         st = os.stat(path)
-        h.update(f"{path}|{st.st_size}|{st.st_mtime_ns}\n".encode("utf-8", "surrogateescape"))
-        count += 1
-    return f"{count} files, listing {h.hexdigest()[:16]}"
+        out[path] = (st.st_size, st.st_mtime_ns)
+    return out
+
+
+def fingerprint(root, files=None):
+    """One line summing every file's path, size and modified time under `root` (or a `listing` already made)."""
+    files = listing(root) if files is None else files
+    h = hashlib.sha256()
+    for path, (size, mtime) in files.items():
+        h.update(f"{path}|{size}|{mtime}\n".encode("utf-8", "surrogateescape"))
+    return f"{len(files)} files, listing {h.hexdigest()[:16]}"
+
+
+def changed_files(before, after, root):
+    """Paths (relative to `root`) added, removed or changed between two listings, sorted."""
+    names = {p for p in before.keys() | after.keys() if before.get(p) != after.get(p)}
+    return sorted(os.path.relpath(p, root) for p in names)

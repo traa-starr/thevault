@@ -17,6 +17,7 @@ const set = (next: any) => {
   notify();
 };
 export const usePlayer = () => useFix(() => state);
+export const usePlayerWith = (pick: (now: any) => readonly unknown[]) => pick(useFix(() => state));
 export const onPlayerChange = (_: () => void) => () => {};
 export const player = noop({
   positionNow: () => state.time,

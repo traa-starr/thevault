@@ -1,34 +1,37 @@
-**Step:** Fast session Next, centred player everywhere, search on the phone, 2026-11-08.
+**Step:** Play first, info after: every Next as fast as Sort cards, 2026-11-09.
 
-**Verified by running:** `/verify` 14/14 PASS on the final code (new: nextTiming test, search test). nextTiming (fake player on a pretend clock, fresh load 800 ms, seek 300 ms, queued song loaded): session Next first sound 300 ms at 0:15, Sort card Next 300 ms at 0:30, old full reload 1,100 ms; 3 fast Nexts 300 ms, volume back. search: 16 checks, spike ladder ported; 1,363 songs / 27,372 fake tags offline (fetch throws): index 73 ms, typical 4.2 ms, slow end 11.5 ms (laptop). test_server timings: fake phone report kept, text dropped, command prints. Acceptance runner on its example: 5 of 5. Real library: `search-data` 6 tags; `timings` "No timings from the phone yet". Shots 33/33.
+**Verified by running:** `/verify` 14/14 PASS in 44 s. nextTiming model (pretend iPhone + pretend app thread): old Sort Next 60 ms (phone 91), old session Next 720 ms (phone 797), new session Next 60 ms; every path (session, sort, library, previous, lockscreen, library tap, search, restore) times at real sound, never a muted start, volume back; a 1 s info redraw never delays sound with no spot to find; old order puts the whole load behind the redraw (1,660 vs 1,060 ms); fake report carries all 7 path names + stages. Server: lengths, `/status`, Hidden count, timings PASS/FAIL tests pass. `copies` on the real library: "Song lengths known: 1,392 of 1,393" (the one left is a 0-byte MP3); live `/songs`: 671 of 671 listed songs carry a length. Shots 40/40; `info-before/after` pairs from Library, Sort card, session: same button boxes. Repo check clean.
 
-**Phone update:** published 20261108-192607, server restarted (new `/timings` route).
+**Phone timings** (`timings E:\VaultLibrary`; all from the old code, so nothing new judged yet):
+```
+Tap to first sound, app code unnamed (395 of 395 samples; older code not judged)
+  session: typical 797 ms, slow end 1217 ms, worst 1272 ms (33 times); over 1 s: 5. FAIL
+  sort: typical 91 ms, slow end 102 ms, worst 292 ms (268 times); over 1 s: 0. PASS
+  library: typical 1 ms, worst 881 ms (94 times). PASS (old code: not a real measurement)
+  previous, lockscreen, search, restore: none yet
+```
+
+**Phone update:** published 20261109-050138, server restarted (new routes, lengths).
 
 **Needs the phone:**
-1. Library, Tag songs: tap Next 5 times fast, then 3 slowly, then lock and use lock-screen Next twice. Pass: each song starts about 0:15 within about a second, the time reads 0:15 (never 0:00), volume always comes back.
-2. Sort: tap a card to open the player; then open the player from Library. Pass: Play sits dead centre both times, Previous and Next the same size.
-3. Library: type 2-3 words from a tag you wrote. Pass: that song near the top, your words bold, its time on the right; tap it: plays from that moment. Type nonsense: "No song or tag has …", no crash.
-4. Airplane mode, search again. Pass: same results. Airplane off, swipe the app to the background once. Then tell chat the numbers from `python server\vault_cli.py timings E:\VaultLibrary`.
+1. Tag songs: Next 5 times fast, 3 slowly, then pause, lock, lock-screen Next twice. Pass: music starts about as fast as a Sort card, at 0:15, the length shows at once, volume always comes back.
+2. Previous 3 times in a session, then tap a Library song, then a search result. Pass: each starts about as fast as a Sort card; the search result plays from its tag's moment.
+3. Open the player from Library, a Sort card and a session (one song under 15 s if you know one). Pass: length at once (no "–:––"), nothing jumps as info fills in; the short song plays from 0:00 with no silence. Library's Hidden link shows a count.
+4. Use it a while, swipe the app to the background. Code puts the `timings` block in the next REPORT. Pass: every path PASS.
 
-**Changed:** `.claude/scripts/verify.py`, `app/{App,Library,Player}.tsx`, `app/{engine,playOrder,playerStore,playlistCore}.ts`, `app/playOrder.test.mjs`, new `app/{search,timings}.ts`, `app/{nextTiming,search}.test.mjs`; `server/vault_cli.py`, `server/vault_server/server.py`, new `server/vault_server/timings.py`, `server/test_server.py`; `tools/shots/{entry.tsx,fixtures.mjs}`, new `tools/search/` (accept.mjs, fake.mjs, example files); `docs/{COMMANDS,DECISIONS,REPORT,ROADMAP,STATUS}.md`, new `docs/board/phase-3-search.md`.
+**Changed:** `.claude/scripts/verify.py`, `.claude/skills/wrap/SKILL.md`, `CLAUDE.md`; `app/{App,Library,Player}.tsx`, `app/{engine,playOrder,playerStore,playlistCore,sessionStore,timings,updates,versionStore}.ts`, `app/nextTiming.test.mjs`; `server/{test_doctor,test_server,vault_cli}.py`, `server/vault_server/{autocopy,doctor,scanner,server,store,timings}.py`, new `server/vault_server/lengths.py`; `tools/shots/{fixtures,shoot}.mjs`, `tools/shots/fakes/playerStore.ts`; `docs/{BATCH-PLAN,COMMANDS,DECISIONS,REPORT,STATUS}.md`, new `docs/board/playback-feel.md`.
 
-**Done when:**
-- Timing test, session and Sort Next within 1 s, no 0:00: pass (model, not the phone; the phone's own numbers come from check 4).
-- Screenshots centred from Library, Sort card, session, restored session: pass (`centre-*`).
-- Ladder tests ported and passing in the app: pass. Search shots empty / no match / many / keyboard up: pass.
-- 1,400 fake songs offline: pass. Acceptance runner passes its example: pass. Timings command after a fake report: pass. `/verify` all PASS: pass.
-- E taken: no (see Decisions). I prove 1-4: not run (for chat).
+**Done when:** model reproduces ~800 then under 300: pass (720 to 60; the redraw cost is fitted to the phone's 797, not measured, see below). Sound never behind info, every path: pass. Each path sends timings by name: pass. Lengths for all songs: pass (1,392 of 1,393; one empty file). Before/after shots no shift: pass. `timings` PASS/FAIL per path: pass. REPORT carries the block: pass. Hidden count: pass. `/verify` all PASS under 1 min: pass (44 s). I prove 1-4: not run (for chat).
 
-**Plan I chose:** board [x], A [x], B [x], C [x], D [x], E [ ] (yours first), reviews + `/verify` [x].
-Cause of the slow Next: every session Next threw away the player's list and rebuilt it (to avoid the 0:00 beat). Now it takes the already-loaded queued song, muted until it reaches 0:15. The 0:00 on screen was just "length not known yet". Sort cards use the same path when the next card is the queued song. Previous still rebuilds one song (expo-audio does that natively): about as slow as before.
-Guessed (board splits, in `board/phase-3-search.md`): result tap plays the Library list, not the results; one letter is searched; x only, no Cancel; chips still narrow a search; titles matched by word too.
+**Plan I chose:** board [x], A [x], B [x], C [x], D [x], E [x], reviews + `/verify` [x]. Stretch: none.
+Cause: a session opens over Library (Sort replaces it), and Library redrew all its drawn rows on every player report, in front of the seek finishing. Now it redraws only on a song change, at low priority, and every load asks for sound before the screen updates. Not proven on the phone: each sample now carries load / seek / start / app ms and the source (phone mp3 / m4a, stream), so the next `timings` shows whether the redraw or local MP3 seeks were the cost. Board splits (picked, change at review): phone copy stays first (no streaming instead); the phone's length replaces the laptop's only if off by over 2 s; Previous not kept ready.
 
-**Fresh-eyes review caught (fixed):** two fast Nexts moved once then reloaded slowly (taps now move on from where the last tap went); a move the player never reported could make a later lock-screen Next play from 0:00 (moves now matched by song); Previous onto the queue's first song restarted audibly (fresh load there); a version's tag played its Main at the wrong second (plays the version now); title search was whole-phrase only and could hide a song sharing a word (word-based now); rows could keep stale tag lines (`extraData`); search timing logged inside a memo (effect now). **Not taken:** jump-via-queue bookkeeping differs from a full load (onTrack does the same bookkeeping on arrival; low risk, checked in code). My own review caught the 0.5 s timing lag (now stops at the moment play starts).
+**Fresh-eyes review caught (fixed):** a song's natural end counted as a lock-screen tap; "restore" label stuck after Next; a tap paused before sound logged a fake slow sample; starts over 3 s dropped from timings; Play dead after a drag on a song that never loaded. **Not taken:** a length going stale after a re-bounce (display only; the phone's own replaces it when off by over 2 s, checked in `shownLength`). My review caught: a load could pick up the old song list when you tapped the song already playing from a new list (fixed).
 
-**Not done:** E (3.4, 3.5): it writes to the journal forever, so its shape is yours. Stretch: none.
+**Not done:** Stretch (A-Z strip, split the 638 set): budget.
 
-**Decisions needed:** E's shape. Logic seat's pick: each pick saved as an event {search words, song, tag, time}, boost from the latest, above all tiers, never hiding anything; slang spellings applied to the search, not the index. Hard to undo: no default.
+**Decisions needed:** none new. MP3 copies: measure first (yours, logged).
 
-**Proposed next step:** my 20 searches once ~50 tags exist (3.7), plus E if you say yes.
+**Proposed next step:** read the per-source timings; if local MP3s are the slow part, re-wrap or re-encode them (your call, 5-song test first).
 
-**Pitch:** a "Search" link on the lock screen via an iOS Shortcut that opens the app on the field: "rap a line" from anywhere.
+**Pitch:** a hidden "timings" line on the phone's home screen (long press), so you see PASS/FAIL right after a session without the laptop.

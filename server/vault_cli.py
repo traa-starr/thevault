@@ -43,6 +43,7 @@ from vault_server.store import Busy  # noqa: E402
 from vault_server.tags import tags_by_song  # noqa: E402
 from vault_server.updates import publish  # noqa: E402
 from vault_server.timings import timings_report  # noqa: E402
+from vault_server.lengths import length_counts  # noqa: E402
 
 
 def print_result(result):
@@ -136,6 +137,10 @@ def main(argv):
             left = len(mine_without_phone_copy(conn.store.conn, conn.root))
             conn.close()
             print(f"Mine songs still without a phone copy: {left}" + (" (cloud-only or missing files: run doctor)" if left else ""))
+            lib = open_library(folder)
+            songs, known = length_counts(lib.store.conn)
+            lib.close()
+            print(f"Song lengths known: {known:,} of {songs:,}" + (" (the rest are cloud-only, missing or unreadable)" if known < songs else ""))
             return 0
         elif cmd == "mains":
             lib = open_library(folder)

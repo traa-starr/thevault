@@ -359,6 +359,12 @@ export function libraryShuffleTap(pick: ShufflePick, hasMine: boolean, hasUnsort
 
 // Where a song starts (DECISIONS 2026-11-08, Phase 2 code-complete review): tagging session cards at 0:15, Sort cards at
 // 0:30, fixed times handed to the player when the song loads, so nothing plays from 0:00 first. Everywhere else: 0:00.
+const LENGTH_SLACK_SEC = 2; // the phone's own length replaces the laptop's only if they differ by more (nothing shifts)
+/** The length the player shows (NEXT C): the laptop's measured one from the tap; the phone's own once loaded, only if it
+ * differs by more than 2 s (a VBR MP3 estimate); the phone's if the laptop has none. 0: not known yet. */
+export const shownLength = (stored: number, phone: number) =>
+  phone > 0 && (stored <= 0 || Math.abs(phone - stored) > LENGTH_SLACK_SEC) ? phone : stored || phone;
+
 export const SESSION_START_SEC = 15;
 export const SORT_START_SEC = 30;
 /** A spot asked for (an Undo, a saved place) wins; a fresh song gets the mode's start point. */

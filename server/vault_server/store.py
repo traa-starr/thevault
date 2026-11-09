@@ -55,6 +55,10 @@ CREATE TABLE IF NOT EXISTS sources (
     last_seen TEXT NOT NULL
 );
 
+-- Each song's length in seconds, measured on the laptop (lengths.py). Like scan results: never journaled, measured
+-- again when missing. seconds is NULL when the file couldn't be read (basis 'failed'), so it isn't retried every run.
+CREATE TABLE IF NOT EXISTS song_lengths (song_id TEXT PRIMARY KEY, seconds REAL, basis TEXT NOT NULL, ts TEXT NOT NULL);
+
 -- Mine. Rebuilt from the journal.
 CREATE TABLE IF NOT EXISTS songs (id TEXT PRIMARY KEY, title TEXT NOT NULL, ts TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS versions (

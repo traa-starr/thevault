@@ -9,7 +9,7 @@ import { HomeButton, takeSeed, useSeed } from './nav';
 import { loadSongList, offline, saveSongList, useOffline } from './offline';
 import { flush, useOutbox } from './outbox';
 import { LaptopLine, RestoreNotice, WaitingLine } from './Notices';
-import { NOT_HERE, player, usePlayer, type Pool } from './playerStore';
+import { NOT_HERE, player, usePlayerWith, type Pool } from './playerStore';
 import { session } from './sessionStore';
 import { indexFor, pieces, queryStems, searchSongs, stems, type SongHit } from './search';
 import { clock, useAllTags } from './tagStore';
@@ -71,6 +71,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
   const [sort, setSort] = useState<Sort>('date'); // Newest every time the app opens
   const [filter, setFilter] = useState('');
   const [showHidden, setShowHidden] = useState(false);
+  const [hiddenOnLaptop, setHiddenOnLaptop] = useState<number | null>(null); // null: an older laptop, or not asked yet
   const [only, setOnly] = useState<Filter>('all');
   const mineOnly = only === 'mine';
   const toggle = (one: Filter) => setOnly(only === one ? 'all' : one);
@@ -91,9 +92,10 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
         const asked = Date.now();
         const r = await fetch(`${url}/songs`, { signal: abort.signal });
         if (!r.ok) throw new Error(`Server said ${r.status}`);
-        const data: { songs: Song[] } = await r.json();
+        const data: { songs: Song[]; hidden?: number } = await r.json();
         if (!current) return;
         offline.setReachable(true);
+        setHiddenOnLaptop(data.hidden ?? null);
         saveSongList(data.songs, asked);
         setLibrary(data.songs, asked);
         setFetched(data.songs);
@@ -140,6 +142,11 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     return byTitle.sort((a, b) => ((a.date ?? '') < (b.date ?? '') ? 1 : (a.date ?? '') > (b.date ?? '') ? -1 : 0));
   }, [songs, sort]);
 
+  // the laptop's count plus my Not mine taps still on their way (they're already out of the list)
+  const hiddenCount = useMemo(
+    () => (hiddenOnLaptop === null || !fetched ? null : hiddenOnLaptop + fetched.length - withPending(fetched, pending).length),
+    [hiddenOnLaptop, fetched, pending],
+  );
   const byId = useMemo(() => new Map((songs ?? []).map((song) => [song.id, song])), [songs]);
   const base = useMemo(() => {
     if (only === 'mine') return sorted.filter((song) => song.mine === 'mine');
@@ -213,19 +220,23 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     if (!offline.has(id) && laptopOff) return player.showMessage(NOT_HERE);
     const version = { id, title: versions.songTitle(id), mine: 'mine', sorted: true };
     const list = playable.flatMap((song) => (song.id === row.id ? [version] : [song]));
-    player.playList(url, list.some((song) => song.id === id) ? list : [...list, version], id, false, mineOnly ? 'mine' : 'unsorted', hit.tag.at_sec);
+    player.playList(url, list.some((song) => song.id === id) ? list : [...list, version], id, false, mineOnly ? 'mine' : 'unsorted', hit.tag.at_sec, 'search');
     player.open('player');
   };
 
   // Shuffle cycles like the player's (Off > Mine > Unsorted > Off), in place, no box. Nothing playing: a song from that
   // pool starts in the bar. Something playing: it plays on, only what comes next changes. Unsorted lands only on songs
   // not yet called mine, Mine only on Mine; tapping any song still plays it
-  const { order: playing, pool: playingPool, song: playingSong } = usePlayer();
+  // only what Library shows: the player's every tick (time) would redraw the whole list
+  // Low priority too (useDeferredValue): a Next redraws Library after the sound has started, never in front of it
+  const [playing, playingPool] = useDeferredValue(usePlayerWith((now) => [now.order, now.pool, now.song, now.marks] as const));
   const shuffleOn = !!playing?.shuffle;
   const poolOf = (pool: Pool) => playable.filter((song) => (song.mine === 'mine') === (pool === 'mine'));
   const tapShuffle = () => {
     Keyboard.dismiss();
-    const pick = libraryShuffleTap({ on: shuffleOn, pool: playingPool }, poolOf('mine').length > 0, poolOf('unsorted').length > 0);
+    // the player as it is right now (what's drawn may be a moment behind)
+    const { order: playing, pool: playingPool, song: playingSong } = player.now();
+    const pick = libraryShuffleTap({ on: !!playing?.shuffle, pool: playingPool }, poolOf('mine').length > 0, poolOf('unsorted').length > 0);
     if (!pick.on) return player.setShuffleOn(false);
     // playing from this list: only what comes next changes. From another list (a session, a Sort set): this list
     // takes over, the song carrying on from its second
@@ -388,7 +399,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
                 <Text style={[s.sort, sort === 'date' && s.sortOn]}>Newest</Text>
               </Pressable>
               <Pressable onPress={() => setShowHidden(true)}>
-                <Text style={s.sort}>Hidden</Text>
+                <Text style={s.sort}>{hiddenCount === null ? 'Hidden' : `Hidden · ${number(hiddenCount)}`}</Text>
               </Pressable>
             </ScrollView>
           </View>

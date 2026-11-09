@@ -35,7 +35,7 @@ Ask what I can answer faster than you can guess: multiple choice, max 4 per batc
 ## Commands
 - Test the music guard: `python .claude/hooks/test_guard_music.py`
 - Check the repo is safe to commit: `python .claude/scripts/check_repo.py`
-- Every laptop check at once: `/verify` (runs `python .claude/scripts/verify.py`, about 6 min, one PASS/FAIL per item)
+- Every laptop check at once: `/verify` (runs `python .claude/scripts/verify.py`, under 1 min, one PASS/FAIL per item)
 - Spike output stays in `spike/output/` (gitignored, holds song names and paths).
 
 ## Gotchas
