@@ -1,43 +1,46 @@
-# NEXT: Play first, info after: every Next as fast as Sort cards
+# NEXT: Cool, quick and rated: battery, instant taps, rating, every Mine song on the phone
 Format: goal
-Written by chat, 2026-11-08.
-Log: Fast Next review: checks 4 of 4 pass, 1 note; phone timings session Next typical 797 ms (5 of 33 over 1 s) vs Sort 91 ms (owner + chat); play first, info after: sound never waits on length, title, start spot or tags (owner); phone timings are the proof, not the model (chat); E waits until more tags (owner); song length at scan time promoted from Stretch (chat); lock-screen search Shortcut parked, needs a rebuild (chat) (logged by chat)
-Size: My real sessions + wipe check (2.7, ship line 2026-11-15) run alongside; 3.7 waits for ~50 tags. Ship line means no new phase, so Code finishes playback feel (the app's heart) on every path plus the cheap parked items. That fills one session.
+Written by chat, 2026-11-09.
+Log: Play first review: checks 4 of 4 pass, 5 owner notes (owner + chat); sort finished (owner); rating 3 levels Fire / Unrated / Shelved (owner); eye keeps the owner's choice, press look lets go at once, next song's info kept ready, tag search matches the word being typed, battery measured before fixing (chat) (logged by chat)
+Size: My real sessions + wipe check (2.7, ship line 2026-11-15) run alongside. Five owner notes plus rating (2.8, small, not a new phase) and Mine-on-phone now that sort is done: all code can do without me, one session. 3.7 still waits for ~50 tags.
 Queue after this: my 20 acceptance searches (3.7) at ~50 tags; revisit E (3.4, 3.5) then; Phase 2 closes when I pass 2.7.
-Read: `docs/LESSONS.md` (every line a check in your plan), the last 4 DECISIONS rows, `docs/PHASE-2-RESULTS.md` last section, `docs/board/phase-3-search.md`, `docs/BLUEPRINT.md` player sections, `docs/BOARD.md`, STATUS parked list, the files you touch.
+Read: `docs/LESSONS.md` (every line a check in your plan), the last 4 DECISIONS rows, `docs/PHASE-2-RESULTS.md` last section, `docs/board/playback-feel.md`, `docs/BLUEPRINT.md` player + sync sections, `docs/BOARD.md`, the files you touch.
 
-## Part 0: board meeting (test line 2: what I hear after a tap, a fix for something I flagged)
-One meeting on playback feel: what fills in after sound starts, and in what order. Notes in `docs/board/playback-feel.md`. Taste calls the board splits on: pick one, say it in REPORT, I change it at review.
+## Part 0: first, two things
+1. Run `timings` and judge the play-first build per path (my check 4). Any FAIL becomes goal A0, before everything else.
+2. Board meeting (test lines 1, 2, 3: a new control, press feel, a synced field): rating control and where it lives, press look, what Shelved does in each list. Notes in `docs/board/rated-and-quick.md`. Taste calls the board splits on: pick one, say it in REPORT, I change it at review.
 
 ## Goal
-Music starts the moment I tap, wherever I tap, and the screen catches up after. Playing music is the biggest part of this app, so it has to feel seamless.
-A. **Session Next at Sort-card speed, on the phone.** Find why the phone measures session Next at ~800 ms when Sort cards are ~90 ms and the model said 300. Sound comes first; length, title, start spot, tags and anything else the player shows fill in after and never sit in front of first sound. Lock-screen Next and the 0:15 / 0:30 starts stay.
-B. **Every play path, same rule.** Previous (REPORT says it still rebuilds and is slow), lock-screen Next and Previous, Library tap, search-result tap, Sort cards, after a restore. Each path reports its own Next-to-first-sound to `timings`, with the path's name.
-C. **Song length known before play (was Stretch).** Lengths stored at scan time and sent with the phone's song list, so the seek bar shows the real length at once, not "–:––". Fills the 1,395 songs already in the library without me running anything new.
-D. **Timings that judge themselves.** `timings` prints one line per path: typical, slow end, worst, count, and PASS/FAIL against the target (typical within 2x of Sort, none over 1 s). `/wrap` reads `timings` and puts that block in REPORT, so I never relay numbers again.
-E. **Cheap parked items.** Hidden count on the Hidden link; `/verify` under 1 min (the slow checks behind a flag if needed); the doctor's fail line names the changed files; server `/status` count-only answer. Add any new command line to `COMMANDS.md`.
+The app should feel like one quick tap and run cool through an hour of listening. I can rate songs as I go so shuffle stops landing on stuff I don't want.
+A. **Instant taps, Next = Previous.** Every control's pressed look lets go about 100 ms after the tap, never waiting on a load. The next song's info (tags, versions, length, start spot) is ready before I tap Next, the way Previous already is; lock-screen Next too. Phone timings: Next within ~20% of Previous.
+B. **Eye keeps my choice.** Hide/show buttons stays where I last left it on every song, every screen, after a kill. No per-song reset (the sorted-song rule goes).
+C. **Battery and heat.** Measure first: count wake-ups, redraws and network calls per minute while playing, screen on and locked, and how many plays come from a phone copy vs a stream. Find the causes and fix them: nothing redraws while locked or in the background, timers sleep when not needed, a song with a phone copy never streams. The counts go to `timings` with PASS/FAIL against ceilings you set and justify in REPORT.
+D. **Rating (2.8).** One tap on the player (and the tagging card if the board agrees): Fire / Unrated / Shelved. Shelved leaves every shuffle and session but stays in Library and search, marked. A Library filter for Fire. Saved phone-first and synced like tags; the restore test brings ratings back (add them to the `tags` command or its own).
+E. **Search as I type.** The last word I'm typing also matches the start of tag words (`titt` finds a tag with `titties`); finished words keep today's ladder. Still fast on the phone (typical under 20 ms).
+F. **Every Mine song on the phone.** Sort is done: the phone downloads a copy of every Mine song by itself, with a count ("670 of 671 on the phone"), within the storage limit; a verdict I change later adds or removes the copy. The count shows in the app and in `/status`.
 
 ## The bar (how to work)
-- Board meets first (Part 0). Plan in STATUS "In progress", one line per goal.
-- Before building each goal, list how it could break and turn each into a test or screenshot: fast Next taps, Next while the last one is loading, lock-screen Next while paused, short song (under 15 s), killed mid-load, offline, laptop asleep, a song with no length stored, length stored wrong. LESSONS lines are part of that list.
-- Tests first. The model can't stand in for the phone: the model test must explain the 800 ms (reproduce it, with the phone's real waits) before the fix counts.
-- Controls: instant pressed look, 44 pt, no swallowed tap, nothing shifts when info fills in late (screenshot the player before and after info arrives).
-- Hostile self-review of the whole diff, then one fresh-eyes review (risky timing). Anything not taken: a reason checked on the real path.
-- Two failed fixes on a goal: write it up, move to the next goal. Don't stop the session.
+- Part 0 first. Plan in STATUS "In progress", one line per goal.
+- Before each goal, list how it could break and make each a test or screenshot: fast double tap during a slow load, Next while the next song's info is still loading, lock-screen Next while paused, eye across 10 shuffled songs and after a kill, rating offline then laptop back, Shelved song as the only search hit, a phone-copy download cut off, phone storage near the limit, a verdict flipped back. LESSONS lines are part of the list.
+- Tests first. The model can't stand in for the phone: energy and Next/Previous claims are proven by the phone's `timings`.
+- Controls: instant pressed look, 44 pt, no swallowed tap, nothing shifts. Screenshot every changed screen from every place it opens.
+- Hostile self-review of the whole diff, then one fresh-eyes review (new control, sync rule, timing). List its catches in REPORT.
+- Two failed fixes on a goal: write it up, move on. Don't stop the session.
 
 ## Done when
-Code proves: a model test that reproduces the phone's ~800 ms session Next before the fix and shows under 300 ms after; a test that first sound is never behind length, title, start spot or tags on any path in B; each path in B sends timings with its name (fake report test); the server's song list carries lengths for all 1,395 songs (count printed); player screenshots before and after info arrives show no shift; `timings` prints PASS/FAIL per path; REPORT carries the `timings` block; Hidden count shown; `/verify` all PASS and under 1 min (time printed).
+Code proves: play-first `timings` judged per path in REPORT; a test taps during a 2 s load and the pressed look lets go in time; a test shows the next song's info is ready before Next; eye test across 10 shuffled songs + restart keeps the choice; model test of a locked hour shows wake-ups and redraws under your ceilings (before and after numbers); rating save/sync/restore tests, and Shelved missing from every shuffle path but present in search; search test `titt` finds `titties`, finished words unchanged (old search tests still pass); Mine-on-phone count printed from the real library and checked against `/status`; `/verify` all PASS under 1 min.
 I prove:
-1. Tag songs: Next 5 times fast, 3 slowly, then lock-screen Next twice. Pass: music starts about when Sort cards do, at 0:15, the seek bar shows the real length at once, volume always comes back.
-2. Previous 3 times in a session, then tap a Library song, then tap a search result. Pass: each starts as fast as a Sort card; the search result plays from its tag's moment.
-3. Open the player from Library, a Sort card and a session. Pass: the length shows straight away (no "–:––"), nothing on screen jumps as info fills in.
-4. After using it, read REPORT's timings block at review (Code puts it there). Pass: every path PASS.
+1. Session and Library shuffle: Next 5 times, Previous twice, toggle the eye once, then 10 more Nexts. Pass: every tap feels like one quick press, Next as quick as Previous, the eye never changes by itself.
+2. Rate 3 songs Fire and 3 Shelved, then shuffle Mine 15 times and search a Shelved song's tag. Pass: no Shelved song plays on shuffle, the search finds it (marked), the Fire filter shows my 3.
+3. Search: type a tag word a few letters at a time. Pass: the tag's song shows up before I finish the word.
+4. Library shows "N of N Mine songs on the phone"; airplane mode, play 5 random Mine songs. Pass: all play.
+5. Listen for an hour, screen locked, from a good charge; note the battery % before and after. Pass: phone not warm, and the drop is about the same as an hour of Apple Music (say so if you don't know Apple Music's number; Code's REPORT gives the counts).
 
 ## Stretch (only if every goal is met and budget is left)
-A-Z jump strip in Library (new control: board notes first); split the 638-song folder set. Say in REPORT which you took.
+A-Z jump strip in Library (board notes first); split the 638-song folder set; the timings long-press line on the phone (REPORT pitch). Say in REPORT which you took.
 
 ## Limits
-- Order: A and B first (my real sessions need them), then C, D, E.
-- No change to tags, sync, journal or outbox rules. No search changes (E waits). No new phase (ship line).
+- Order: Part 0, then A and B, then C, D, E, F.
+- No change to tag, journal or outbox rules beyond adding rating as a synced field the same way. Search ladder unchanged except the typed-word prefix. No new phase (ship line).
 - No native modules, no full rebuild: publish only. If something needs a rebuild, stop that part and write it up.
 - Music read-only, no git, public-repo rules as always. My sessions keep running on the published app.

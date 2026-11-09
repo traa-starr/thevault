@@ -57,6 +57,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [x] 2.5 "Not mine" stays one tap on the tagging card and the Mine filter works everywhere; the main sorting is done in 1.21 *(phone-verified 2026-11-08, `PHASE-2-RESULTS.md`)*
 - [x] 2.6 Tags save on the phone first, sync to the laptop when reachable, show sync state *(phone-verified 2026-11-08, `PHASE-2-RESULTS.md`)*
 - [ ] 2.7 Restore test: wipe the phone's copy, get all tags back from the laptop *(test + `tags` command built, offline sync phone-verified 2026-11-08; my real wipe check pending)*
+- [ ] 2.8 Rating: Fire (potential drop) / Unrated / Shelved (mine, off-direction: out of shuffle, still searchable), one tap, saved and restored like tags. Promoted from Parked 2026-11-09 (DECISIONS); not part of Phase 2's Done when
 
 **Done when:** I've done real sessions, and a restore test loses nothing.
 
@@ -112,7 +113,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 **Done when:** one real song goes through the sprint and gets released.
 
 ## Parked, no date (I can promote any of these)
-Fast rating · lyrics notebook · BPM/key · optional rename (confirm + undo log) · Siri, Shortcuts, lock-screen "play the song
+lyrics notebook · BPM/key · optional rename (confirm + undo log) · Siri, Shortcuts, lock-screen "play the song
 with that line" · widgets · Whisper draft tags · "similar meaning" search section · always-on home server · paid Apple account.
 
 ## Decisions to raise, one step before each blocks

@@ -69,3 +69,11 @@ My phone results, one line each (written by chat). Measured results stay in REPO
 - Phone numbers (`timings`): search typical 8 ms, slow end 13, worst 15 (124 runs, ~8 tags). Next to first sound: session typical 797 ms, slow end 1,217, worst 1,272, 5 of 33 over 1 s; Sort typical 91 ms, worst 292, 0 over 1 s; Library typical 1 ms, worst 254.
 - Finding: the model test said session Next 300 ms; the real phone says ~800 ms, about 9x slower than Sort cards. Matches the check 1 note.
 - Result: 4 of 4 pass, 1 note (session Next still ~800 ms vs Sort 91 ms; sound must not wait on song info).
+
+## Play first, info after (2026-11-09, real app, OTA publish 05:01)
+1. Session: 5 fast + 3 slow Nexts, lock-screen Next twice; 0:15 starts, length at once, volume back: **pass**
+- Owner notes same day: Next press look hangs until the player loads; Previous feels faster than Next (info already loaded); eye resets per song; battery drain + heat on long listens; tag search needs the whole word.
+2. Previous x3 in a session, Library tap, search-result tap; each about Sort speed, search plays from the tag: **pass**
+3. Player from Library, Sort card, session: length at once, no jump, short song from 0:00, Hidden count shown: **pass**
+4. Used a while, app to background (timings sent): **done**; PASS/FAIL per path judged by Code in the next REPORT
+- Result: 4 of 4 pass, 5 owner notes (battery/heat, eye reset per song, press look waits on load, Next slower than Previous, tag search needs whole word). Sort finished (owner). Rating shape chosen (DECISIONS).
