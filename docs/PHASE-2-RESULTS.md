@@ -59,3 +59,13 @@ My phone results, one line each (written by chat). Measured results stay in REPO
 3. Session after closing the app and reopening: same session look, counter, song and order; lock-screen Next twice keeps the session, starts about 0:15: **pass**
 4. Search option (`SEARCH-OPTIONS.md`): **A, on the phone** (owner).
 - Result: 3 of 3 pass, 2 notes (3-5 s hold on session Next; player from a Sort card not centred).
+
+## Fast Next, centred player, search (2026-11-08, real app, OTA publish 19:26)
+1. Session: 5 fast + 3 slow Nexts, lock-screen Next twice; starts about 0:15, volume back: **pass**
+- Note: much faster and usable, still not instant. Owner thinks the player waits on song info (length, title, start time, maybe tags) before sound. Music must start first and the info fill in after; playback must never wait on the player's info.
+2. Player from a Sort card and from Library: Play dead centre, Previous / Next same size: **pass**
+3. Search 2-3 tag words: song near top, words bold, time shown, tap plays from that moment; nonsense shows "No song or tag has", no crash: **pass**
+4. Airplane mode: same search results; `timings` read back: **pass**
+- Phone numbers (`timings`): search typical 8 ms, slow end 13, worst 15 (124 runs, ~8 tags). Next to first sound: session typical 797 ms, slow end 1,217, worst 1,272, 5 of 33 over 1 s; Sort typical 91 ms, worst 292, 0 over 1 s; Library typical 1 ms, worst 254.
+- Finding: the model test said session Next 300 ms; the real phone says ~800 ms, about 9x slower than Sort cards. Matches the check 1 note.
+- Result: 4 of 4 pass, 1 note (session Next still ~800 ms vs Sort 91 ms; sound must not wait on song info).
