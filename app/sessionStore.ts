@@ -8,6 +8,7 @@ import { loadSongList, offline } from './offline';
 import { addChange, pendingNow, takeBack } from './outbox';
 import { onPlayerChange, player, type PlayerSong } from './playerStore';
 import { SESSION_START_SEC, sessionBack, sessionCount, sessionLap, sessionLine, sessionPool, withPending, type Change } from './playOrder';
+import { ratingStore } from './ratingStore';
 import { allTagsNow, say, useAllTags } from './tagStore';
 import { isVersion, members } from './versionStore';
 
@@ -58,7 +59,8 @@ export const session = {
     if (!saved) return player.showMessage('Open Library once first, so the phone knows your songs.');
     const songs = withPending(saved.songs, pendingNow() as Change[]);
     const laptopOff = offline.reachable() === false;
-    const pool = sessionPool(songs, (song) => offline.has(song.id) || (!laptopOff && song.where === 'laptop'), isVersion);
+    // a Shelved song is never dealt (2.8)
+    const pool = sessionPool(songs, (song) => !ratingStore.isShelved(song.id) && (offline.has(song.id) || (!laptopOff && song.where === 'laptop')), isVersion);
     if (!pool.length) return player.showMessage('No Mine songs can play right now.');
     const lap = sessionLap(pool, taggedSongs());
     const byId = new Map(songs.map((song) => [song.id, song]));

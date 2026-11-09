@@ -1,5 +1,5 @@
 // The outbox in memory: changes go in, nothing is ever sent.
-import { FIX, notify, useFix } from './store';
+import { FIX, notify, subscribe, useFix } from './store';
 
 let state: any = { pending: FIX.pending ?? [], refused: 0 };
 let n = 0;
@@ -29,6 +29,12 @@ export const flush = async () => {};
 export const useOutbox = () => useFix(() => state);
 export const pendingNow = () => state.pending;
 export const onSent = (_: any) => () => {};
-export const onOutbox = (_: any) => () => {};
+export const onOutbox = (listener: () => void) => subscribe(listener);
+export function addRatingChange(songId: string, value: string) {
+  const made = { id: newId(), kind: 'rating_set', data: { song_id: songId, value } };
+  put([...state.pending, made]);
+  return made;
+}
+export const pauseOutbox = () => {};
 export const restoreChanges = () => 0;
 export const startOutbox = () => {};

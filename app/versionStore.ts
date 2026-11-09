@@ -31,6 +31,8 @@ export type LibSong = {
   picked?: boolean;
   /** Seconds, measured on the laptop; null: not known yet. An older laptop or saved list has none. */
   length?: number | null;
+  /** My rating (2.8): fire, shelved, or none. An older laptop or saved list has none. */
+  rating?: 'fire' | 'shelved' | null;
 };
 /** What one action sent, so its Undo can take it back or turn it round. */
 export type Sent = { changes: Change[]; edit: FamilyEdit; minedIds: string[] };

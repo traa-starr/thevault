@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { player } from './playerStore';
+import { Tap } from './Tap';
 import { clock, clockExact, dropPlainNote, MAX_TEXT, say, tagLine, useTagLine } from './tagStore';
 import { listIsOpen, noTickWords, rowOrder, songStartWords, tickWordsAfter, type ShownTag, type TickWords } from './playOrder';
 
@@ -110,16 +111,14 @@ export function TagButton({ songId, title }: { songId: string | null | undefined
   const { draft } = useTagLine();
   if (!songId) return <View style={s.tagButton} />;
   return (
-    <Pressable
+    <Tap
       style={s.tagButton}
       onPress={() => tagLine.tap(songId, title, player.positionNow())}
       hitSlop={8}
       accessibilityLabel={draft ? 'Cancel tag' : 'Tag here'}
     >
-      {({ pressed }) => (
-        <View style={[s.tagFace, pressed && pressedLook]}>{draft ? <CloseIcon /> : <TagIcon color={ACCENT} />}</View>
-      )}
-    </Pressable>
+      <View style={s.tagFace}>{draft ? <CloseIcon /> : <TagIcon color={ACCENT} />}</View>
+    </Tap>
   );
 }
 

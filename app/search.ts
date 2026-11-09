@@ -13,8 +13,10 @@
 
 export type SearchTag = { id: string; song_id: string; text: string; at_sec: number };
 type Item<T extends SearchTag> = { tag: T; stems: string[] };
-export type Index<T extends SearchTag = SearchTag> = { items: Item<T>[]; holders: Map<string, number[]>; n: number };
-export type TagHit<T extends SearchTag = SearchTag> = { tag: T; tier: number; score: number; len: number };
+/** `vocab`: every different word in the tags as written, A to Z, with its stem: how a half-typed word finds whole ones. */
+export type Index<T extends SearchTag = SearchTag> = { items: Item<T>[]; holders: Map<string, number[]>; n: number; vocab: { word: string; stem: string }[] };
+/** `near`: it matched only because the word still being typed starts one of its words (titt > titties). */
+export type TagHit<T extends SearchTag = SearchTag> = { tag: T; tier: number; score: number; len: number; near?: boolean };
 export type SongHit<T extends SearchTag = SearchTag> = TagHit<T> & { songId: string; more: number };
 
 /** A search line longer than this is cut (a pasted verse can't stall typing). */
@@ -22,6 +24,10 @@ export const MAX_QUERY_CHARS = 200;
 /** At most this many different words count from one search. */
 export const MAX_QUERY_WORDS = 12;
 export const SONGS_SHOWN = 50;
+/** The word being typed starts matching tag words from this many letters. */
+export const MIN_TYPED = 2;
+/** At most this many different tag words stand in for the word being typed ("s" can't pull in half the tags). */
+export const MAX_TYPED_WORDS = 40;
 
 /** Lowercase words, apostrophes dropped (drippin' = drippin), anything else not a letter or digit splits words. */
 export function words(text: string): string[] {
@@ -63,7 +69,14 @@ export function queryStems(text: string): string[] {
 
 /** The search index: every tag's stems, which tags hold each stem, and how rare each stem is. Built once per tag list. */
 export function buildIndex<T extends SearchTag>(tags: T[]): Index<T> {
-  const items = tags.map((tag) => ({ tag, stems: stems(tag.text) }));
+  const stemOf = new Map<string, string>(); // each word as written -> its stem
+  const items = tags.map((tag) => {
+    const written = words(tag.text);
+    const stemmed = written.map(stem);
+    written.forEach((word, i) => stemOf.set(word, stemmed[i]));
+    return { tag, stems: stemmed };
+  });
+  const vocab = [...stemOf].map(([word, s]) => ({ word, stem: s })).sort((a, b) => (a.word < b.word ? -1 : a.word > b.word ? 1 : 0));
   const holders = new Map<string, number[]>(); // stem -> item numbers
   items.forEach((item, i) => {
     for (const s of new Set(item.stems)) {
@@ -72,7 +85,36 @@ export function buildIndex<T extends SearchTag>(tags: T[]): Index<T> {
       list.push(i);
     }
   });
-  return { items, holders, n: items.length };
+  return { items, holders, n: items.length, vocab };
+}
+
+/** The word still being typed: the search's last word, unless a space or other break follows it (then it's finished).
+ * '' if there is none, or it's shorter than MIN_TYPED. As written (lowercase), never stemmed. */
+export function typedWord(text: string): string {
+  const cut = text.slice(0, MAX_QUERY_CHARS);
+  if (!cut || !/[\p{L}\p{N}\p{M}'’`]$/u.test(cut)) return '';
+  const last = words(cut).pop() ?? '';
+  return last.length >= MIN_TYPED ? last : '';
+}
+
+/** The stems of the tag words that start with the word being typed (titt > tittie, from "titties"), its own stem left
+ * out. Search as I type (NEXT 2026-11-09 E): only this last word reaches forward; finished words keep the ladder. */
+export function typedStems(index: Index<any>, typed: string): string[] {
+  if (typed.length < MIN_TYPED) return [];
+  const { vocab } = index;
+  let low = 0;
+  let high = vocab.length;
+  while (low < high) {
+    const mid = (low + high) >> 1;
+    if (vocab[mid].word < typed) low = mid + 1;
+    else high = mid;
+  }
+  const own = stem(typed);
+  const out = new Set<string>();
+  for (let i = low; i < vocab.length && vocab[i].word.startsWith(typed) && out.size < MAX_TYPED_WORDS; i++) {
+    if (vocab[i].stem !== own) out.add(vocab[i].stem);
+  }
+  return [...out];
 }
 
 /** Rarity: a word in few tags weighs a lot, a word in most tags weighs little but never nothing (3.2). */
@@ -108,25 +150,33 @@ export function judge(index: Index<any>, itemStems: string[], query: string[]) {
   return { tier, score: total ? got / total : 0 };
 }
 
-const better = (a: TagHit<any>, b: TagHit<any>) => b.tier - a.tier || b.score - a.score || a.len - b.len || a.tag.at_sec - b.tag.at_sec;
+// in a tier, a tag holding the word itself comes before one that only starts with it
+const better = (a: TagHit<any>, b: TagHit<any>) =>
+  b.tier - a.tier || Number(!!a.near) - Number(!!b.near) || b.score - a.score || a.len - b.len || a.tag.at_sec - b.tag.at_sec;
 
-/** Every tag sharing a word with the search, best first (ties: higher score, the shorter tag, then the earlier second). */
-function allHits<T extends SearchTag>(index: Index<T>, query: string[]): TagHit<T>[] {
+/** Every tag sharing a word with the search, best first (ties: higher score, the shorter tag, then the earlier second).
+ * `typed`: the word still being typed; tag words that start with it count as that word. */
+function allHits<T extends SearchTag>(index: Index<T>, query: string[], typed = ''): TagHit<T>[] {
   if (!query.length) return [];
+  const own = typed ? stem(typed) : '';
+  const standIns = new Set(typed ? typedStems(index, typed) : []);
   const seen = new Set<number>();
   for (const s of new Set(query)) for (const i of index.holders.get(s) ?? []) seen.add(i);
+  for (const s of standIns) for (const i of index.holders.get(s) ?? []) seen.add(i);
   const out: TagHit<T>[] = [];
   for (const i of seen) {
     const item = index.items[i];
-    const { tier, score } = judge(index, item.stems, query);
-    out.push({ tag: item.tag, tier, score, len: item.stems.length });
+    // only a tag without the word itself leans on a word that starts with it
+    const near = standIns.size > 0 && !item.stems.includes(own) && item.stems.some((s) => standIns.has(s));
+    const { tier, score } = judge(index, near ? item.stems.map((s) => (standIns.has(s) ? own : s)) : item.stems, query);
+    out.push(near ? { tag: item.tag, tier, score, len: item.stems.length, near } : { tag: item.tag, tier, score, len: item.stems.length });
   }
   return out.sort(better);
 }
 
 /** The search by tag: best `limit` tags, best first (the spike's answer, kept for the acceptance runner and tests). */
 export function search<T extends SearchTag>(index: Index<T>, text: string, limit = 20): TagHit<T>[] {
-  return allHits(index, queryStems(text)).slice(0, limit);
+  return allHits(index, queryStems(text), typedWord(text)).slice(0, limit);
 }
 
 /** The search by song: one row per song, its best tag first; `more` counts its other matching tags; `total` counts every
@@ -140,7 +190,7 @@ export function searchSongs<T extends SearchTag>(
 ) {
   const rows = new Map<string, SongHit<T>>();
   const seen = new Set<string>(); // every song met, shown or not: its later tags never start a second row
-  for (const hit of allHits(index, queryStems(text))) {
+  for (const hit of allHits(index, queryStems(text), typedWord(text))) {
     const songId = rowOf(hit.tag.song_id);
     const row = rows.get(songId);
     if (row) row.more++;
@@ -152,8 +202,9 @@ export function searchSongs<T extends SearchTag>(
   return { rows: [...rows.values()], total: seen.size };
 }
 
-/** A tag's text in pieces, each marked if its word matches the search (for bold words in a result row). */
-export function pieces(text: string, query: string[]): { text: string; hit: boolean }[] {
+/** A tag's text in pieces, each marked if its word matches the search (for bold words in a result row). `typed`: the
+ * word still being typed, so the word it starts is bold too. */
+export function pieces(text: string, query: string[], typed = ''): { text: string; hit: boolean }[] {
   const wanted = new Set(query);
   const out: { text: string; hit: boolean }[] = [];
   const re = /[\p{L}\p{N}\p{M}'’`]+/gu;
@@ -161,7 +212,7 @@ export function pieces(text: string, query: string[]): { text: string; hit: bool
   for (const m of text.matchAll(re)) {
     const at = m.index ?? 0;
     if (at > last) out.push({ text: text.slice(last, at), hit: false });
-    const hit = words(m[0]).some((w) => wanted.has(stem(w)));
+    const hit = words(m[0]).some((w) => wanted.has(stem(w)) || (typed.length >= MIN_TYPED && w.startsWith(typed)));
     out.push({ text: m[0], hit });
     last = at + m[0].length;
   }

@@ -143,6 +143,13 @@ Added 2026-11-07 by the Phase 2 plan session. Board notes: `board/phase-2-taggin
 
 **Restore (2.7).** Wipe the phone; it restores from the laptop: `GET /tags` plus the outbox from the phone backup file. Pass = same tags, same seconds, deleted ones stay gone, unsent ones come back. Laptop side: delete the database, rebuild from the journal, compare tags row for row (an old-style `tag_add` without `made_at` included).
 
+## Rating (2.8) and energy
+Added 2026-11-09. Board notes: `board/rated-and-quick.md`.
+- **Rating:** Fire, Shelved, or nothing. Journal line `song_rating {song_id, value}` (`none` clears it), latest wins; table `song_ratings`; phone change kind `rating_set`; `/songs` carries `rating`. The phone lays unsent taps on top (`ratingStore.ts`).
+- **Shelved** is skipped by every shuffle and never dealt by a tagging session (`avoid()` in `playerStore.ts`, the one place). It stays in Library and search, marked with the word, and plays when I pick it.
+- **`GET /status`:** songs, mine, copies (made on the laptop), fire, shelved, `on_phone` (what the phone last said it holds).
+- **Energy:** the phone counts wake-ups, redraws, network calls and file writes per minute of playing, screen open and locked apart (`energy.ts`), and sends them with its timings. `timings` prints PASS/FAIL against the ceilings in `timings.py`. Locked, the screens aren't redrawn for the clock; network retries back off.
+
 ## Proposals and risks
 - **Pull-all (chosen):** 2.9 GB on C:, including songs I'll reject, in exchange for instant sorting cards. Hard to reverse in one sense: the Vault won't push files back to cloud-only, since that would change the locked folder. iCloud or Windows can free them.
 - **Playlist switch: the biggest build risk.** Streaming and seeking in the playlist player are unproven, and so is a moving window of 1,000+ songs. If it fails twice: stop, report, keep the single player, and bring me options.

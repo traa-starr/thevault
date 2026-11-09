@@ -249,6 +249,28 @@ def restore_mine(store, song_id, change_id=None):
     return store.record("song_field_restore", {"song_id": song_id, "field": "mine", **before}, change_id=change_id)
 
 
+def set_rating(store, song_id, value, change_id=None):
+    """My rating of a song: fire, shelved or none (unrated). A song merged away: the one it joined gets it. The same
+    rating twice does nothing. Raises ValueError for an unknown song."""
+    song_id = store.survivor(song_id)
+    if not store.conn.execute("SELECT 1 FROM songs WHERE id=?", (song_id,)).fetchone():
+        raise ValueError("That rating is for a song that doesn't exist.")
+    cur = store.conn.execute("SELECT value FROM song_ratings WHERE song_id=?", (song_id,)).fetchone()
+    if (cur["value"] if cur else "none") == value:
+        return False
+    return store.record("song_rating", {"song_id": song_id, "value": value}, change_id=change_id)
+
+
+def ratings_report(conn):
+    """Every rated song by title, Fire first, for comparing with the phone after a restore (2.7, 2.8)."""
+    rows = conn.execute("""SELECT r.value, s.title, s.id FROM song_ratings r JOIN songs s ON s.id=r.song_id
+                           ORDER BY r.value, s.title COLLATE NOCASE, s.id""").fetchall()
+    out = [f"{'Fire' if r['value'] == 'fire' else 'Shelved':<8} {r['title']}  ({r['id']})" for r in rows]
+    fire = sum(r["value"] == "fire" for r in rows)
+    out.append(f"{fire} Fire, {len(rows) - fire} Shelved." if rows else "No ratings yet.")
+    return out
+
+
 def mine_counts(lib):
     rows = lib.store.conn.execute("SELECT value, origin, basis FROM song_fields WHERE field='mine'").fetchall()
     count = lambda value, basis=None: sum(r["value"] == value and basis in (None, r["basis"]) for r in rows)

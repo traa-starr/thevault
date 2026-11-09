@@ -9,8 +9,11 @@ import type { FamilyEdit } from './family';
 import { offline } from './offline';
 import { addChange, addChanges } from './outbox';
 import { note } from './pressLog';
+import { onRated, ratingStore } from './ratingStore';
+import { meter } from './meter';
 import { timing, type Path } from './timings';
-import { currentId, jumpTo, moveBy, shownLength, SORT_START_SEC, startSpot, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setFlag, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
+import { redrawFor, SPOT_EVERY_MS } from './energy';
+import { currentId, eyeSetting, jumpTo, moveBy, shownLength, SORT_START_SEC, startSpot, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setFlag, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
 import { isVersion, members, removeEditFor, sendEdit, showToast, songTitle, undo as undoVersions, type Sent } from './versionStore';
 
 /** `length`: seconds, measured on the laptop (NEXT C), so the length shows at the tap; null or missing: not known yet. */
@@ -66,7 +69,6 @@ type State = {
 
 const timeLeftFile = () => new File(Paths.document, 'time-left.txt');
 const lastPlayFile = () => new File(Paths.document, 'last-play.json');
-const SAVE_EVERY_MS = 15000;
 const RECENT_KEPT = 30;
 const buttonsHiddenFile = () => new File(Paths.document, 'buttons-hidden.txt');
 
@@ -128,21 +130,19 @@ const settleHandOff = () => {
   finish?.();
 };
 
-// The eye switch, per song (DECISIONS 2026-11-07): a sorted song (Mine or Not mine) opens with the buttons hidden, an
-// unsorted one with them showing; a flip by hand lasts until the next song. Compare never touches it, and Done landing
-// on another version keeps the eye as it was (endCompare sets eyeFor first).
-let eyeFor = '';
-const sortedAlready = (song: PlayerSong) => {
-  const mark = state.marks[song.id] ?? song;
-  return mark.sorted && (mark.mine === 'mine' || mark.mine === 'not mine');
-};
+// The eye switch keeps my last choice on every song and every screen, and after a kill (owner, 2026-11-09; the
+// per-song rule of 2026-11-07 went once sort was done). Only my tap, or a restore after a reinstall, changes it.
+const eye = eyeSetting(buttonsHiddenFile);
+state = { ...state, buttonsHidden: eye.hidden() };
+
+let appOpen = true; // false while locked or in the background: nobody is looking at the screens
 
 const update = (changes: Partial<State>) => {
   state = { ...state, ...changes };
-  if (state.song && state.song.id !== eyeFor) {
-    eyeFor = state.song.id;
-    if (!state.comparing) state = { ...state, buttonsHidden: sortedAlready(state.song) };
-  }
+  // locked or in the background, a report that only moves the clock draws nothing (battery, 2026-11-09)
+  if (changes.wanted) startStallWatch(); // anything that starts the sound wakes the stuck-song watch (it sleeps while paused)
+  if (!redrawFor(appOpen, Object.keys(changes))) return;
+  meter.count('redraws');
   listeners.forEach((listener) => listener());
 };
 
@@ -167,7 +167,8 @@ const markOf = (song: PlayerSong): Mark => state.marks[song.id] ?? song;
 const avoid = () => {
   const out = new Set<string>();
   songs.forEach((song) => {
-    if ((markOf(song).mine === 'mine') !== (state.pool === 'mine') || isVersion(song.id) || cantReach(song.id)) out.add(song.id);
+    // a Shelved song is never picked for me (2.8): Next, shuffle, the lock screen and Up next all read this one list
+    if ((markOf(song).mine === 'mine') !== (state.pool === 'mine') || isVersion(song.id) || cantReach(song.id) || ratingStore.isShelved(song.id)) out.add(song.id);
   });
   return out;
 };
@@ -178,8 +179,9 @@ const heard = (id: string) => {
 
 /** The library's song and spot (Sort's own songs are never the ones kept), so a reopen starts there, paused. */
 function saveSpot(force = false) {
-  if (!force && Date.now() - lastSaved < SAVE_EVERY_MS) return;
+  if (!force && Date.now() - lastSaved < SPOT_EVERY_MS[appOpen ? 'open' : 'locked']) return;
   lastSaved = Date.now();
+  meter.count('writes');
   const spot = state.sorting ? saved : state.order && { order: state.order, at: state.time };
   try {
     const file = lastPlayFile();
@@ -211,6 +213,8 @@ let soundPlaying = false;
 let timeStampedAt = 0;
 
 function onSound(sound: Sound) {
+  meter.setPlaying(sound.playing);
+  meter.count('reports');
   // the lock screen reads playing again on every change, so its button never lags a press behind (6.5: two presses).
   // In Compare too: it borrows this player, and the lock screen drives it (6.7)
   if (sound.playing !== soundPlaying) {
@@ -221,7 +225,7 @@ function onSound(sound: Sound) {
   if (state.comparing) return; // paused and waiting: nothing it says counts
   if (sound.loaded) everLoaded = true;
   if (sound.duration > 0) phoneLength = sound.duration;
-  if (timing.ready()) timing.send(url);
+  if (appOpen && timing.ready()) timing.send(url); // never from the lock screen: it goes when the app comes back
   // the song the player really holds (it may have moved on before saying so)
   const holding = engine?.windowed ? track[engine.index()]?.id : state.song?.id;
   const changes: Partial<State> = { time: sound.time, duration: shownLength(storedLength(holding), sound.duration) };
@@ -241,7 +245,10 @@ function onSound(sound: Sound) {
       note('Player pauses it again (a song brought back paused)');
       engine?.pause();
     }
-    else changes.wanted = true;
+    else {
+      changes.wanted = true;
+      startStallWatch(); // Play from the lock screen: the watch is awake again
+    }
   }
   else if (!sound.playing && !sound.buffering && sound.loaded && state.wanted && Date.now() > settleUntil) changes.wanted = false;
   update(changes);
@@ -280,6 +287,7 @@ function onTrack(index: number) {
   const length = phoneLength || state.duration;
   const ended = !everLoaded || (length > 0 && state.time >= length - 2.5);
   if (!own && !ended) tapFor('lockscreen', entry.id);
+  meter.play(sourceOf(entry.id).src);
   // play first: the silence and the start spot go to the player before the screen catches up
   if (startPoint > 0 && !own && index !== 0) engine?.startHere(startPoint);
   else if (startPoint <= 0 && !own) engine?.startHere(0);
@@ -290,6 +298,7 @@ function onTrack(index: number) {
   if (!state.sorting) heard(entry.id);
   saveSpot(true);
   engine?.setTitle(titleOf(entry.id));
+  startStallWatch(); // the lock screen's Play on a paused song, then a move: the watch is awake again
   if (stale) replaceAhead(order, index);
   else topUp(order, index);
   // lock-screen previous needs a song behind this one. Adding it restarts this song, which has only just begun.
@@ -372,6 +381,7 @@ function loadOrder(order: Order, asked: number | undefined, play: boolean) {
   settleUntil = play ? Date.now() + SETTLE_MS : 0;
   holdPausedUntil = play ? 0 : Date.now() + HOLD_PAUSED_MS;
   const id = currentId(order);
+  if (play) meter.play(sourceOf(id).src);
   const ticket = ++loadTicket;
   const toSound = (later: boolean) => {
     if (ticket !== loadTicket) return; // a newer load got there first
@@ -418,6 +428,12 @@ async function whyStuck(id: string) {
 function startStallWatch() {
   if (stallTimer) return;
   stallTimer = setInterval(async () => {
+    // nothing is meant to play: the watch sleeps until the next Play (a timer that never stops keeps the phone awake)
+    if (!state.wanted && !state.comparing) {
+      clearInterval(stallTimer);
+      stallTimer = undefined;
+      return;
+    }
     if (state.comparing || !state.wanted || !state.order || Date.now() - lastProgress < STALL_MS) return;
     const id = currentId(state.order);
     const why = await whyStuck(id);
@@ -481,7 +497,19 @@ function stepQueue(step: 1 | -1, moved: Order) {
   ahead = moved;
   engine!.skip(step, startPoint);
   update({ wanted: true, time: startPoint, duration: storedLength(currentId(moved)) });
+  startStallWatch();
 }
+
+// A rating tap (or its Undo): the song plays on, and what comes next is picked again, so a song just Shelved never
+// plays by itself and one taken off the shelf can come up. Same steps as a session's Not mine.
+onRated(() => {
+  if (!state.order) return;
+  const order = { ...state.order };
+  const index = engine?.windowed ? engine.index() : 0;
+  track = track.map((one, i) => (i <= index ? { id: one.id, order: i === index ? order : null } : one));
+  update({ order });
+  replaceAhead(order, index);
+});
 
 export const player = {
   /** A tap on a song in a list. During Sort it replaces the saved library spot, so the sort song keeps playing. */
@@ -517,6 +545,7 @@ export const player = {
       restored = false;
       engine?.play();
       update({ wanted: true, note: '' });
+      startStallWatch();
     }
   },
 
@@ -798,18 +827,12 @@ export const player = {
   },
 
   toggleButtonsHidden() {
-    const on = !state.buttonsHidden;
-    try {
-      setFlag(buttonsHiddenFile(), on);
-    } catch {
-      // the file is only for the next launch: the switch still flips
-    }
-    update({ buttonsHidden: on });
+    update({ buttonsHidden: eye.toggle() });
   },
 
   /** The two display settings, read again from their files (a restore after a reinstall just wrote them). */
   reloadSettings() {
-    update({ timeLeft: timeLeftFile().exists, buttonsHidden: buttonsHiddenFile().exists });
+    update({ timeLeft: timeLeftFile().exists, buttonsHidden: eye.reload() });
   },
 
   /** A version from the Versions view: plays now, and what came after it stays as it was. */
@@ -851,6 +874,16 @@ export const player = {
 
   /** Saves the spot now: the app is going to the background and may be closed there. */
   saveNow: () => saveSpot(true),
+
+  /** The app came to the front (true) or went to the lock screen or the background (false). While it's away the
+   * screens aren't told about the clock moving; coming back, they catch up in one go. */
+  setOpen(open: boolean) {
+    if (open === appOpen) return;
+    appOpen = open;
+    meter.setOpen(open);
+    if (open) listeners.forEach((listener) => listener());
+    else meter.flush();
+  },
 
   /** On launch: the last library song back in the bar, at its spot, paused. Its list and shuffle come back too. */
   restore(serverUrl: string) {
@@ -918,7 +951,6 @@ export const player = {
       return null;
     }
     if (!song) return null;
-    eyeFor = song.id; // the version Done lands on keeps the eye as it was before Compare
     url = serverUrl;
     songs.set(song.id, song);
     newTrackStarted();
@@ -975,6 +1007,20 @@ export function usePlayerWith<T extends readonly unknown[]>(pick: (now: State) =
     const next = pick(state);
     const was = last.current;
     if (was && was.length === next.length && was.every((one, i) => one === next[i])) return was;
+    last.current = next;
+    return next;
+  });
+}
+
+/** Just these parts of the player: the screen redraws only when one of them changes, never on the clock's two reports a
+ * second (the bar, the toast, the sheet and Queue all used to: battery, 2026-11-09). */
+export function usePlayerPick<K extends keyof State>(...keys: K[]): Pick<State, K> {
+  const last = useRef<Pick<State, K> | null>(null);
+  return useSyncExternalStore(subscribe, () => {
+    const was = last.current;
+    if (was && keys.every((key) => was[key] === state[key])) return was;
+    const next = {} as Pick<State, K>;
+    keys.forEach((key) => (next[key] = state[key]));
     last.current = next;
     return next;
   });

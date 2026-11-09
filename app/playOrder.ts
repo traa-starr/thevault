@@ -141,7 +141,33 @@ export type TagLine = { tag_id: string; song_id: string; version_id?: string | n
 export type TagChange =
   | { id: string; kind: 'tag_add'; data: TagLine }
   | { id: string; kind: 'tag_remove'; data: { tag_id: string; song_id: string } };
-export type Change = MineChange | FamilyChange | TagChange;
+/** My rating (2.8). No rating: unrated. Shelved: mine but off-direction, out of anything the app picks for me. */
+export type Rating = 'fire' | 'shelved';
+export type RatingChange = { id: string; kind: 'rating_set'; data: { song_id: string; value: Rating | 'none' } };
+export type Change = MineChange | FamilyChange | TagChange | RatingChange;
+
+/** The ratings a song list carries. */
+export const ratingsFrom = (songs: readonly { id: string; rating?: string | null }[]) =>
+  new Map(songs.flatMap((song): [string, Rating][] => (song.rating === 'fire' || song.rating === 'shelved' ? [[song.id, song.rating]] : [])));
+
+/** Ratings as they'll be once the laptop has these changes: each tap in order, the latest wins (Shelve then Undo while
+ * offline ends unrated). */
+export function ratingsWithPending(base: ReadonlyMap<string, Rating>, pending: readonly Change[]): Map<string, Rating> {
+  const out = new Map(base);
+  for (const change of pending) {
+    if (change.kind !== 'rating_set') continue;
+    if (change.data.value === 'none') out.delete(change.data.song_id);
+    else out.set(change.data.song_id, change.data.value);
+  }
+  return out;
+}
+
+/** A tap on Fire or Shelve: on, or off again if the song already had it. Never a cycle, so a double tap on Fire can't
+ * land on Shelved (board 2026-11-09). */
+export const ratingAfterTap = (now: Rating | null, tapped: Rating): Rating | 'none' => (now === tapped ? 'none' : tapped);
+
+/** What the app may pick by itself: never a Shelved song. Songs I pick myself (a tap, the queue) don't ask this. */
+export const pickable = <S extends { id: string }>(songs: S[], isShelved: (id: string) => boolean) => songs.filter((song) => !isShelved(song.id));
 
 /** The Mine side of what's waiting: a versions change carries its own Mine marks and restores. */
 const mineOnly = (pending: Change[]): MineChange[] =>
@@ -208,6 +234,18 @@ export function tagsWithPending(copy: Tag[], pending: Change[], songId?: string)
     .sort((a, b) => a.at_sec - b.at_sec || a.made_at.localeCompare(b.made_at) || a.id.localeCompare(b.id));
 }
 
+/** Every song's tags at once, each list in time order: built once per change to the tags, so any song's tags (the next
+ * one's too) are there before its tap, with nothing to work out when the song changes (NEXT 2026-11-09 A). */
+export function tagIndex(copy: Tag[], pending: Change[]): Map<string, ShownTag[]> {
+  const bySong = new Map<string, ShownTag[]>();
+  for (const tag of tagsWithPending(copy, pending)) {
+    const list = bySong.get(tag.song_id);
+    if (list) list.push(tag);
+    else bySong.set(tag.song_id, [tag]);
+  }
+  return bySong;
+}
+
 /** Compare's wheel: where a flick from row `from` that landed on row `landed` should rest. A flick travels: it rests
  * where it landed (6.6, like the iPhone picker). A row there that can't play is stepped over, on in the flick's
  * direction. None that way: it stays on the row it landed on, which shows why it can't play. */
@@ -216,6 +254,27 @@ export function dialTarget(from: number, landed: number, playable: boolean[]): n
   if (!step) return from;
   for (let i = landed; i >= 0 && i < playable.length; i += step) if (playable[i]) return i;
   return landed;
+}
+
+/** The eye (hide buttons) keeps my last choice on every song and screen, and after a kill (owner, 2026-11-09): the
+ * only things that change it are my tap and a restore after a reinstall. `file` is its flag on disk. */
+export function eyeSetting(file: () => FlagFile) {
+  let hidden = file().exists;
+  return {
+    hidden: () => hidden,
+    /** My tap. The switch flips even if the file can't be written (it's only for the next launch). */
+    toggle() {
+      hidden = !hidden;
+      try {
+        setFlag(file(), hidden);
+      } catch {
+        // a full phone: the choice holds until the app closes
+      }
+      return hidden;
+    },
+    /** Read again from disk: a restore after a reinstall just wrote it. */
+    reload: () => (hidden = file().exists),
+  };
 }
 
 /** A setting kept as a file that exists or not (the eye, time left). */

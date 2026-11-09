@@ -466,6 +466,84 @@ def phone_backup_path(tmp):
     server.stop_servers(servers)
 
 
+def rating_path(tmp):
+    """POST /changes rating_set (2.8): fire / shelved / none, latest wins, in /songs and /status, merges, a rebuild from
+    the journal, and the ratings command."""
+    from vault_server.songs import ratings_report
+    music, root = tmp / "rmusic", tmp / "rlib"
+    lib = init_library(root)
+    a = add_song(lib, music / "a.mp3", b"a", title="Alpha")
+    b = add_song(lib, music / "b.mp3", b"b", title="Beta")
+    away = add_song(lib, music / "away.mp3", b"c")
+    stays = add_song(lib, music / "stays.mp3", b"d", title="Stays")
+    rated_away = add_song(lib, music / "rated-away.mp3", b"e")
+    keeps = add_song(lib, music / "keeps.mp3", b"f", title="Keeps")
+    lib.close()
+    journal = root / JOURNAL_NAME
+    lines = lambda: journal.read_text(encoding="utf-8").count("\n")
+    servers = server.start_servers(root, [server.LOOPBACK], 0)
+    port = servers[0].server_port
+
+    def send(*changes):
+        data = json.dumps({"changes": list(changes)}).encode()
+        c = http.client.HTTPConnection(server.LOOPBACK, port, timeout=30)
+        c.request("POST", "/changes", data, {server.CLIENT_HEADER: "app", "Content-Length": str(len(data))})
+        reply = json.loads(c.getresponse().read())
+        c.close()
+        return [x["status"] for x in reply["results"]]
+
+    def get(path):
+        c = http.client.HTTPConnection(server.LOOPBACK, port, timeout=10)
+        c.request("GET", path)
+        out = json.loads(c.getresponse().read())
+        c.close()
+        return out
+
+    rating = lambda song: {s["id"]: s["rating"] for s in get("/songs")["songs"]}.get(song, "gone")
+    rate = lambda song, value, change_id=None: {"id": change_id or str(uuid.uuid4()), "kind": "rating_set", "data": {"song_id": song, "value": value}}
+    try:
+        check("rating: unrated songs list as null", rating(a) is None)
+        first = rate(a, "fire")
+        check("rating: Fire is saved and listed", send(first) == ["saved"] and rating(a) == "fire")
+        n = lines()
+        check("rating: a resend does nothing", send(first) == ["nothing to do"] and lines() == n)
+        check("rating: the same rating under a new id does nothing", send(rate(a, "fire")) == ["nothing to do"] and lines() == n)
+        check("rating: the latest wins", send(rate(a, "shelved")) == ["saved"] and rating(a) == "shelved")
+        # offline: Shelve then Undo arrive together, in order (tester, board 2026-11-09)
+        check("rating: shelve then undo in one send ends unrated", send(rate(b, "shelved"), rate(b, "none")) == ["saved", "saved"] and rating(b) is None)
+        check("rating: none on an unrated song does nothing", send(rate(b, "none")) == ["nothing to do"])
+        n = lines()
+        for name, bad in (("unknown song", rate(str(uuid.uuid4()), "fire")), ("a made-up value", rate(a, "five stars")), ("no value", rate(a, None))):
+            check(f"rating refused: {name}", send(bad) == ["refused"])
+        check("rating: refused ones reach no journal line", lines() == n)
+        check("rating: Not mine then Mine again keeps it", send({"id": str(uuid.uuid4()), "kind": "mine_set", "data": {"song_id": a, "value": "not mine"}},
+                                                                {"id": str(uuid.uuid4()), "kind": "mine_set", "data": {"song_id": a, "value": "mine"}}) == ["saved", "saved"]
+              and rating(a) == "shelved")
+        send(rate(rated_away, "fire"), rate(keeps, "shelved"), rate(b, "fire"))
+        st = get("/status")
+        check("rating: /status counts them", (st["fire"], st["shelved"]) == (2, 2), str(st))
+        check("rating: a rating never asks for phone copies", not server.asks_mine([rate(a, "fire")]))
+    finally:
+        server.stop_servers(servers)
+    lib = open_library(root)
+    lib.store.record("song_merge", {"from_id": rated_away, "into_id": stays})  # unrated survivor takes the joining song's
+    lib.store.record("song_merge", {"from_id": away, "into_id": keeps})  # a rated survivor keeps its own
+    row = lambda song: (lib.store.conn.execute("SELECT value FROM song_ratings WHERE song_id=?", (song,)).fetchone() or [None])[0]
+    check("rating: a merge hands an unrated survivor the rating", row(stays) == "fire" and row(rated_away) is None)
+    check("rating: a rated survivor keeps its own", row(keeps) == "shelved")
+    check("rating: a rating for a merged-away song follows the merge", songs_module.set_rating(lib.store, rated_away, "shelved") and row(stays) == "shelved")
+    report = ratings_report(lib.store.conn)
+    before = lib.store.snapshot()
+    lib.close()
+    check("ratings command lists them, Fire first", report[0].startswith("Fire     Beta") and report[-1] == "1 Fire, 3 Shelved.", " | ".join(report))
+    (root / DB_NAME).unlink()
+    lib = open_library(root)
+    after = lib.store.snapshot()
+    lib.close()
+    check("ratings rebuild from the journal row for row", after["song_ratings"] == before["song_ratings"] and len(before["song_ratings"]) == 4,
+          str(before["song_ratings"]))
+
+
 def timings_path(tmp):
     """POST /timings: the phone's numbers in their own file, never the journal; the timings command reads them."""
     from vault_server.timings import TIMINGS_NAME, timings_report
@@ -530,6 +608,26 @@ def timings_path(tmp):
     check("timings: by source, file type kept, a bad one dropped", "phone mp3 150 ms (5)" in text and "stream 700 ms (5)" in text
           and "../x" not in (root / TIMINGS_NAME).read_text(encoding="utf-8") and "disk" not in text)
     check("timings: still never text", "secret" not in (root / TIMINGS_NAME).read_text(encoding="utf-8"))
+    # energy (2026-11-09): per minute of playing, open and locked apart, judged against ceilings; the phone's copy count
+    energy = lambda where, **more: {"kind": "energy", "where": where, "ms": 300000, "reports": 600, "redraws": 5, "net": 1,
+                                    "writes": 5, "phone": 2, "stream": 0, **more}
+    cool = {"version": "newer", "copies": {"stored": 670, "wanted": 671},
+            "samples": [energy("locked"), energy("open", redraws=600), energy("locked", redraws=True), energy("attic"),
+                        energy("locked", title="secret", ms=500)]}
+    check("energy: samples taken, bad ones dropped", post(cool) == (200, {"kept": 2}))
+    text = chr(10).join(timings_report(root))
+    print("      " + text.replace(chr(10), chr(10) + "      "))
+    check("energy: locked judged per minute, PASS under the ceilings",
+          "locked (5 min): wake-ups 120, redraws 1.0, network calls 0.2, file writes 1.0. PASS" in text, text)
+    check("energy: open PASS with the seek bar's redraws", "open (5 min): wake-ups 120, redraws 120.0" in text and text.count("PASS") >= 2)
+    check("energy: plays by source", "Plays: 4 from the phone's copy, 0 streamed" in text)
+    hot = {"version": "newer", "samples": [energy("locked", redraws=600, net=600)]}
+    post(hot)
+    text = chr(10).join(timings_report(root))
+    check("energy: FAIL names what went over", "FAIL (redraws over 6, net over 2)" in text, text)
+    check("phone count: kept and printed", "Mine songs on the phone: 670 of 671" in text and server.read_phone_count(root)["stored"] == 670)
+    post({"version": "newer", "samples": [], "copies": {"stored": "x", "wanted": 1}})
+    check("phone count: a bad one changes nothing", server.read_phone_count(root)["stored"] == 670)
     check("timings: the journal never sees them", (root / JOURNAL_NAME).read_bytes() == journal_before)
     server.stop_servers(servers)
 
@@ -756,7 +854,9 @@ def main():
     check("list gives the date, or nothing if unknown", songs[local]["date"] == "2024-05-01" and songs[cloud]["date"] is None)
     check("the list says how many are hidden", json.loads(ask("/songs")[1])["hidden"] == 0)
     r, body = ask("/status")
-    check("/status: just the count, the same as the list's", r.status == 200 and json.loads(body) == {"songs": len(songs)})
+    st = json.loads(body)
+    check("/status: the count is the list's, with Mine, copies, ratings and the phone's own count", r.status == 200 and st["songs"] == len(songs)
+          and set(st) == {"songs", "mine", "copies", "fire", "shelved", "on_phone"} and st["on_phone"] is None, str(st))
     r, body = ask("/")
     check("the page opens and shows titles as plain text", r.status == 200 and b"textContent = song.title" in body and b"innerHTML" not in body)
 
@@ -843,6 +943,7 @@ def main():
         check("missing library stops the server, creates nothing", not ghost.exists())
     write_path(tmp)
     tag_path(tmp)
+    rating_path(tmp)
     sorting_path(tmp)
     family_path(tmp)
     phone_backup_path(tmp)

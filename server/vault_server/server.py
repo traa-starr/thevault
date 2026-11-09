@@ -28,10 +28,11 @@ from .family import in_family, set_family
 from .importer import kept, mine_without_copy, phone_copy
 from .library import DB_NAME, MARKER_NAME, LibraryMissing, LibraryRefused, open_library
 from .scanner import is_cloud_only
-from .songs import restore_mine, set_mine
+from .songs import restore_mine, set_mine, set_rating
+from .store import RATINGS
 from .store import LOCK_NAME, SCHEMA_VERSION, Busy, write_lock
 from .tags import add_tag, all_tags, remove_tag
-from .timings import write_timings
+from .timings import read_phone_count, write_timings
 from .updates import update_answer, update_file
 
 PORT = 8787
@@ -138,9 +139,11 @@ def list_songs(conn, hidden=False):
     when `hidden` is asked for, and then on their own, newest-hidden first (an undo is at the top). `main` is the song's Main if it is one of several versions; `picked`: a Main I picked by hand."""
     rows = conn.execute(f"""
         SELECT g.id, g.title, COALESCE(f.value, 'unknown') AS mine, d.value AS date, COALESCE(f.origin = 'manual', 0) AS sorted,
-               {PLACE_SQL} AS place, {FOLDER_SQL} AS folder, m.main_id AS main, k.main_id IS NOT NULL AS picked, l.seconds AS length
+               {PLACE_SQL} AS place, {FOLDER_SQL} AS folder, m.main_id AS main, k.main_id IS NOT NULL AS picked, l.seconds AS length,
+               r.value AS rating
         FROM songs g LEFT JOIN song_fields f ON f.song_id=g.id AND f.field='mine'
         LEFT JOIN song_lengths l ON l.song_id=g.id
+        LEFT JOIN song_ratings r ON r.song_id=g.id
         LEFT JOIN song_fields d ON d.song_id=g.id AND d.field='date'
         LEFT JOIN song_family m ON m.song_id=g.id
         LEFT JOIN family_pick k ON k.main_id=g.id
@@ -148,13 +151,26 @@ def list_songs(conn, hidden=False):
         ORDER BY {"f.ts DESC, " if hidden else "place='laptop' DESC, "}g.title COLLATE NOCASE""")
     return [{"id": r["id"], "title": r["title"], "mine": r["mine"], "where": r["place"], "date": r["date"],
              "sorted": bool(r["sorted"]), "folder": show_folder(r["folder"]), "main": r["main"],
-             "picked": bool(r["picked"]), "length": r["length"]} for r in rows]
+             "picked": bool(r["picked"]), "length": r["length"], "rating": r["rating"]} for r in rows]
 
 
 def song_count(conn):
     """How many songs the song list holds (Hidden ones aren't in it), counted in the database."""
     return conn.execute("""SELECT COUNT(*) FROM songs g LEFT JOIN song_fields f ON f.song_id=g.id AND f.field='mine'
                            WHERE COALESCE(f.value, 'unknown') != 'not mine'""").fetchone()[0]
+
+
+def status_counts(conn, root):
+    """The counts for the home screen and `/status`: songs listed, Mine songs, how many of those have a phone copy made
+    on the laptop, ratings, and what the phone last said it holds (`on_phone`, None until it has said)."""
+    one = lambda sql: conn.execute(sql).fetchone()[0]
+    copies = kept(conn, root)
+    return {"songs": song_count(conn),
+            "mine": len(copies) + len(mine_without_copy(conn, root, copies)),
+            "copies": len(copies),
+            "fire": one("SELECT COUNT(*) FROM song_ratings WHERE value='fire'"),
+            "shelved": one("SELECT COUNT(*) FROM song_ratings WHERE value='shelved'"),
+            "on_phone": read_phone_count(root)}
 
 
 def hidden_count(conn):
@@ -239,6 +255,10 @@ def apply_one(store, change):
         done = restore_mine(store, data["song_id"], change["id"])
     elif change.get("kind") == "family_set":
         done = set_family(store, data, change["id"])
+    elif change.get("kind") == "rating_set":  # fire / shelved / none (2.8): its own journal line, the latest wins
+        if data.get("value") not in RATINGS:
+            raise ValueError(f"rating_set value must be one of {RATINGS}.")
+        done = set_rating(store, data["song_id"], data["value"], change["id"])
     elif change.get("kind") == "tag_add":
         done = add_tag(store, data, change["id"])
     elif change.get("kind") == "tag_remove":
@@ -355,7 +375,7 @@ def write_phone_backup(root, backup):
 def asks_mine(changes):
     """True if any of these changes can make a song Mine (a mark, an undo back to the folder's guess, a version link): the
     server then catches its copies up soon after (autocopy). Tags never do. A run with nothing to do only reads folders."""
-    return any(isinstance(c, dict) and not str(c.get("kind", "")).startswith("tag_")
+    return any(isinstance(c, dict) and not str(c.get("kind", "")).startswith(("tag_", "rating_"))
                and not (c.get("kind") == "mine_set" and isinstance(c.get("data"), dict) and c["data"].get("value") == "not mine")
                for c in changes)
 
@@ -410,7 +430,7 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR, on_mine=None):
                 if route == "/status":  # the home screen's count, without sending all 1,395 songs to count them
                     conn = connect_readonly(root)
                     try:
-                        return self._json(200, {"songs": song_count(conn)})
+                        return self._json(200, status_counts(conn, root))
                     finally:
                         conn.close()
                 if route == "/update":  # new app code for the phone, made by `publish` (updates.py)

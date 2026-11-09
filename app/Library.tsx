@@ -10,12 +10,13 @@ import { loadSongList, offline, saveSongList, useOffline } from './offline';
 import { flush, useOutbox } from './outbox';
 import { LaptopLine, RestoreNotice, WaitingLine } from './Notices';
 import { NOT_HERE, player, usePlayerWith, type Pool } from './playerStore';
+import { ratingStore, useRatings } from './ratingStore';
 import { session } from './sessionStore';
-import { indexFor, pieces, queryStems, searchSongs, stems, type SongHit } from './search';
+import { indexFor, pieces, queryStems, searchSongs, stems, typedWord, type SongHit } from './search';
 import { clock, useAllTags } from './tagStore';
 import { tint } from './Tagging';
 import { timing } from './timings';
-import { libraryShuffleTap, shuffleWords, withPending, type ShownTag } from './playOrder';
+import { libraryShuffleTap, pickable, shuffleWords, withPending, type ShownTag } from './playOrder';
 import { setLibrary, useVersions, type LibSong } from './versionStore';
 import { VersionsChip } from './Versions';
 import * as versions from './versionStore';
@@ -23,11 +24,12 @@ import * as versions from './versionStore';
 type Song = LibSong;
 type Sort = 'title' | 'date';
 /** One filter at a time; tap it again for all songs. Unsorted: not called Mine and not judged yet. */
-type Filter = 'all' | 'mine' | 'unsorted' | 'grouped';
-const FILTER_WORD: Record<Filter, string> = { all: 'songs', mine: 'Mine', unsorted: 'unsorted', grouped: 'version groups' };
+type Filter = 'all' | 'mine' | 'fire' | 'unsorted' | 'grouped';
+const FILTER_WORD: Record<Filter, string> = { all: 'songs', mine: 'Mine', fire: 'Fire', unsorted: 'unsorted', grouped: 'version groups' };
 const FILTER_EMPTY: Record<Filter, string> = {
   all: 'No songs yet',
   mine: 'No Mine songs yet',
+  fire: 'No Fire songs yet: tap Fire in the player',
   unsorted: 'Nothing left unsorted',
   grouped: 'No version groups yet',
 };
@@ -44,7 +46,9 @@ const size = (bytes: number) => (bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toF
 function SavedLine() {
   const o = useOffline();
   if (!o.wanted && !o.stored) return null;
-  let text = `On this phone: ${number(o.stored)} of ${number(o.wanted)} Mine songs · ${size(o.bytes)} of 8 GB`;
+  // every Mine song counts, the ones the laptop is still making a copy of too, so the line never says "all" too soon
+  let text = `${number(o.stored)} of ${number(o.wanted)} Mine songs on this phone · ${size(o.bytes)} of 8 GB`;
+  if (o.noCopy && !o.saving && !o.full) text += ` · ${number(o.noCopy)} waiting on the laptop`;
   if (o.saving) text = `Saving to phone: ${number(o.stored)} of ${number(o.wanted)}`;
   else if (o.full === 'limit') text = `8 GB limit reached: ${number(o.left)} Mine songs not on this phone`;
   else if (o.full === 'phone') text = `Phone storage full: ${number(o.left)} Mine songs not on this phone`;
@@ -52,10 +56,10 @@ function SavedLine() {
 }
 
 /** A search result's second line: the matched tag, its matching words bold, and how many more of its tags match. */
-function HitLine({ hit, stems }: { hit: SongHit<ShownTag>; stems: string[] }) {
+function HitLine({ hit, stems, typed }: { hit: SongHit<ShownTag>; stems: string[]; typed: string }) {
   return (
     <Text style={s.rowDetail} numberOfLines={1}>
-      {pieces(hit.tag.text, stems).map((piece, i) => (
+      {pieces(hit.tag.text, stems, typed).map((piece, i) => (
         <Text key={i} style={piece.hit ? s.hitWord : undefined}>{piece.text}</Text>
       ))}
       {hit.more ? <Text>{`  +${hit.more}`}</Text> : null}
@@ -97,6 +101,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
         offline.setReachable(true);
         setHiddenOnLaptop(data.hidden ?? null);
         saveSongList(data.songs, asked);
+        ratingStore.setBase(data.songs, asked);
         setLibrary(data.songs, asked);
         setFetched(data.songs);
       } catch {
@@ -148,12 +153,14 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     [hiddenOnLaptop, fetched, pending],
   );
   const byId = useMemo(() => new Map((songs ?? []).map((song) => [song.id, song])), [songs]);
+  const ratings = useRatings();
   const base = useMemo(() => {
     if (only === 'mine') return sorted.filter((song) => song.mine === 'mine');
+    if (only === 'fire') return sorted.filter((song) => ratings.get(song.id) === 'fire');
     if (only === 'unsorted') return sorted.filter((song) => song.mine !== 'mine' && !song.sorted);
     if (only === 'grouped') return sorted.filter((song) => families.has(song.id));
     return sorted;
-  }, [sorted, only, families]);
+  }, [sorted, only, families, ratings]);
 
   // Search (Phase 3, on the phone): titles that hold the words first, as before, then every song with a tag sharing a
   // word, best tag first (search.ts). Never hides a song that shares a word; the chips (Mine, Unsorted...) still narrow.
@@ -185,13 +192,15 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     byTag.forEach((song) => listed.add(song.id));
     const someTitle = share.filter((one) => one.some && !listed.has(one.song.id)).map((one) => one.song);
     const list = [...byTitle, ...byTag, ...someTitle];
-    return { list, hitOf, more: Math.max(0, total - hits.length), stems: asked, ms: performance.now() - started, tags: allTags.length };
+    return { list, hitOf, more: Math.max(0, total - hits.length), stems: asked, typed: typedWord(query), ms: performance.now() - started, tags: allTags.length };
   }, [searching, query, base, allTags, families]);
   // the phone's own search time, sent to the laptop with the other timings (numbers only)
   useEffect(() => {
     if (found) timing.search(found.ms, found.tags);
   }, [found]);
   const shown = found ? found.list : base;
+  // what a row draws besides its song: one steady value, so rows redraw only when a search or a rating changes
+  const rowsDependOn = useMemo(() => [found, ratings], [found, ratings]);
 
   const { reachable, stored } = useOffline();
   const laptopOff = reachable === false;
@@ -244,7 +253,10 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
       if (playing.list.length === playable.length && playable.every((song) => playing.list.includes(song.id))) return player.setShuffleOn(true, pick.pool);
       return player.playList(url, playable, playingSong.id, true, pick.pool, player.positionNow());
     }
-    const from = poolOf(pick.pool);
+    // never starts on a Shelved song (unless that pool holds nothing else)
+    const all = poolOf(pick.pool);
+    const unshelved = pickable(all, ratingStore.isShelved);
+    const from = unshelved.length ? unshelved : all;
     player.playList(url, playable, from[Math.floor(Math.random() * from.length)].id, true, pick.pool);
   };
 
@@ -386,6 +398,9 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
               <Pressable onPress={() => toggle('mine')}>
                 <Text style={[s.sort, only === 'mine' && s.sortOn]}>Mine</Text>
               </Pressable>
+              <Pressable onPress={() => toggle('fire')}>
+                <Text style={[s.sort, only === 'fire' && s.sortOn]}>Fire</Text>
+              </Pressable>
               <Pressable onPress={() => toggle('unsorted')}>
                 <Text style={[s.sort, only === 'unsorted' && s.sortOn]}>Unsorted</Text>
               </Pressable>
@@ -408,7 +423,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
             key={sort}
             onScrollToIndexFailed={() => {}}
             data={shown}
-            extraData={found}
+            extraData={rowsDependOn}
             keyExtractor={(song) => song.id}
             getItemLayout={(_, index) => ({ length: ROW_HEIGHT, offset: ROW_HEIGHT * index, index })}
             keyboardDismissMode="on-drag"
@@ -441,10 +456,12 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
                 <View style={s.rowTop}>
                   <Text style={[s.rowTitle, !canPlay(item) && s.rowOff]} numberOfLines={1}>{item.title}</Text>
                   <VersionsChip id={item.id} />
+                  {/* my rating, as a word (never colour alone); a search hit shows it too */}
+                  {ratings.get(item.id) ? <Text style={ratings.get(item.id) === 'fire' ? s.fireMark : s.shelvedMark}>{ratings.get(item.id) === 'fire' ? 'Fire' : 'Shelved'}</Text> : null}
                   {found?.hitOf.get(item.id) ? <Text style={s.hitTime}>{clock(found.hitOf.get(item.id)!.tag.at_sec)}</Text> : null}
                 </View>
                 {found?.hitOf.get(item.id) ? (
-                  <HitLine hit={found.hitOf.get(item.id)!} stems={found.stems} />
+                  <HitLine hit={found.hitOf.get(item.id)!} stems={found.stems} typed={found.typed} />
                 ) : (
                   <Text style={s.rowDetail} numberOfLines={1}>
                     {groupMain === item.id ? 'Main · ' : ''}
@@ -515,6 +532,8 @@ const s = StyleSheet.create({
   offline: { color: '#f2c97d', fontSize: 14, paddingBottom: 8 },
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   rowTitle: { color: '#fff', fontSize: 16, flexShrink: 1 },
+  fireMark: { color: '#f5b041', fontSize: 12, fontWeight: '700' },
+  shelvedMark: { color: '#8e8e93', fontSize: 12, fontWeight: '600' },
   rowOff: { color: '#777' },
   hitTime: { marginLeft: 'auto', color: '#888', fontSize: 13, fontVariant: ['tabular-nums'] },
   hitWord: { color: '#fff', fontWeight: '700' },

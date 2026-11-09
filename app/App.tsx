@@ -7,7 +7,7 @@ import buildInfo from './build-info.json';
 import Library from './Library';
 import { setHome } from './nav';
 import { offline } from './offline';
-import { flush, startOutbox } from './outbox';
+import { pauseOutbox, startOutbox } from './outbox';
 import { tagStore } from './tagStore';
 import { NowPlayingBar, PlayerSheet, UndoToast } from './Player';
 import { player } from './playerStore';
@@ -19,7 +19,15 @@ import { phoneBackup, survivalStamp, usePhoneBackup } from './phoneBackup';
 import { compare } from './compareStore';
 import { codeVersion, pointUpdatesAt, updateLine, useReloadOnUpdate } from './updates';
 import { logText } from './pressLog';
+import { meter } from './meter';
 import { timing } from './timings';
+
+// every network call counts toward the energy numbers (how many a minute while a song plays)
+const plainFetch = globalThis.fetch;
+globalThis.fetch = ((...args: Parameters<typeof fetch>) => {
+  meter.count('net');
+  return plainFetch(...args);
+}) as typeof fetch;
 
 timing.setVersion(codeVersion(buildInfo.build)); // so the laptop judges only the newest code's timings
 
@@ -112,14 +120,19 @@ export default function App() {
     if (address) tagStore.start(serverUrl(address));
     check();
     const sub = AppState.addEventListener('change', (state) => {
+      // 'inactive' is a passing state (a call banner, the app switcher): only a real move to the back counts as away
+      // (the spot is still saved: a swipe-away from the app switcher kills the app with no other warning)
+      if (state === 'inactive') return player.saveNow();
+      player.setOpen(state === 'active');
       if (state !== 'active') {
+        pauseOutbox(true);
         player.saveNow();
         if (address) timing.send(serverUrl(address)); // best effort: numbers only, never blocks anything
         offline.pause();
         phoneBackup.pause();
         return;
       }
-      flush();
+      pauseOutbox(false);
       if (address) timing.send(serverUrl(address));
       if (address) offline.start(serverUrl(address));
       if (address) phoneBackup.start(serverUrl(address));

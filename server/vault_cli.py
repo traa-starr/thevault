@@ -16,6 +16,8 @@
     python server/vault_cli.py publish <library folder>                      send the app's newest code to the phone over the air (no GitHub build)
     python server/vault_cli.py pull-cloud <library folder> <music root> [n]  make cloud-only songs download, one at a time (only the first n if given); rerun any time
     python server/vault_cli.py tags <library folder> [title words]          every tag per song, second to 3 decimals (to compare with the phone); read-only
+    python server/vault_cli.py ratings <library folder>                      every Fire and Shelved song (to compare with the phone); read-only
+    python server/vault_cli.py status <library folder>                       the counts /status gives the phone: songs, Mine, phone copies, ratings; read-only
     python server/vault_cli.py timings <library folder>                      the phone's search and Next timings (typical, slow end); read-only
     python server/vault_cli.py search-data <library folder>                  every tag with its song title as JSON (for tools/search/accept.mjs); read-only
 """
@@ -55,7 +57,7 @@ def main(argv):
     for stream in (sys.stdout, sys.stderr):  # a song name with an emoji mustn't stop a command halfway
         stream.reconfigure(errors="replace")
     if len(argv) < 3 or argv[1] not in ("init", "check", "import-sorting", "scan", "apply-sorting", "songs", "mains", "import", "fingerprint", "serve", "doctor",
-                                        "backup", "pull-cloud", "publish", "tags", "copies", "timings", "search-data"):
+                                        "backup", "pull-cloud", "publish", "tags", "copies", "timings", "search-data", "ratings", "status"):
         print(__doc__)
         return 1
     cmd, folder = argv[1], argv[2]
@@ -123,6 +125,19 @@ def main(argv):
             tags = [{**t, "title": titles.get(t["song_id"], "")} for t in all_tags(lib.store.conn)]
             print(json.dumps({"tags": tags}, ensure_ascii=False))
             return 0
+        elif cmd == "ratings":
+            from vault_server.songs import ratings_report
+            lib = open_library(folder)
+            print("\n".join(ratings_report(lib.store.conn)))
+        elif cmd == "status":
+            from vault_server.server import status_counts
+            lib = open_library(folder)
+            s = status_counts(lib.store.conn, lib.root)
+            phone = s["on_phone"]
+            print(f"Songs listed: {s['songs']:,}")
+            print(f"Mine: {s['mine']:,}, with a phone copy made: {s['copies']:,}")
+            print(f"On the phone: {phone['stored']:,} of {phone['wanted']:,} (said at {phone['at']})" if phone else "On the phone: the phone hasn't said yet")
+            print(f"Ratings: {s['fire']:,} Fire, {s['shelved']:,} Shelved")
         elif cmd == "timings":
             # the phone's own search and Next timings (it sends them when it goes to the background); reads one small file
             open_library(folder).close()  # stops here if the marker is missing

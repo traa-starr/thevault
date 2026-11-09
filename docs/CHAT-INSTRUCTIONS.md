@@ -54,7 +54,7 @@ By now I've committed and pushed. Code's `/wrap` already published any update an
    (use the tappable-choice tool if there is one). Write each answer straight into the result doc and STATUS as it
    comes. A fail: ask one short follow-up for what I saw, then go on. If a check needs something first (a published
    mockup page, a server restart), do or say that before the check. "Stop" pauses the walk: write what's done.
-4. After the last check, finish the review. **Lessons:** for every fail or "something off", add a row to `docs/LESSONS.md`: what slipped and the check that would have caught it before me. Every NEXT's `Read:` line includes LESSONS. Count fails per review in STATUS so we can see if the harness is improving.
+4. After the last check, finish the review. **Lessons:** for every fail or "something off", add a row to `docs/LESSONS.md`: what slipped and the check that would have caught it before me. Last cell (`Kept true by`): write `plan`; Code swaps in the test's file name when it builds the check. Every NEXT's `Read:` line includes LESSONS. Count fails per review in STATUS so we can see if the harness is improving.
    Then: a failure becomes the next task or a written retry. Decide what's yours
    (below). Do the file updates above.
 5. Answer in this order, nothing else:

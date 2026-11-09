@@ -87,6 +87,12 @@ CREATE TABLE IF NOT EXISTS song_fields (
     ts TEXT NOT NULL,
     PRIMARY KEY (song_id, field)
 );
+-- My rating (2.8): fire or shelved. No row: unrated. Its own table, so no schema bump (a bump rebuilds the database).
+CREATE TABLE IF NOT EXISTS song_ratings (
+    song_id TEXT PRIMARY KEY REFERENCES songs(id),
+    value TEXT NOT NULL CHECK (value IN ('fire', 'shelved')),
+    ts TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS tags (
     id TEXT PRIMARY KEY,
     song_id TEXT NOT NULL REFERENCES songs(id),
@@ -145,7 +151,7 @@ CREATE TABLE IF NOT EXISTS imported (
 """
 
 MINE_TABLES = ("songs", "versions", "song_places", "song_fields", "tags", "groups", "group_members", "verdicts", "links", "song_family",
-               "family_pick", "imported")
+               "family_pick", "imported", "song_ratings")
 
 # kind -> keys its data must have
 REQUIRED = {
@@ -158,15 +164,18 @@ REQUIRED = {
     "sorting_applied": (),
     "song_place": ("path", "song_id", "state", "why"),
     "song_merge": ("from_id", "into_id"),
+    "song_rating": ("song_id", "value"),  # fire, shelved or none (unrated); the latest line wins
     "version_key": ("version_id", "file_key"),
     "song_field": ("song_id", "field", "value", "origin"),
     "song_field_restore": ("song_id", "field", "value"),
     "family": ("songs", "before"),
     "imported": ("song_id",),  # with hash, code, name, size, src_*; or dropped: true when the song is no longer Mine
 }
+RATINGS = ("fire", "shelved", "none")
 CHOICES = {
     "song_place": ("state", ("sure", "likely")),
     "song_field": ("origin", ("guess", "manual")),
+    "song_rating": ("value", RATINGS),
     "verdict": ("verdict", ("keep", "not_mine", "skip")),
     "group": ("state", ("confirmed", "rejected")),
     "link": ("state", ("proposed", "confirmed", "rejected")),
@@ -349,7 +358,7 @@ class Store:
             if data[field] not in allowed:
                 raise ValueError(f"{kind} {field} must be one of {allowed}")
         c = self.conn
-        if kind == "tag_add":
+        if kind in ("tag_add", "song_rating"):
             if not c.execute("SELECT 1 FROM songs WHERE id=?", (data["song_id"],)).fetchone():
                 raise ValueError("Tag is for a song that doesn't exist.")
             vid = data.get("version_id")
@@ -395,6 +404,9 @@ class Store:
                      AND NOT EXISTS (SELECT 1 FROM song_fields m WHERE m.song_id=? AND m.field=f.field AND m.origin='manual')""",
                   (into, old, into))
         c.execute("DELETE FROM song_fields WHERE song_id=?", (old,))
+        # rating: the song that stays keeps its own; unrated, it takes the joining song's
+        c.execute("INSERT OR IGNORE INTO song_ratings SELECT ?, value, ts FROM song_ratings WHERE song_id=?", (into, old))
+        c.execute("DELETE FROM song_ratings WHERE song_id=?", (old,))
         c.execute("UPDATE song_family SET main_id=? WHERE main_id=?", (into, old))
         c.execute("UPDATE OR IGNORE song_family SET song_id=? WHERE song_id=?", (into, old))
         c.execute("DELETE FROM song_family WHERE song_id=?", (old,))
@@ -435,6 +447,11 @@ class Store:
             else:
                 c.execute("INSERT OR REPLACE INTO song_fields VALUES (?,?,?,?,?,?)",
                           (d["song_id"], d["field"], d["value"], d["origin"], d.get("basis"), ts))
+        elif kind == "song_rating":
+            if d["value"] == "none":
+                c.execute("DELETE FROM song_ratings WHERE song_id=?", (d["song_id"],))
+            else:
+                c.execute("INSERT OR REPLACE INTO song_ratings VALUES (?,?,?)", (d["song_id"], d["value"], ts))
         elif kind == "tag_add":
             c.execute("INSERT OR REPLACE INTO tags VALUES (?,?,?,?,?,?)",
                       (d["tag_id"], d["song_id"], d.get("version_id"), d["text"], d.get("at_sec"), d.get("made_at") or ts))

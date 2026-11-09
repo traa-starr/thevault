@@ -9,6 +9,7 @@ import * as tagStore from '../../app/tagStore';
 import * as Tagging from '../../app/Tagging';
 import { player } from './fakes/playerStore';
 import { session } from '../../app/sessionStore';
+import { ratingStore } from '../../app/ratingStore';
 
 const FIX = (globalThis as any).FIX;
 
@@ -32,7 +33,12 @@ function Screen() {
   );
 }
 
-(globalThis as any).app = { ...tagStore, ...Tagging, player, session };
+(globalThis as any).app = { ...tagStore, ...Tagging, player, session, ratingStore };
+// taps the first thing on screen with exactly this text (a chip, a word button)
+(globalThis as any).app.tapText = (text: string) => {
+  const el = [...document.querySelectorAll('[tabindex] *, [tabindex]')].find((one) => one.textContent === text && !one.children.length) as HTMLElement | undefined;
+  el?.click();
+};
 // type into the first text field, as a thumb would (react-native-web draws it as an <input>)
 (globalThis as any).app.type = (text: string) => {
   const input = document.querySelector('input') as HTMLInputElement;

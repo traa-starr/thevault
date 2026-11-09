@@ -12,15 +12,13 @@ PY = sys.executable
 NODE = ["node", "--experimental-strip-types", "--no-warnings"]
 
 checks = [(f"server {t.stem}", [PY, str(t)], ROOT) for t in sorted((ROOT / "server").glob("test_*.py"))]
+# every app test file runs: a new *.test.mjs is picked up by itself, so a test can't be written and then never run
+checks += [(f"{t.name[:-len('.test.mjs')]} test", NODE + [f"app/{t.name}"], ROOT) for t in sorted((ROOT / "app").glob("*.test.mjs"))]
 checks += [
-    ("playOrder test", NODE + ["app/playOrder.test.mjs"], ROOT),
-    ("compareEngine test", NODE + ["app/compareEngine.test.mjs"], ROOT),
-    ("playlistCore test", NODE + ["app/playlistCore.test.mjs"], ROOT),
-    ("nextTiming test", NODE + ["app/nextTiming.test.mjs"], ROOT),
-    ("search test", NODE + ["app/search.test.mjs"], ROOT),
     ("typecheck (tsc)", ["npx", "--no-install", "tsc", "--noEmit"], ROOT / "app"),
     ("music guard test", [PY, ".claude/hooks/test_guard_music.py"], ROOT),
     ("check_repo", [PY, ".claude/scripts/check_repo.py"], ROOT),
+    ("lessons still checked", [PY, ".claude/scripts/lessons.py"], ROOT),
 ]
 
 def run(check):

@@ -2,10 +2,10 @@
 import { File, Paths } from 'expo-file-system';
 import { useSyncExternalStore } from 'react';
 import type { FamilyEdit } from './family';
-import type { Change, MineChange, TagChange, TagLine } from './playOrder';
+import { retryAfterMs } from './energy';
+import type { Change, MineChange, Rating, RatingChange, TagChange, TagLine } from './playOrder';
 
 const TIMEOUT_MS = 10000;
-const RETRY_MS = 10000;
 const PER_CHANGE_MS = 50; // a 300-song sweep takes the laptop several seconds
 
 type OutboxState = { pending: Change[]; refused: number };
@@ -26,6 +26,8 @@ let url = '';
 let sending: Promise<void> | null = null;
 let inFlight: Change[] = [];
 let retry: ReturnType<typeof setTimeout> | undefined;
+let fails = 0; // tries in a row the laptop didn't answer: each waits longer (10 s, doubling, 5 min at most)
+let paused = false; // in the background: no retries by a timer, the next open sends
 const listeners = new Set<() => void>();
 const sentListeners = new Set<(accepted: Change[]) => void>();
 
@@ -79,9 +81,10 @@ export function flush(): Promise<void> {
   clearTimeout(retry);
   sending = send().then((answered) => {
     sending = null;
+    fails = answered ? 0 : fails + 1;
     if (!state.pending.length) return;
     if (answered) return flush(); // tapped while that was on its way
-    retry = setTimeout(flush, RETRY_MS);
+    if (!paused) retry = setTimeout(flush, retryAfterMs(fails));
   });
   return sending;
 }
@@ -89,6 +92,17 @@ export function flush(): Promise<void> {
 export function startOutbox(serverUrl: string) {
   url = serverUrl;
   flush();
+}
+
+/** The app went to the back (true): the retry timer stops, so a laptop that's off isn't asked all through a locked
+ * listen. What's waiting is safe on the phone. Back in front (false): sent at once. */
+export function pauseOutbox(on: boolean) {
+  paused = on;
+  clearTimeout(retry);
+  if (!on) {
+    fails = 0;
+    flush();
+  }
 }
 
 export type NewChange =
@@ -150,6 +164,16 @@ export function takeBack(changes: Change[]): boolean {
 /** A tag's whole line, or its delete. Saved on the phone at once and sent like any change. */
 export function addTagChange(change: { kind: 'tag_add'; data: TagLine } | { kind: 'tag_remove'; data: { tag_id: string; song_id: string } }): TagChange {
   const made = { id: newId(), ...change } as TagChange;
+  const pending = [...state.pending, made];
+  save(pending);
+  update({ ...state, pending });
+  flush();
+  return made;
+}
+
+/** A rating tap (2.8): saved on the phone at once and sent like any change. */
+export function addRatingChange(songId: string, value: Rating | 'none'): RatingChange {
+  const made: RatingChange = { id: newId(), kind: 'rating_set', data: { song_id: songId, value } };
   const pending = [...state.pending, made];
   save(pending);
   update({ ...state, pending });

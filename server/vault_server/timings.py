@@ -18,6 +18,16 @@ PATHS = ("session", "sort", "library", "previous", "lockscreen", "search", "rest
 STAGES = ("load", "seek", "start")  # where a start's time went, in ms (the rest is the app's own thread)
 SOURCES = ("phone", "stream")
 EXT = re.compile(r"[a-z0-9]{0,5}")
+PHONE_COUNT_NAME = "phone-copies-count.json"  # what the phone last said it holds; rewritten whole, nothing to restore
+WHERE = ("open", "locked")
+COUNTS = ("reports", "redraws", "net", "writes", "phone", "stream")
+# Per minute of playing (energy, 2026-11-09). reports: iOS tells the app the time twice a second while a song plays,
+# 120 a minute; the app can't lower that without a rebuild, so the ceiling only catches something adding to it.
+# redraws: locked, only a song change, a pause or trouble may draw (a 3-minute song is under 1 a minute; 6 leaves room
+# for skipping); open, the seek bar moves on each report. net and writes: nothing should poll while a song plays.
+CEILINGS = {"locked": {"reports": 130, "redraws": 6, "net": 2, "writes": 6},
+            "open": {"reports": 130, "redraws": 135, "net": 6, "writes": 8}}
+MIN_ENERGY_MIN = 5  # fewer minutes of playing and it isn't judged yet
 MIN_SAMPLES = 5  # fewer and a path isn't judged yet
 LIMIT_MS = 1000
 TIMES_SORT = 2
@@ -34,6 +44,11 @@ def _clean(sample):
     ms = sample.get("ms")
     if not _ms(ms):
         return None
+    if sample.get("kind") == "energy" and sample.get("where") in WHERE and ms >= 1000:
+        counts = {k: sample.get(k) for k in COUNTS}
+        if any(isinstance(v, bool) or not isinstance(v, int) or not 0 <= v < 1000000 for v in counts.values()):
+            return None
+        return {"kind": "energy", "ms": round(float(ms)), "where": sample["where"], **counts}
     if sample.get("kind") == "search":
         tags = sample.get("tags")
         if isinstance(tags, bool) or not isinstance(tags, int) or tags < 0:
@@ -59,6 +74,7 @@ def write_timings(root, body):
     version = body.get("version")
     version = version[:40] if isinstance(version, str) else ""
     kept = [one for one in (_clean(s) for s in body["samples"][:MAX_SAMPLES]) if one]
+    _write_phone_count(root, body.get("copies"))
     if not kept:
         return 0
     at = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -68,6 +84,26 @@ def write_timings(root, body):
             f.write(json.dumps({"at": at, "version": version, **one}) + "\n")
     _trim(path)
     return len(kept)
+
+
+def _write_phone_count(root, copies):
+    """The phone's own count of Mine songs it holds, sent along with its timings: two plain numbers or nothing."""
+    if not isinstance(copies, dict):
+        return
+    stored, wanted = copies.get("stored"), copies.get("wanted")
+    if any(isinstance(v, bool) or not isinstance(v, int) or not 0 <= v < 1000000 for v in (stored, wanted)):
+        return
+    at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    (Path(root) / PHONE_COUNT_NAME).write_text(json.dumps({"stored": stored, "wanted": wanted, "at": at}), encoding="utf-8")
+
+
+def read_phone_count(root):
+    """{stored, wanted, at} as the phone last said, or None."""
+    try:
+        data = json.loads((Path(root) / PHONE_COUNT_NAME).read_text(encoding="utf-8"))
+        return {"stored": int(data["stored"]), "wanted": int(data["wanted"]), "at": str(data["at"])}
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
 
 
 def _trim(path):
@@ -144,6 +180,30 @@ def _sources(samples):
     return "    by source: " + ", ".join(f"{k} {statistics.median(v):.0f} ms ({len(v)})" for k, v in sorted(groups.items()))
 
 
+def energy_lines(samples):
+    """What kept the phone awake per minute of playing, screen open and locked apart, judged against CEILINGS."""
+    energy = [s for s in samples if s["kind"] == "energy"]
+    if not energy:
+        return ["Energy while playing: none yet (the phone sends it after a minute or more of playing)"]
+    newest = energy[-1]["version"]
+    now = [s for s in energy if s["version"] == newest]
+    phone, stream = sum(s["phone"] for s in now), sum(s["stream"] for s in now)
+    lines = [f"Energy while playing, app code {newest or 'unnamed'}, per minute. Plays: {phone} from the phone's copy, {stream} streamed"]
+    for where in WHERE:
+        mine = [s for s in now if s["where"] == where]
+        minutes = sum(s["ms"] for s in mine) / 60000
+        if not mine:
+            lines.append(f"  {where}: none yet")
+            continue
+        per = {k: sum(s[k] for s in mine) / minutes for k in CEILINGS[where]}
+        over = [f"{k} over {CEILINGS[where][k]}" for k in per if per[k] > CEILINGS[where][k]]
+        verdict = (f"not enough yet ({minutes:.0f} of {MIN_ENERGY_MIN} min)" if minutes < MIN_ENERGY_MIN
+                   else f"FAIL ({', '.join(over)})" if over else "PASS")
+        lines.append(f"  {where} ({minutes:.0f} min): wake-ups {per['reports']:.0f}, redraws {per['redraws']:.1f}, "
+                     f"network calls {per['net']:.1f}, file writes {per['writes']:.1f}. {verdict}")
+    return lines
+
+
 def timings_report(root):
     """Lines for the `timings` command (and REPORT's timings block)."""
     samples = _read(root)
@@ -155,6 +215,10 @@ def timings_report(root):
         lines.append(f"Search: {_spread([s['ms'] for s in searches])}, about {searches[-1]['tags']:,} tags")
     else:
         lines.append("Search: none yet")
+    lines.extend(energy_lines(samples))
+    count = read_phone_count(root)
+    if count:
+        lines.append(f"Mine songs on the phone: {count['stored']:,} of {count['wanted']:,} (the phone said so at {count['at']})")
     nexts = [s for s in samples if s["kind"] == "next"]
     if not nexts:
         return lines

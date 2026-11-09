@@ -160,7 +160,10 @@ ok('the index is built once per tag list, again when the list changes', () => {
     if (times.length <= 30) {
       const want = new Set(queryStems(q));
       const sharing = new Set(lib.filter((t) => stems(t.text).some((w) => want.has(w))).map((t) => t.song_id));
-      assert.equal(total, sharing.size, q);
+      // a finished search (a space after the last word) is the old ladder exactly; while the last word is still being
+      // typed it may also reach tag words that start with it: the same songs or more, never fewer (2026-11-09 E)
+      assert.equal(searchSongs(big, q + ' ').total, sharing.size, q);
+      assert.ok(total >= sharing.size, q);
     }
   }
   globalThis.fetch = realFetch;

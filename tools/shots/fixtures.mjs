@@ -20,6 +20,7 @@ const SEARCH_TAGS = tagFile([
 ]);
 const MANY = Array.from({ length: 120 }, (_, i) => ({ id: `m${i}`, title: `${titles[i % titles.length]} ${Math.floor(i / titles.length) + 1}`, mine: 'mine', sorted: true, where: 'laptop', date: '2025-01-01', folder: 'x', size: 4e6 }));
 const MANY_TAGS = tagFile(MANY.map((one, i) => ({ ...at(10 + i, `${words[i % words.length]} hook take ${i}`, i), id: `h${i}`, song_id: one.id })));
+const rated = (ratings) => songs.map((one) => ({ ...one, rating: ratings[one.id] ?? null }));
 const player = (fix, steps) => ({ fix: { screen: 'player', ...fix }, steps });
 
 export const fixtures = [
@@ -46,6 +47,20 @@ export const fixtures = [
   // a Library song played after the session: no session look
   { name: 'session-not-restored', ...player({ player: playing({ order: { shuffle: false, list: ['s2', 's5'] } }), songs, files: { ...tagFile(tags(2)), 'session.json': JSON.stringify({ v: 1, pool: MINE, out: [], lap: LAP }) } }, ['app.session.restore()']) },
   { name: 'session-long-words', ...player({ player: playing({ song: { ...song, title: 'A very long working title for a song that goes on (final final v7) 🔥' } }), songs, files: tagFile([at(12, LONG, 0)]) }, ["app.session.start('http://laptop')", "app.tagLine.toggleList('s1')", "app.tagLine.hold('t0')"]) },
+  // rating (2.8): Fire in the slot left of Previous, Shelve between Back and Tag. Same boxes rated or not, from every
+  // place the player opens, and with the eye hidden
+  { name: 'rate-none-library', ...player({ player: playing(), songs, files: tagFile(tags(2)) }) },
+  { name: 'rate-fire-library', same: 'rate-none-library', ...player({ player: playing(), songs: rated({ s1: 'fire' }), files: tagFile(tags(2)) }) },
+  { name: 'rate-shelved-library', same: 'rate-none-library', ...player({ player: playing(), songs: rated({ s1: 'shelved' }), files: tagFile(tags(2)) }) },
+  { name: 'rate-shelved-tap-undo', ...player({ player: playing(), songs, files: tagFile(tags(2)) }, ["app.ratingStore.tap('s1','Midnight Run (rough 3)','shelved')"]) },
+  { name: 'rate-fire-eye-hidden', ...player({ player: playing({ buttonsHidden: true }), songs: rated({ s1: 'fire' }), files: tagFile(tags(2)) }) },
+  { name: 'rate-none-session', ...player({ player: playing(), songs, files: tagFile(tags(2)) }, ["app.session.start('http://laptop')"]) },
+  { name: 'rate-fire-session', same: 'rate-none-session', ...player({ player: playing(), songs: rated({ s1: 'fire' }), files: tagFile(tags(2)) }, ["app.session.start('http://laptop')"]) },
+  { name: 'rate-sort-card-has-none', ...player({ player: playing({ sorting: true, song: { ...song, mine: 'unknown', sorted: false } }), files: tagFile([]) }) },
+  { name: 'library-rated', fix: { screen: 'library', songs: rated({ s1: 'fire', s3: 'shelved', s4: 'fire', s7: 'shelved' }), onPhone: ['s1', 's3'] } },
+  { name: 'library-fire-filter', fix: { screen: 'library', songs: rated({ s1: 'fire', s3: 'shelved', s4: 'fire' }) }, steps: ["app.tapText('Fire')"] },
+  { name: 'search-typing-half-word', fix: { screen: 'library', songs: rated({ s8: 'shelved' }), files: SEARCH_TAGS }, steps: ["app.type('dri')"] },
+  { name: 'search-shelved-only-hit', fix: { screen: 'library', songs: rated({ s8: 'shelved' }), files: SEARCH_TAGS }, steps: ["app.type('too much')"] },
   { name: 'library', fix: { screen: 'library', songs } },
   { name: 'library-shuffle-unsorted', fix: { screen: 'library', songs, player: playing({ order: { shuffle: true }, pool: 'unsorted' }) } },
   // Previous / Play / Next centred from every place the player opens (2026-11-08 review)

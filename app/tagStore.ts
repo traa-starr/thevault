@@ -4,7 +4,7 @@
 import { File, Paths } from 'expo-file-system';
 import { useMemo, useSyncExternalStore } from 'react';
 import { addTagChange, newId, onOutbox, onSent, pendingNow, takeBack, useOutbox } from './outbox';
-import { draftLine, listAfterTap, tagEdit, tagRemoval, tagTapped, tagUndoLine, tagsWithPending, type Change, type ShownTag, type Tag, type TagChange } from './playOrder';
+import { draftLine, listAfterTap, tagEdit, tagIndex, tagRemoval, tagTapped, tagUndoLine, tagsWithPending, type Change, type ShownTag, type Tag, type TagChange } from './playOrder';
 
 const TIMEOUT_MS = 10000;
 export const MAX_TEXT = 500;
@@ -281,9 +281,17 @@ export function useAllTags(): ShownTag[] {
   return useMemo(() => tagsWithPending(laptopCopy, pending as Change[]), [laptopCopy, pending]);
 }
 
-/** One song's tags in time order, with what's waiting on top. */
+// every song's tags, worked out once per change to the tags: a song change only looks its list up
+let indexed: { copy: Tag[]; pending: readonly Change[]; bySong: Map<string, ShownTag[]> } | null = null;
+const NO_TAGS: ShownTag[] = [];
+function indexNow(laptopCopy: Tag[], pending: Change[]) {
+  if (!indexed || indexed.copy !== laptopCopy || indexed.pending !== pending) indexed = { copy: laptopCopy, pending, bySong: tagIndex(laptopCopy, pending) };
+  return indexed.bySong;
+}
+
+/** One song's tags in time order, with what's waiting on top. Ready for every song, the next one included. */
 export function useTags(songId: string | null | undefined): ShownTag[] {
   const laptopCopy = useSyncExternalStore(subscribe, () => copy);
   const { pending } = useOutbox();
-  return useMemo(() => (songId ? tagsWithPending(laptopCopy, pending as Change[], songId) : []), [laptopCopy, pending, songId]);
+  return (songId && indexNow(laptopCopy, pending as Change[]).get(songId)) || NO_TAGS;
 }

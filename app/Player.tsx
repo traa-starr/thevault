@@ -12,12 +12,14 @@ const tick = () => {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 };
 import { CompareDial, WHEEL_WIDTH } from './Compare';
+import { Tap } from './Tap';
 import { compare, useCompare } from './compareStore';
 import { openLibrarySelect, HomeButton } from './nav';
-import { player, usePlayer, type Pool } from './playerStore';
+import { player, usePlayer, usePlayerPick, type Pool } from './playerStore';
 import { draftGoesOnChange, seekRelease, shuffleAfterTap, shuffleWords, type ShownTag } from './playOrder';
+import { ratingStore, useRating } from './ratingStore';
 import { session, useSession, useSessionCount } from './sessionStore';
-import { jumpToTag, ReservedLine, TagButton, TagList, TagsButton, tint, usePassedTag } from './Tagging';
+import { jumpToTag, ReservedLine, TagButton, TagList, TagsButton, usePassedTag } from './Tagging';
 import { sayAside, tagLine, useTagLine, useTags } from './tagStore';
 import { VersionsChip, VersionsToast } from './Versions';
 import * as versions from './versionStore';
@@ -171,7 +173,7 @@ function ShuffleIcon({ color }: { color: string }) {
 
 /** The 5-second Undo. Sits above the bar and survives changing screens, because it belongs to the player. */
 export function UndoToast({ aboveButtons = false }: { aboveButtons?: boolean }) {
-  const { undo, message } = usePlayer();
+  const { undo, message } = usePlayerPick('undo', 'message');
   const style = [s.toast, aboveButtons && s.toastAboveButtons];
   if (message) {
     return (
@@ -191,7 +193,7 @@ export function UndoToast({ aboveButtons = false }: { aboveButtons?: boolean }) 
 
 /** Near the bottom of every screen once something has played. */
 export function NowPlayingBar() {
-  const { song, wanted, sorting, trouble, note, comparing } = usePlayer();
+  const { song, wanted, sorting, trouble, note, comparing } = usePlayerPick('song', 'wanted', 'sorting', 'trouble', 'note', 'comparing');
   const swipe = useSwipeUp(() => player.open('queue'));
   if (!song) return null;
   return (
@@ -202,12 +204,12 @@ export function NowPlayingBar() {
           <Text style={s.barTitle} numberOfLines={1}>{song.title}</Text>
           <Text style={s.barDetail} numberOfLines={2}>{comparing ? 'Comparing versions' : trouble || note || (sorting ? 'Sorting' : wanted ? 'Playing' : 'Paused')}</Text>
         </View>
-        <Pressable style={s.barButton} onPress={player.toggle} hitSlop={8}>
+        <Tap style={s.barButton} onPress={player.toggle} hitSlop={8}>
           <Text style={s.barButtonText}>{wanted ? 'Pause' : 'Play'}</Text>
-        </Pressable>
-        <Pressable style={s.barButton} onPress={player.next} hitSlop={8}>
+        </Tap>
+        <Tap style={s.barButton} onPress={player.next} hitSlop={8}>
           <Text style={s.barButtonText}>Next</Text>
-        </Pressable>
+        </Tap>
       </Pressable>
     </View>
   );
@@ -278,6 +280,9 @@ export function FullPlayer() {
   const shown = duration ? Math.min(dragAt ?? seekingTo ?? time, duration) : time;
   const tags = useTags(shownId);
   const isMine = player.isMine();
+  const rating = useRating(song?.id);
+  // rating is for a song I'm keeping: not on a Sort card (not judged yet), not in Compare (which version?)
+  const canRate = !!song && !sorting && !comparing;
   const shuffleOn = !!order?.shuffle;
   const { on: inSession } = useSession();
   // playback passing a tick says its words: only while playing on its own, never while dragged, seeking or typing
@@ -317,28 +322,41 @@ export function FullPlayer() {
           <View style={s.controls}>
             {/* a slot as wide as Shuffle's on the other side: Previous / Play / Next sit dead centre wherever the player opens
                 (Library, a Sort card, a session, after a restore), and never move between them (2026-11-08 review) */}
-            <View style={s.shuffle} />
-            <Pressable style={(p) => [s.button, s.side, tint(p)]} onPress={leavingCompare(player.previous)}>
+            {/* Fire (2.8) lives in it: one tap on, one tap off, never moved by the eye or a session */}
+            {canRate ? (
+              <Tap
+                filled={rating === 'fire'}
+                style={[s.button, s.shuffle, s.fire, rating === 'fire' && s.fireOn]}
+                onPress={() => ratingStore.tap(song.id, song.title, 'fire')}
+                accessibilityLabel={rating === 'fire' ? 'Fire, on' : 'Fire, off'}
+              >
+                <Text style={[s.fireText, rating === 'fire' && s.playText]}>Fire</Text>
+              </Tap>
+            ) : (
+              <View style={s.shuffle} />
+            )}
+            <Tap style={[s.button, s.side]} onPress={leavingCompare(player.previous)}>
               <Text style={s.buttonText}>Previous</Text>
-            </Pressable>
-            <Pressable style={(p) => [s.button, s.play, p.pressed && s.nextPressed]} onPress={comparing ? compare.toggle : player.toggle}>
+            </Tap>
+            <Tap filled style={[s.button, s.play]} onPress={comparing ? compare.toggle : player.toggle}>
               <Text style={[s.buttonText, s.playText]}>{wanted ? 'Pause' : 'Play'}</Text>
-            </Pressable>
-            <Pressable style={(p) => [s.button, s.side, tint(p)]} onPress={leavingCompare(player.next)}>
+            </Tap>
+            <Tap style={[s.button, s.side]} onPress={leavingCompare(player.next)}>
               <Text style={s.buttonText}>Next</Text>
-            </Pressable>
+            </Tap>
             {/* each tap: Off > Mine > Unsorted > Off, no box. On: filled, like Mine. Hidden while sorting and in a session, its
                 width kept so the row never shifts */}
             {inSession || sorting ? (
               <View style={s.shuffle} />
             ) : (
-              <Pressable
-                style={(p) => [s.button, s.shuffle, shuffleOn && s.shuffleOn, p.pressed && (shuffleOn ? s.nextPressed : s.verdictPressed)]}
+              <Tap
+                filled={shuffleOn}
+                style={[s.button, s.shuffle, shuffleOn && s.shuffleOn]}
                 onPress={leavingCompare(tapShuffle)}
                 accessibilityLabel={shuffleOn ? `Shuffle on, ${pool === 'mine' ? 'Mine' : 'unsorted'}` : 'Shuffle off'}
               >
                 <ShuffleIcon color={shuffleOn ? '#111' : '#8e8e93'} />
-              </Pressable>
+              </Tap>
             )}
           </View>
         </View>
@@ -377,9 +395,21 @@ export function FullPlayer() {
         )}
         <View style={s.backRow}>
           {/* while comparing, Back is Done: same spot, same size */}
-          <Pressable style={tint} onPress={comparing ? compare.done : () => player.open('none')}>
+          <Tap onPress={comparing ? compare.done : () => player.open('none')}>
             <Text style={s.link}>{comparing ? 'Done' : 'Back'}</Text>
-          </Pressable>
+          </Tap>
+          {/* Shelve (2.8): a quiet word between Back and Tag, the same spot in a session; its slot always there */}
+          <View style={s.shelveSlot}>
+            {canRate ? (
+              <Tap
+                style={s.shelveTap}
+                onPress={() => ratingStore.tap(song.id, song.title, 'shelved')}
+                accessibilityLabel={rating === 'shelved' ? 'Shelved, on' : 'Shelve'}
+              >
+                <Text style={[s.shelveText, rating === 'shelved' && s.shelveOn]}>{rating === 'shelved' ? 'Shelved ✓' : 'Shelve'}</Text>
+              </Tap>
+            ) : null}
+          </View>
           {/* the most-used button: full-size, the thumb's side. Its slot stays in Compare so Done never moves */}
           {comparing || !song ? <View style={s.tagSlot} /> : <TagButton songId={song.id} title={song.title} />}
         </View>
@@ -395,13 +425,13 @@ export function FullPlayer() {
         {/* the session's Not mine / Next take the Mine / Not mine spot exactly, with no eye */}
         {inSession ? <SessionDock onNext={leavingCompare(player.next)} /> : sorting ? null : (
           <Animated.View style={{ transform: [{ translateY: hidden.interpolate({ inputRange: [0, 1], outputRange: [0, EYE_DROP] }) }] }}>
-            <Pressable
+            <Tap
               style={s.hideTap}
               onPress={player.toggleButtonsHidden}
               accessibilityLabel={buttonsHidden ? 'Show buttons' : 'Hide buttons'}
             >
               <EyeIcon crossed={buttonsHidden} />
-            </Pressable>
+            </Tap>
           </Animated.View>
         )}
         {inSession ? null : (
@@ -412,12 +442,12 @@ export function FullPlayer() {
           {/* only the eye shows or hides these; in Compare they stay as the eye says, dimmed, and take no taps */}
           {player.isOut() || sorting ? null : (
             <View style={[s.verdictPair, comparing && s.verdictsResting]}>
-              <Pressable style={[s.verdict, isMine && s.mineOn]} onPress={player.tapMine}>
+              <Tap filled={isMine} style={[s.verdict, isMine && s.mineOn]} onPress={player.tapMine}>
                 <Text style={[s.verdictText, isMine && s.playText]}>Mine</Text>
-              </Pressable>
-              <Pressable style={s.verdict} onPress={player.tapNotMine}>
+              </Tap>
+              <Tap style={s.verdict} onPress={player.tapNotMine}>
                 <Text style={s.verdictText}>Not mine</Text>
-              </Pressable>
+              </Tap>
             </View>
           )}
         </Animated.View>
@@ -434,9 +464,9 @@ function SessionTop() {
   const { tagged, of } = useSessionCount();
   return (
     <View style={s.sessionTop}>
-      <Pressable style={(p) => [s.sessionClose, tint(p)]} onPress={session.close}>
+      <Tap style={s.sessionClose} onPress={session.close}>
         <Text style={s.link}>Close</Text>
-      </Pressable>
+      </Tap>
       <Text style={s.sessionCount}>{tagged.toLocaleString('en-US')} of {of.toLocaleString('en-US')} tagged</Text>
     </View>
   );
@@ -444,15 +474,15 @@ function SessionTop() {
 
 /** The session's dock, where Mine / Not mine sit in the player: Not mine (the song plays on, with Undo) and Next. */
 function SessionDock({ onNext }: { onNext: () => void }) {
-  const out = usePlayer().song ? player.isOut() : false;
+  const out = usePlayerPick('song', 'order').song ? player.isOut() : false;
   return (
     <View style={s.verdicts}>
-      <Pressable style={(p) => [s.verdict, out && s.verdictDone, p.pressed && s.verdictPressed]} onPress={session.notMine} disabled={out}>
+      <Tap style={[s.verdict, out && s.verdictDone]} onPress={session.notMine} disabled={out}>
         <Text style={[s.verdictText, out && s.verdictDoneText]}>Not mine</Text>
-      </Pressable>
-      <Pressable style={(p) => [s.verdict, s.sessionNext, p.pressed && s.nextPressed]} onPress={onNext}>
+      </Tap>
+      <Tap filled style={[s.verdict, s.sessionNext]} onPress={onNext}>
         <Text style={[s.verdictText, s.playText]}>Next</Text>
-      </Pressable>
+      </Tap>
     </View>
   );
 }
@@ -481,7 +511,7 @@ function QueueRow({ id, sorting }: { id: string; sorting: boolean }) {
 }
 
 function Queue() {
-  const { song, order, marks, sorting } = usePlayer();
+  const { song, order, marks, sorting } = usePlayerPick('song', 'order', 'marks', 'sorting');
   const live = useMemo(() => player.upNext(), [order, marks]);
   // Rows stay frozen while one is lifted, so a song ending mid-drag can't move them under the finger.
   const [frozen, setFrozen] = useState<string[] | null>(null);
@@ -549,7 +579,7 @@ function Queue() {
  * top pulls this one, so nothing inside it can move it.
  */
 export function PlayerSheet() {
-  const { sheet, song, queueFrom, comparing } = usePlayer();
+  const { sheet, song, queueFrom, comparing } = usePlayerPick('sheet', 'song', 'queueFrom', 'comparing');
   // Compare from a Library group may have no queue song: the sheet still opens, on the group
   const visible = sheet !== 'none' && (!!song || comparing);
   const wasVisible = useRef(visible);
@@ -627,8 +657,6 @@ const s = StyleSheet.create({
   sessionClose: { minWidth: 64, height: 44, justifyContent: 'center' },
   sessionCount: { color: '#8e8e93', fontSize: 15, paddingRight: 8, fontVariant: ['tabular-nums'] },
   sessionNext: { backgroundColor: '#fff', borderColor: '#fff' },
-  verdictPressed: { backgroundColor: '#3a3a3c' },
-  nextPressed: { backgroundColor: '#c7c7cc', borderColor: '#c7c7cc' },
   verdictDone: { borderColor: '#3a3a3c' },
   verdictDoneText: { color: '#636366' },
   versionRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, minHeight: 46, marginTop: -8 },
@@ -666,6 +694,14 @@ const s = StyleSheet.create({
   // Previous and Next the same width, so Play sits on the centre line
   side: { width: 80, paddingHorizontal: 0, alignItems: 'center' },
   shuffleOn: { backgroundColor: '#8ab4f8', borderColor: '#8ab4f8' },
+  // Fire: the same 44 pt box as Shuffle on the other side, so Previous / Play / Next stay dead centre
+  fire: { paddingHorizontal: 0, justifyContent: 'center' },
+  fireOn: { backgroundColor: '#f5b041', borderColor: '#f5b041' },
+  fireText: { color: '#8e8e93', fontSize: 14, fontWeight: '600' },
+  shelveSlot: { width: 104, height: 46, alignItems: 'center', justifyContent: 'center' },
+  shelveTap: { minWidth: 88, height: 44, alignItems: 'center', justifyContent: 'center' },
+  shelveText: { color: '#8e8e93', fontSize: 15 },
+  shelveOn: { color: '#f5b041', fontWeight: '700' },
   shuffleIcon: { width: 20, height: 22, justifyContent: 'center', gap: 5 },
   arrowRow: { flexDirection: 'row', alignItems: 'center' },
   arrowBar: { flex: 1, height: 2 },

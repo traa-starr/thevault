@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Keyboard, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { compare } from './compareStore';
 import { useOutbox } from './outbox';
-import { player, usePlayer, type PlayerSong } from './playerStore';
+import { player, usePlayerPick, type PlayerSong } from './playerStore';
 import { withPending } from './playOrder';
 import * as versions from './versionStore';
 import { useVersions, type LibSong } from './versionStore';
@@ -163,7 +163,7 @@ function Picker({ url }: { url: string }) {
 
 function VersionsView({ url }: { url: string }) {
   const { versionsOf, songs } = useVersions();
-  const { song: playing } = usePlayer();
+  const { song: playing } = usePlayerPick('song');
   if (!versionsOf) return null;
   const list = versions.members(versionsOf);
   const close = () => versions.openVersions(null);
@@ -276,7 +276,7 @@ export function VersionsToast() {
 /** Mounted once, above every screen and the player sheet. */
 export function VersionsLayer({ url }: { url: string }) {
   // iOS shows one sheet at a time: these never open while the player sheet is up, or the screen stops taking touches
-  const { sheet } = usePlayer();
+  const { sheet } = usePlayerPick('sheet');
   return (
     <>
       {sheet === 'none' ? <Picker url={url} /> : null}

@@ -4,6 +4,9 @@
 // The laptop decides what is Mine: nothing is removed because the laptop didn't answer, only after a real /kept answer.
 import { Directory, DownloadTask, File, Paths } from 'expo-file-system';
 import { useSyncExternalStore } from 'react';
+import { retryAfterMs } from './energy';
+import { onSent } from './outbox';
+import { timing } from './timings';
 
 const LIMIT_BYTES = 8 * 1024 ** 3; // fixed for now (BATCH-PLAN 6 stop line)
 const KEEP_FREE_BYTES = 500 * 1024 ** 2; // the phone itself running out stops it too
@@ -20,8 +23,10 @@ type Saved = { entries: Record<string, Entry>; kept: KeptSong[] };
 export type OfflineState = {
   /** Mine songs whose whole file is on the phone. */
   stored: number;
-  /** Mine songs the laptop has phone copies of, at its last answer. */
+  /** Every Mine song, at the laptop's last answer: the ones it has a phone copy of, and the ones still waiting for one. */
   wanted: number;
+  /** Mine songs the laptop hasn't made a phone copy of yet (it makes them by itself; a cloud-only original can't be). */
+  noCopy: number;
   bytes: number;
   saving: boolean;
   /** Songs left off because of the 8 GB limit, or because the phone itself is full. */
@@ -40,9 +45,16 @@ const partFile = (id: string) => new File(folder(), `${id}.part`);
 let url = '';
 let saved: Saved = load();
 let running = false;
+let again = false;
+let away = false; // the app is in the background: no timers
 let fails = 0;
+let idleRuns = 0; // runs in a row that had something missing and got nothing: each waits longer before the next
+let noCopy = 0;
+let soon: ReturnType<typeof setTimeout> | undefined;
+const SOON_MS = 20000; // the laptop makes a new Mine song's copy shortly after it hears of it
+const MOST_RETRY_MS = 600000;
 let retry: ReturnType<typeof setTimeout> | undefined;
-let state: OfflineState = { stored: 0, wanted: 0, bytes: 0, saving: false, left: 0, full: '', reachable: null };
+let state: OfflineState = { stored: 0, wanted: 0, noCopy: 0, bytes: 0, saving: false, left: 0, full: '', reachable: null };
 const listeners = new Set<() => void>();
 
 function load(): Saved {
@@ -73,8 +85,8 @@ const update = (changes: Partial<OfflineState>) => {
   listeners.forEach((listener) => listener());
 };
 
-/** True only if the whole file is there. */
-function whole(id: string) {
+/** True only if the whole file is there, asked of the disk. */
+function onDisk(id: string) {
   const entry = saved.entries[id];
   if (!entry) return false;
   try {
@@ -85,6 +97,20 @@ function whole(id: string) {
   }
 }
 
+// Each song's file, checked on disk once and remembered (null: not here). The player asks about every song on every
+// Next with the laptop off: that was two disk calls a song, some 1,400 a tap. Forgotten whenever a file changes
+// (download, remove, tidy), so it never says a file is here that isn't (NEXT 2026-11-09 A and C).
+const known = new Map<string, string | null>();
+function uriOf(id: string): string | null {
+  const have = known.get(id);
+  if (have !== undefined) return have;
+  const entry = saved.entries[id];
+  const uri = entry && onDisk(id) ? copyFile(id, entry.type).uri : null;
+  known.set(id, uri);
+  return uri;
+}
+const whole = (id: string) => uriOf(id) !== null;
+
 function counts() {
   let stored = 0;
   let bytes = 0;
@@ -93,11 +119,13 @@ function counts() {
     bytes += entry.size;
     if (mine.has(id)) stored++;
   });
-  update({ stored, bytes, wanted: saved.kept.length });
+  update({ stored, bytes, wanted: saved.kept.length + noCopy, noCopy });
+  timing.setCopies(stored, saved.kept.length + noCopy); // the laptop hears the count with the next timings (`/status`)
 }
 
 /** Leftover half files from a closed app, and files the list doesn't know. */
 function tidy() {
+  known.clear();
   try {
     const dir = folder();
     if (!dir.exists) dir.create({ intermediates: true });
@@ -108,8 +136,9 @@ function tidy() {
       if (type === 'part' || !entry || entry.type !== type) item.delete();
     });
     Object.keys(saved.entries).forEach((id) => {
-      if (!whole(id)) delete saved.entries[id];
+      if (!onDisk(id)) delete saved.entries[id];
     });
+    known.clear();
     save();
   } catch {
     // nothing to tidy
@@ -119,6 +148,7 @@ function tidy() {
 function remove(id: string) {
   const entry = saved.entries[id];
   delete saved.entries[id];
+  known.delete(id);
   try {
     if (entry) {
       const file = copyFile(id, entry.type);
@@ -174,6 +204,7 @@ async function download(song: KeptSong) {
     if (final.exists) final.delete();
     part.rename(final.name);
     saved.entries[song.id] = { size: song.size, type: song.type, stamp: song.stamp };
+    known.delete(song.id);
     save();
   } catch (e) {
     try {
@@ -188,6 +219,7 @@ async function download(song: KeptSong) {
 }
 
 async function run() {
+  if (running) again = true; // asked while a run is going (a verdict just reached the laptop): once more when it ends
   if (running || !url) return;
   running = true;
   clearTimeout(retry);
@@ -196,15 +228,18 @@ async function run() {
     try {
       answer = await askKept();
     } catch {
+      idleRuns++; // the laptop is off or away: each try waits longer
       update({ reachable: false, saving: false });
       return;
     }
     update({ reachable: true });
     saved.kept = answer.songs; // newest first, as the laptop sends it
+    noCopy = (answer.no_copy ?? []).length;
     reconcile(answer.songs, answer.no_copy ?? []);
     save();
     counts();
     let left = 0;
+    let got = 0;
     let full: OfflineState['full'] = '';
     for (const song of saved.kept) {
       const entry = saved.entries[song.id];
@@ -224,6 +259,7 @@ async function run() {
       try {
         await download(song);
         fails = 0;
+        got++;
         counts();
       } catch {
         if (++fails >= MAX_FAILS) {
@@ -234,11 +270,18 @@ async function run() {
       }
     }
     update({ left, full, saving: false });
+    idleRuns = got ? 0 : idleRuns + 1;
   } finally {
     running = false;
     update({ saving: false });
-    // something still missing: try again later, while the app is open
-    if (state.stored < state.wanted && !state.full) retry = setTimeout(run, RETRY_MS);
+    // something still missing: try again later, while the app is open. Nothing came last time (the laptop is still
+    // making the copy, or can't): wait longer each time, 30 s up to 10 min, never a steady poll
+    // Only for copies the laptop has ready: one it is still making is asked for again after a verdict (below) and on
+    // every open, never by a steady poll (a cloud-only original never gets one)
+    if (again) {
+      again = false;
+      if (!away) retry = setTimeout(run, 0);
+    } else if (state.stored < saved.kept.length && !state.full && !away) retry = setTimeout(run, retryAfterMs(idleRuns, RETRY_MS, MOST_RETRY_MS));
   }
 }
 
@@ -246,6 +289,8 @@ export const offline = {
   /** On open and each time the app comes back to the front. */
   start(serverUrl: string) {
     if (serverUrl && serverUrl !== url) url = serverUrl;
+    away = false;
+    idleRuns = 0;
     if (!running && !state.saving) {
       tidy();
       counts();
@@ -255,14 +300,13 @@ export const offline = {
 
   /** The app went to the back: iOS will pause it anyway, so stop asking. */
   pause() {
+    away = true;
     clearTimeout(retry);
+    clearTimeout(soon);
   },
 
   /** The phone's own file for this song, or null. Checks the file is whole, with no network call. */
-  uri(id: string) {
-    const entry = saved.entries[id];
-    return entry && whole(id) ? copyFile(id, entry.type).uri : null;
-  },
+  uri: (id: string) => uriOf(id),
 
   has: (id: string) => whole(id),
   reachable: () => state.reachable,
@@ -271,6 +315,17 @@ export const offline = {
     if (state.reachable !== reachable) update({ reachable });
   },
 };
+
+// A verdict I just changed reached the laptop (Mine, Not mine, an Undo, a versions link): the phone asks again shortly,
+// so a new Mine song's copy comes down by itself and one no longer Mine starts its week (NEXT 2026-11-09 F).
+onSent((accepted) => {
+  if (away || !accepted.some((change) => change.kind === 'mine_set' || change.kind === 'mine_restore' || change.kind === 'family_set')) return;
+  clearTimeout(soon);
+  soon = setTimeout(() => {
+    idleRuns = 0;
+    run();
+  }, SOON_MS);
+});
 
 // The Library's last list, kept so it opens with the laptop off.
 const songListFile = () => new File(Paths.document, 'song-list.json');
