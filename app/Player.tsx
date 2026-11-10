@@ -2,7 +2,7 @@
 // playerStore.ts, so closing any of these never touches the music.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
-import { Animated, Dimensions, Modal, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Dimensions, Easing, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import ReorderableList, { useIsActive, useReorderableDrag, type ReorderableListDragEndEvent, type ReorderableListReorderEvent } from 'react-native-reorderable-list';
@@ -19,6 +19,7 @@ import { player, usePlayer, usePlayerPick, type Pool } from './playerStore';
 import { draftGoesOnChange, seekRelease, shuffleAfterTap, shuffleWords, type ShownTag } from './playOrder';
 import { ratingStore, useRating } from './ratingStore';
 import { session, useSession, useSessionCount } from './sessionStore';
+import { layers, pullCloses, slideController, type Nav } from './sheetCore';
 import { jumpToTag, ReservedLine, TagButton, TagList, TagsButton, usePassedTag } from './Tagging';
 import { sayAside, tagLine, useTagLine, useTags } from './tagStore';
 import { VersionsChip, VersionsToast } from './Versions';
@@ -29,9 +30,8 @@ const HOLD_MS = 300; // not lower: a hold let go just short of this jumps to the
 const SLIDE_MS = 220;
 const EDGE_ZONE = 0.3; // the share of the list, top and bottom, that scrolls it during a drag; the middle 40% is safe
 const SHEET_TOP = 54; // clears the status bar and leaves the screen behind showing, like an iOS sheet
-const CLOSE_PULL = 120;
-const CLOSE_SPEED = 0.8;
-const CLOSE_MS = 180;
+const OPEN_MS = 280;
+const CLOSE_MS = 200;
 const SWIPE_UP = 40;
 const SWIPE_UP_SPEED = 0.4;
 const HIDE_MS = 250;
@@ -575,8 +575,46 @@ function Queue() {
 }
 
 /**
- * Not an iOS sheet: its own pull-down fights a held song and can't be limited to one area. Only the grab area at the
- * top pulls this one, so nothing inside it can move it.
+ * One layer that slides up from the bottom while `open` and back down when not. Where it's heading always follows
+ * `open` (sheetCore.ts), so it can be turned round at any moment: nothing waits for a slide to finish. Only its grab
+ * area pulls it; a pull let go far or fast enough calls `onClose`, anything less goes back up.
+ */
+function useSlide(open: boolean, onClose: () => void, onGone?: () => void) {
+  const height = Dimensions.get('window').height;
+  const y = useRef(new Animated.Value(height)).current;
+  const [mounted, setMounted] = useState(false);
+  const latest = useRef({ onClose, onGone });
+  latest.current = { onClose, onGone };
+  const made = useRef<ReturnType<typeof slideController> | null>(null);
+  const slide = (made.current ??= slideController({
+    animate: (to, done) =>
+      Animated.timing(y, { toValue: to * height, duration: to ? CLOSE_MS : OPEN_MS, easing: Easing.out(Easing.cubic), useNativeDriver: true })
+        .start(({ finished }) => done(finished)),
+    setMounted,
+    later: (fn) => void setTimeout(fn, 0),
+    onGone: () => latest.current.onGone?.(),
+  }));
+  useEffect(() => slide.setOpen(open), [open, slide]);
+  const grab = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => slide.grabbed(),
+      onPanResponderMove: (_, g) => y.setValue(Math.max(g.dy, 0)),
+      onPanResponderRelease: (_, g) => slide.released(pullCloses(g.dy, g.vy), () => latest.current.onClose()),
+      onPanResponderTerminate: () => slide.released(false, () => {}),
+    }),
+  ).current.panHandlers;
+  // drawn from the moment it's asked for, so the first frame of the slide already has its content
+  return { y, shown: open || mounted, grab };
+}
+
+/**
+ * The player sheet: a layer inside the app, never an iOS pop-up sheet. iOS can't turn one of those round half-way: a
+ * second request inside its half-second slide was dropped, and an empty see-through sheet could stay over the whole
+ * app, taking every touch while the music played on (the freeze, 2026-11-09). This one takes touches only while the
+ * player says it is open, and only its grab area pulls it, so nothing inside it can move it.
+ * Queue opened from the player is its own layer over the player: pulled down, it uncovers the player, like Back.
  */
 export function PlayerSheet() {
   const { sheet, song, queueFrom, comparing } = usePlayerPick('sheet', 'song', 'queueFrom', 'comparing');
@@ -589,53 +627,47 @@ export function PlayerSheet() {
     if (wasVisible.current && !visible) compare.done();
     wasVisible.current = visible;
   }, [visible]);
-  const pulled = useRef(new Animated.Value(0)).current;
-  // Queue opened from the player pulls down to the player, not all the way out.
-  const toPlayer = useRef(false);
-  toPlayer.current = sheet === 'queue' && queueFrom === 'player';
 
-  useEffect(() => {
-    if (visible) pulled.setValue(0);
-  }, [visible, pulled]);
+  // while it slides away it keeps showing what it showed
+  const lastNav = useRef<Nav>({ sheet: 'player', queueFrom: 'none' });
+  if (visible) lastNav.current = { sheet, queueFrom };
+  const { base, queueOver } = layers(lastNav.current);
 
-  const grab = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderMove: (_, g) => pulled.setValue(Math.max(g.dy, 0)),
-      onPanResponderRelease: (_, g) => {
-        if (g.dy > CLOSE_PULL || g.vy > CLOSE_SPEED) {
-          const back = toPlayer.current;
-          Animated.timing(pulled, { toValue: Dimensions.get('window').height, duration: CLOSE_MS, useNativeDriver: true }).start(() => {
-            if (!back) return player.open('none');
-            player.open('player');
-            Animated.timing(pulled, { toValue: 0, duration: CLOSE_MS, useNativeDriver: true }).start();
-          });
-        } else {
-          Animated.spring(pulled, { toValue: 0, useNativeDriver: true }).start();
-        }
-      },
-      onPanResponderTerminate: () => Animated.spring(pulled, { toValue: 0, useNativeDriver: true }).start(),
-    }),
-  ).current;
+  const whole = useSlide(visible, () => player.open('none'), () => {
+    lastNav.current = { sheet: 'player', queueFrom: 'none' }; // gone: the next opening starts with no Queue left on top
+    player.runAfterClose();
+  });
+  const over = useSlide(queueOver, player.closeQueue);
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={() => (sheet === 'queue' ? player.closeQueue() : player.open('none'))}
-      onDismiss={player.runAfterClose}
-    >
+    <View style={s.sheetLayer} pointerEvents={visible ? 'auto' : 'none'} accessibilityViewIsModal={visible}>
       <GestureHandlerRootView style={s.sheetRoot}>
-        <Animated.View style={[s.sheet, { transform: [{ translateY: pulled }] }]}>
-          <View style={s.grabArea} {...grab.panHandlers}>
-            <View style={s.grabMark} />
-          </View>
-          {sheet === 'queue' ? <Queue /> : <FullPlayer />}
+        <Animated.View style={[s.sheet, { transform: [{ translateY: whole.y }] }]}>
+          {whole.shown ? (
+            <>
+              <View style={s.grabArea} {...whole.grab}>
+                <View style={s.grabMark} />
+              </View>
+              {base === 'queue' ? <Queue /> : <FullPlayer />}
+            </>
+          ) : null}
+          <Animated.View
+            style={[s.overLayer, { transform: [{ translateY: over.y }] }]}
+            pointerEvents={queueOver && visible ? 'auto' : 'none'}
+            accessibilityViewIsModal={queueOver}
+          >
+            {over.shown ? (
+              <>
+                <View style={s.grabArea} {...over.grab}>
+                  <View style={s.grabMark} />
+                </View>
+                <Queue />
+              </>
+            ) : null}
+          </Animated.View>
         </Animated.View>
       </GestureHandlerRootView>
-    </Modal>
+    </View>
   );
 }
 
@@ -646,7 +678,11 @@ const s = StyleSheet.create({
   barDetail: { color: '#888', fontSize: 12, marginTop: 2 },
   barButton: { paddingVertical: 12, paddingHorizontal: 10 },
   barButtonText: { color: '#8ab4f8', fontSize: 15, fontWeight: '600' },
+  // over every screen and the bar; the strip above the sheet still shows the screen behind, as before
+  sheetLayer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 10 },
   sheetRoot: { flex: 1 },
+  // its own top edge, so a Queue pulled part-way down reads as a layer over the player
+  overLayer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: '#111', borderTopLeftRadius: 12, borderTopRightRadius: 12, borderTopWidth: StyleSheet.hairlineWidth, borderColor: '#3a3a3c' },
   sheet: { flex: 1, marginTop: SHEET_TOP, backgroundColor: '#111', borderTopLeftRadius: 12, borderTopRightRadius: 12, overflow: 'hidden' },
   grabArea: { height: 44, alignItems: 'center', justifyContent: 'center' },
   grabMark: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#555' },

@@ -28,6 +28,10 @@ COUNTS = ("reports", "redraws", "net", "writes", "phone", "stream")
 CEILINGS = {"locked": {"reports": 130, "redraws": 6, "net": 2, "writes": 6},
             "open": {"reports": 130, "redraws": 135, "net": 6, "writes": 8}}
 MIN_ENERGY_MIN = 5  # fewer minutes of playing and it isn't judged yet
+# The hang watch (2026-11-09): a screen stall over 2 s, with the screen and the tap as fixed words from the app's code
+# (never a title), and how long the watch ran, so "no stalls" means something.
+WORDS = re.compile(r"[A-Za-z0-9 +:'-]{0,40}")
+MIN_WATCH_MIN = 5  # fewer minutes on screen with no stall and it isn't called quiet yet
 MIN_SAMPLES = 5  # fewer and a path isn't judged yet
 LIMIT_MS = 1000
 TIMES_SORT = 2
@@ -42,6 +46,12 @@ def _clean(sample):
     if not isinstance(sample, dict):
         return None
     ms = sample.get("ms")
+    if sample.get("kind") == "watch":  # time on screen: hours, not the 10 minutes a timing may take at most
+        stalls = sample.get("stalls")
+        if (isinstance(ms, bool) or not isinstance(ms, (int, float)) or not 1000 <= ms < 7 * 86400000
+                or isinstance(stalls, bool) or not isinstance(stalls, int) or not 0 <= stalls < 100000):
+            return None
+        return {"kind": "watch", "ms": round(float(ms)), "stalls": stalls}
     if not _ms(ms):
         return None
     if sample.get("kind") == "energy" and sample.get("where") in WHERE and ms >= 1000:
@@ -49,6 +59,11 @@ def _clean(sample):
         if any(isinstance(v, bool) or not isinstance(v, int) or not 0 <= v < 1000000 for v in counts.values()):
             return None
         return {"kind": "energy", "ms": round(float(ms)), "where": sample["where"], **counts}
+    if sample.get("kind") == "stall":
+        screen, tap, gone = sample.get("screen"), sample.get("tap"), sample.get("gone")
+        if not all(isinstance(v, str) and WORDS.fullmatch(v) for v in (screen, tap)) or not isinstance(gone, bool):
+            return None
+        return {"kind": "stall", "ms": round(float(ms)), "screen": screen, "tap": tap, "gone": gone}
     if sample.get("kind") == "search":
         tags = sample.get("tags")
         if isinstance(tags, bool) or not isinstance(tags, int) or tags < 0:
@@ -204,6 +219,30 @@ def energy_lines(samples):
     return lines
 
 
+def hang_lines(samples):
+    """The hang watch: every screen stall over 2 s the newest app code reported, and how long it watched."""
+    mine = [s for s in samples if s["kind"] in ("stall", "watch")]
+    if not mine:
+        return ["Hang watch: nothing yet (the phone sends it when the app goes to the background, after a minute on screen)"]
+    newest = mine[-1]["version"]
+    now = [s for s in mine if s["version"] == newest]
+    stalls = [s for s in now if s["kind"] == "stall"]
+    minutes = sum(s["ms"] for s in now if s["kind"] == "watch") / 60000
+    verdict = (f"FAIL ({len(stalls)} {'stall' if len(stalls) == 1 else 'stalls'})" if stalls
+               else f"quiet so far, not enough yet ({minutes:.0f} of {MIN_WATCH_MIN} min)" if minutes < MIN_WATCH_MIN else "PASS (quiet)")
+    lines = [f"Hang watch (screen stuck over 2 s), app code {newest or 'unnamed'}: watched {minutes:.0f} min on screen. {verdict}"]
+    groups = {}
+    for s in stalls:
+        how = "never came back (frozen, or closed within a second of the tap)" if s["gone"] else "stuck"
+        key = (how, s["screen"] or "unknown screen", s["tap"])
+        groups.setdefault(key, []).append(s["ms"])
+    for (how, screen, tap), ms in groups.items():
+        length = "" if how != "stuck" else f" {max(ms) / 1000:.1f} s" + (" at worst" if len(ms) > 1 else "")
+        after = f' after "{tap}"' if tap else ""
+        lines.append(f"  {how}{length}: {screen}{after} ({len(ms)} {'time' if len(ms) == 1 else 'times'})")
+    return lines
+
+
 def timings_report(root):
     """Lines for the `timings` command (and REPORT's timings block)."""
     samples = _read(root)
@@ -216,6 +255,7 @@ def timings_report(root):
     else:
         lines.append("Search: none yet")
     lines.extend(energy_lines(samples))
+    lines.extend(hang_lines(samples))
     count = read_phone_count(root)
     if count:
         lines.append(f"Mine songs on the phone: {count['stored']:,} of {count['wanted']:,} (the phone said so at {count['at']})")

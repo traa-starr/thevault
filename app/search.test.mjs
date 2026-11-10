@@ -179,4 +179,34 @@ ok('the index is built once per tag list, again when the list changes', () => {
   });
 }
 
+// ---------- the search link and the Keychain (NEXT 2026-11-09 F) -----------------------------------------------------
+{
+  const { searchFromLink } = await import('./search.ts');
+  const { readFileSync } = await import('node:fs');
+  const source = (name) => readFileSync(new URL(name, import.meta.url), 'utf8');
+  ok("a Shortcut's link opens search: thevault://search, with words or without; any other link doesn't", () => {
+    assert.deepEqual(searchFromLink('thevault://search'), { q: '' });
+    assert.deepEqual(searchFromLink('THEVAULT://search/'), { q: '' });
+    assert.deepEqual(searchFromLink('thevault://search?q=cold%20hands'), { q: 'cold hands' });
+    assert.deepEqual(searchFromLink('thevault://search?q=cold+hands&x=1'), { q: 'cold hands' });
+    assert.deepEqual(searchFromLink('thevault://search?q=100%'), { q: '100%' }, 'a stray % is kept, not a crash');
+    assert.equal(searchFromLink('thevault://search?q=' + 'a'.repeat(500)).q.length, 200);
+    for (const other of [null, undefined, '', 'thevault://', 'thevault://searching', 'thevault://library', 'https://example.com/search', 'exp+the-vault://expo-development-client']) assert.equal(searchFromLink(other), null, String(other));
+  });
+  ok('the build knows the link, the app listens for it cold and warm, and the box takes the keyboard', () => {
+    assert.equal(JSON.parse(source('./app.json')).expo.scheme, 'thevault');
+    const app = source('./App.tsx');
+    assert.ok(app.includes('Linking.getInitialURL()') && app.includes("Linking.addEventListener('url'"));
+    const library = source('./Library.tsx');
+    assert.ok(library.includes('ref={searchBox}') && library.includes('searchBox.current?.focus()'));
+  });
+  ok('the laptop address goes to the Keychain too, and app code without the Keychain piece (the build before) still runs', () => {
+    const app = source('./App.tsx');
+    assert.ok(app.includes('keychain.keep(ADDRESS_KEY, address)') && app.includes('keychain.read(ADDRESS_KEY)'));
+    const code = [app, source('./keychain.ts')].join('\n').replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
+    assert.ok(!/import[^;]*expo-secure-store/.test(code), 'never imported at the top: that would crash the old build');
+    assert.ok(/try \{\s*store = require\('expo-secure-store'\)/.test(code), 'asked for inside a try');
+  });
+}
+
 console.log(`\nALL PASSED (${n})`);

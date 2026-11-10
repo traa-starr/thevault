@@ -1,9 +1,16 @@
 // Every button's pressed look (NEXT 2026-11-09 A): a short flash started at finger-down and run by the phone's
 // animation thread, so it lets go about 100 ms later even while the app is busy loading a song. Timing: pressLook.ts.
 // Buttons only: a row in a scrolling list keeps the plain tint, so scrolling past never flashes it.
+import * as Haptics from 'expo-haptics';
 import { useRef, type ReactNode } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 import { FLASH_CURVE, FLASH_TOTAL_MS } from './pressLook';
+
+/** A light tick under the finger as it lands (NEXT 2026-11-09 F): the lightest one iOS has, and iOS itself keeps it
+ * silent when System Haptics is off in Settings. Buttons only, like the flash: never a list row or a text link. */
+const tick = () => {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+};
 
 /** On a dark button: a light tint. */
 const LIGHT = 'rgba(255,255,255,0.14)';
@@ -16,10 +23,12 @@ type Props = Omit<PressableProps, 'style' | 'children'> & {
   filled?: boolean;
   /** The flash's corner radius, to match the button's. */
   radius?: number;
+  /** False: no tick under the finger (a control that isn't a button press, or one that ticks for itself). */
+  haptic?: boolean;
   children?: ReactNode;
 };
 
-export function Tap({ style, filled = false, radius = 8, children, onPressIn, ...rest }: Props) {
+export function Tap({ style, filled = false, radius = 8, haptic = true, children, onPressIn, ...rest }: Props) {
   const ran = useRef(new Animated.Value(1)).current; // 1: at rest, not lit
   return (
     <Pressable
@@ -29,6 +38,7 @@ export function Tap({ style, filled = false, radius = 8, children, onPressIn, ..
         // one animation, on the animation thread: nothing here waits for the tap's own work
         ran.setValue(0);
         Animated.timing(ran, { toValue: 1, duration: FLASH_TOTAL_MS, easing: Easing.linear, useNativeDriver: true }).start();
+        if (haptic && !rest.disabled) tick();
         onPressIn?.(e);
       }}
     >

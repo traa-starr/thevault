@@ -22,6 +22,21 @@ const MANY = Array.from({ length: 120 }, (_, i) => ({ id: `m${i}`, title: `${tit
 const MANY_TAGS = tagFile(MANY.map((one, i) => ({ ...at(10 + i, `${words[i % words.length]} hook take ${i}`, i), id: `h${i}`, song_id: one.id })));
 const rated = (ratings) => songs.map((one) => ({ ...one, rating: ratings[one.id] ?? null }));
 const player = (fix, steps) => ({ fix: { screen: 'player', ...fix }, steps });
+// the whole app: Home first; steps walk to Library or Sort and open the sheet, as taps would
+const SORTING = { total: 40, songs: songs.map((s) => ({ ...s, mine: 'unknown', sorted: false })), sets: [] };
+const whole = (fix = {}, steps = []) => ({
+  fix: {
+    screen: 'app', songs, upNext: songs.slice(1, 9).map((one) => one.id), routes: { '/status': { songs: 1395 }, '/sorting': SORTING },
+    ...fix, files: { 'laptop-address.txt': 'laptop', ...tagFile(tags(2)), ...(fix.files ?? {}) }, player: playing({ sheet: 'none', ...(fix.player ?? {}) }),
+  },
+  steps,
+});
+const LIB = "app.tapText('Open library')";
+const SORT = "app.tapText('Sort')";
+const OPEN = "app.player.open('player')";
+const QUEUE = "app.player.open('queue')";
+const PULL = [195, 76, 330]; // the grab area at the top of the sheet, pulled 254 pt down and held
+const VERSION_TITLES = { s1: 'Midnight Run (rough 3)', 's1-1': 'Midnight Run (rough 2)', 's1-2': 'Midnight Run (first take)' };
 
 export const fixtures = [
   { name: 'player-0-tags', ...player({ player: playing(), files: tagFile([]) }) },
@@ -84,5 +99,27 @@ export const fixtures = [
   { name: 'search-no-match', fix: { screen: 'library', songs, files: SEARCH_TAGS }, steps: ["app.type('zzqx')"] },
   { name: 'search-emoji', fix: { screen: 'library', songs, files: SEARCH_TAGS }, steps: ["app.type('😀😀')"] },
   { name: 'search-many-keyboard', fix: { screen: 'library', songs: MANY, files: MANY_TAGS }, steps: ["app.type('hook')", 'app.keyboard()'] },
-  { name: 'sort', fix: { screen: 'sort', routes: { '/sorting': { total: 40, songs: songs.map((s) => ({ ...s, mine: 'unknown', sorted: false })), sets: [] } } } },
+  { name: 'sort', fix: { screen: 'sort', routes: { '/sorting': SORTING } } },
+  // ---- the whole app (2026-11-09): Home, the bar (mini player), the sheet as a layer, Queue from every opener ----
+  { name: 'home', ...whole({ player: { sheet: 'none' } }) },
+  { name: 'home-mini-player', ...whole() },
+  { name: 'library-mini-player', ...whole({}, [LIB]) },
+  { name: 'sort-mini-player', ...whole({}, [SORT]) },
+  { name: 'cards', ...whole({ player: { sheet: 'none' } }, [SORT, "app.tapText('Cards · 15 left')"]) },
+  { name: 'player-over-library', ...whole({}, [LIB, OPEN]) },
+  { name: 'queue-from-mini-library', ...whole({}, [LIB, QUEUE]) },
+  { name: 'queue-from-player', ...whole({}, [LIB, OPEN, QUEUE]) },
+  { name: 'versions-chip-in-player', ...whole({ versions: { s1: 3 }, titles: VERSION_TITLES }, [LIB, OPEN]) },
+  { name: 'versions-sheet', ...whole({ versions: { s1: 3 }, titles: VERSION_TITLES, picked: ['s1'] }, [LIB, "app.versions.openVersions('s1')"]) },
+  { name: 'compare-in-player', ...whole({ versions: { s1: 3 }, titles: VERSION_TITLES, compare: { ids: ['s1', 's1-1', 's1-2'], at: 1 }, player: { comparing: true } }, [LIB, OPEN]) },
+  // B (LESSONS 2026-11-09): Queue pulled half-way down, from every opener. From the full player the player shows
+  // under it, never the screen behind; from the mini player the screen it was opened on shows
+  { name: 'queue-mid-close-player-on-library', ...whole({}, [LIB, OPEN, QUEUE]), drag: PULL },
+  { name: 'queue-mid-close-player-on-sort', ...whole({}, [SORT, OPEN, QUEUE]), drag: PULL },
+  { name: 'queue-mid-close-player-on-home', ...whole({}, [OPEN, QUEUE]), drag: PULL },
+  { name: 'queue-mid-close-player-in-session', ...whole({}, [LIB, "app.session.start('http://laptop')", OPEN, QUEUE]), drag: PULL },
+  { name: 'queue-mid-close-mini-on-library', ...whole({}, [LIB, QUEUE]), drag: PULL },
+  { name: 'queue-mid-close-mini-on-sort', ...whole({}, [SORT, QUEUE]), drag: PULL },
+  { name: 'queue-mid-close-mini-on-home', ...whole({}, [QUEUE]), drag: PULL },
+  { name: 'player-mid-close-on-library', ...whole({}, [LIB, OPEN]), drag: PULL },
 ];

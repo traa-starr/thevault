@@ -10,6 +10,35 @@ export const setHome = (go: () => void, library: () => void) => {
   goLibraryNow = library;
 };
 
+// Search asked for from outside the app (a lock-screen Shortcut's link): Library opens with the box ready to type in.
+let asked: { q: string } | null = null;
+const askListeners = new Set<() => void>();
+const setAsked = (ask: { q: string } | null) => {
+  asked = ask;
+  askListeners.forEach((listener) => listener());
+};
+/** Straight to search: Library, the player sheet out of the way, the keyboard up. */
+export const openSearch = (q: string) => {
+  player.open('none');
+  setAsked({ q });
+  goLibraryNow();
+};
+export const takeSearchAsk = () => {
+  const ask = asked;
+  if (ask) setAsked(null);
+  return ask;
+};
+export const useSearchAsk = () =>
+  useSyncExternalStore(
+    (listener) => {
+      askListeners.add(listener);
+      return () => {
+        askListeners.delete(listener);
+      };
+    },
+    () => asked,
+  );
+
 // The song Library should open select mode with, ticked: set by the full player's "+ Version".
 let seed: string | null = null;
 const seedListeners = new Set<() => void>();

@@ -114,7 +114,7 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 
 ## Design overhaul (DECISIONS 2026-11-09). "Nobody used to Spotify feels a step down"
 Runs alongside Phases 2-3. Design work now; overhaul app code only after 2.7 passes. Owner's bar: `DESIGN-NOTES.md`.
-- [ ] O.1 Teardown: every screen scored against the owner's bar (`docs/overhaul/TEARDOWN.md`)
+- [x] O.1 Teardown: every screen scored against the owner's bar (`docs/overhaul/TEARDOWN.md`)
 - [ ] O.2 Clickable mockups, 2-3 directions with a design system sketch; I tap through on the phone and pick one
 - [ ] O.3 Native pieces that don't touch overhaul screens, one full rebuild: fewer locked iOS reports, search URL scheme
   (lock-screen Shortcut), laptop address in the Keychain, haptics

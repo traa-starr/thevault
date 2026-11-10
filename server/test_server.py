@@ -628,6 +628,22 @@ def timings_path(tmp):
     check("phone count: kept and printed", "Mine songs on the phone: 670 of 671" in text and server.read_phone_count(root)["stored"] == 670)
     post({"version": "newer", "samples": [], "copies": {"stored": "x", "wanted": 1}})
     check("phone count: a bad one changes nothing", server.read_phone_count(root)["stored"] == 670)
+    # the hang watch (2026-11-09): screen stalls over 2 s, with fixed words for the screen and tap, and the time watched
+    check("hang watch: nothing yet says so", "Hang watch: nothing yet" in text)
+    stall = lambda **more: {"kind": "stall", "ms": 3400, "screen": "Library+player", "tap": "pause", "gone": False, **more}
+    quiet = {"version": "newer", "samples": [{"kind": "watch", "ms": 600000, "stalls": 0}, {"kind": "watch", "ms": 600000, "stalls": True}]}
+    check("hang watch: a watch line is taken, a bad one dropped", post(quiet) == (200, {"kept": 1}))
+    text = chr(10).join(timings_report(root))
+    check("hang watch: 10 quiet minutes PASS", "watched 10 min on screen. PASS (quiet)" in text, text)
+    stuck = {"version": "newer", "samples": [stall(), stall(ms=5200), stall(ms=0, gone=True, screen="Library", tap="open player"),
+                                             stall(screen="My Song <Title>"), stall(tap=7), stall(gone="yes")]}
+    check("hang watch: stalls taken, anything that isn't fixed words dropped", post(stuck) == (200, {"kept": 3}))
+    text = chr(10).join(timings_report(root))
+    print("      " + text.replace(chr(10), chr(10) + "      "))
+    check("hang watch: FAIL counts the stalls", "FAIL (3 stalls)" in text, text)
+    check("hang watch: a stall names its length, screen and tap", 'stuck 5.2 s at worst: Library+player after "pause" (2 times)' in text, text)
+    check("hang watch: a screen that never came back is named", 'never came back (frozen, or closed within a second of the tap): Library after "open player" (1 time)' in text, text)
+    check("hang watch: never a title", "My Song" not in (root / TIMINGS_NAME).read_text(encoding="utf-8"))
     check("timings: the journal never sees them", (root / JOURNAL_NAME).read_bytes() == journal_before)
     server.stop_servers(servers)
 

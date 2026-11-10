@@ -4,6 +4,7 @@
 // Play first (2026-11-08): each tap names its path when it happens, and each sample says where its time went.
 // No React Native here, so a test can load it.
 import type { EnergySample } from './energy';
+import type { StallSample, WatchSample } from './hang';
 import type { Started } from './playlistCore';
 
 /** Every way a song starts from a tap. Named at the tap, never guessed at first sound. */
@@ -15,7 +16,9 @@ export type Source = { src: 'phone' | 'stream'; ext: string };
 export type Sample =
   | { kind: 'search'; ms: number; tags: number }
   | ({ kind: 'next'; ms: number; path: Path } & Partial<Started> & Partial<Source>)
-  | EnergySample;
+  | EnergySample
+  | StallSample
+  | WatchSample;
 
 const KEPT = 50; // the newest ones wait on the phone; older ones drop
 const SEND_AT = 10; // send once this many are waiting (and on going to the background)
@@ -52,6 +55,10 @@ export const timing = {
   },
   /** An energy sample (energy.ts): it waits and goes with the rest. */
   energy(sample: EnergySample) {
+    add(sample);
+  },
+  /** A screen stall, or how long the hang watch ran (hang.ts): it waits and goes with the rest. */
+  hang(sample: StallSample | WatchSample) {
     add(sample);
   },
   search(ms: number, tags: number) {

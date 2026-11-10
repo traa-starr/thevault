@@ -1,0 +1,44 @@
+diff --git a/node_modules/expo-audio/ios/AudioModule.swift b/node_modules/expo-audio/ios/AudioModule.swift
+index 42ce9e8..a97a682 100644
+--- a/node_modules/expo-audio/ios/AudioModule.swift
++++ b/node_modules/expo-audio/ios/AudioModule.swift
+@@ -405,6 +405,10 @@ public class AudioModule: Module {
+         playlist.skipTo(index: index)
+       }
+ 
++      Function("setUpdateInterval") { (playlist, milliseconds: Double) in
++        playlist.setUpdateInterval(milliseconds)
++      }
++
+       AsyncFunction("seekTo") { (playlist: AudioPlaylist, seconds: Double) in
+         await playlist.seekTo(seconds: seconds)
+       }
+diff --git a/node_modules/expo-audio/ios/AudioPlaylist.swift b/node_modules/expo-audio/ios/AudioPlaylist.swift
+index 38e158f..05d5037 100644
+--- a/node_modules/expo-audio/ios/AudioPlaylist.swift
++++ b/node_modules/expo-audio/ios/AudioPlaylist.swift
+@@ -9,7 +9,7 @@ private enum PlaylistConstants {
+ 
+ public class AudioPlaylist: SharedRef<AVQueuePlayer>, Playable, LockScreenPlayable {
+   let id = UUID().uuidString
+-  private let interval: Double
++  private var interval: Double
+   private(set) var currentRate: Float = 1.0
+   var isActiveForLockScreen = false
+   var metadata: Metadata?
+@@ -387,6 +387,15 @@ public class AudioPlaylist: SharedRef<AVQueuePlayer>, Playable, LockScreenPlayab
+     }
+   }
+ 
++  // The Vault: how often progress is reported can change while it plays (slower while the phone is locked: battery).
++  func setUpdateInterval(_ milliseconds: Double) {
++    guard milliseconds > 0, milliseconds != interval else {
++      return
++    }
++    interval = milliseconds
++    registerTimeObserver()
++  }
++
+   private func registerTimeObserver() {
+     if let timeToken {
+       ref.removeTimeObserver(timeToken)

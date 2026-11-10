@@ -13,7 +13,9 @@ const MIN_MS = 60 * 1000; // a shorter stretch says nothing per minute
 
 const fresh = (where: Where): EnergySample => ({ kind: 'energy', where, ms: 0, reports: 0, redraws: 0, net: 0, writes: 0, phone: 0, stream: 0 });
 
-const GAP_MS = 2000; // reports come every 0.5 s while a song plays: a longer gap means it wasn't playing
+// A gap much longer than the player's report rate means it wasn't playing. Reports come every 0.5 s on screen and every
+// 2 s locked (REPORT_MS in playlistCore.ts; a test keeps the two files in step).
+export const GAP_MS = { open: 2000, locked: 6000 } as const;
 
 export function energyMeter(emit: (sample: EnergySample) => void, clock: () => number = Date.now) {
   let where: Where = 'open';
@@ -42,11 +44,11 @@ export function energyMeter(emit: (sample: EnergySample) => void, clock: () => n
     count(kind: Counted) {
       const now = clock();
       if (kind !== 'reports') {
-        if (playing && now - lastReport <= GAP_MS) window[kind]++;
+        if (playing && now - lastReport <= GAP_MS[where]) window[kind]++;
         return;
       }
       if (!playing) return;
-      if (lastReport && now - lastReport <= GAP_MS) window.ms += now - lastReport;
+      if (lastReport && now - lastReport <= GAP_MS[where]) window.ms += now - lastReport;
       lastReport = now;
       window.reports++;
       if (window.ms >= WINDOW_MS) close();

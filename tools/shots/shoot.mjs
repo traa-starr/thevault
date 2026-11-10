@@ -18,7 +18,7 @@ const PACKAGES = {
   'react-native-gesture-handler': fake('gesture.tsx'),
   'react-native-reorderable-list': fake('gesture.tsx'),
 };
-for (const name of ['expo-audio', 'expo-haptics', 'expo-updates', 'expo-status-bar', 'react-native-reanimated', 'react-native-worklets'])
+for (const name of ['expo-audio', 'expo-haptics', 'expo-secure-store', 'expo-updates', 'expo-status-bar', 'react-native-reanimated', 'react-native-worklets'])
   PACKAGES[name] = fake('misc.ts');
 // the app's own modules that touch sound, files or the network
 const LOCAL = {
@@ -79,7 +79,15 @@ for (const f of chosen) {
     await page.evaluate(step);
     await page.waitForTimeout(120);
   }
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(f.steps?.length > 2 ? 450 : 250); // a sheet that slid up has landed
+  // `drag: [x, fromY, toY]`: a finger pulls from one spot to another and holds there, so the shot is mid-gesture
+  if (f.drag) {
+    const [x, from, to] = f.drag;
+    await page.mouse.move(x, from);
+    await page.mouse.down();
+    await page.mouse.move(x, to, { steps: 8 });
+    await page.waitForTimeout(80);
+  }
   const file = join(out, `${f.name}.png`);
   await page.screenshot({ path: file });
   // where every button sits, so a pair of shots (`same`) can prove nothing moved when info arrived

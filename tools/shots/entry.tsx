@@ -2,7 +2,9 @@
 // The fixture (window.FIX) is set before this runs. Steps in the fixture call window.app after the first draw.
 import { createRoot } from 'react-dom/client';
 import { View } from 'react-native';
+import App from '../../app/App';
 import { FullPlayer } from '../../app/Player';
+import * as versions from './fakes/others';
 import Library from '../../app/Library';
 import Sort from '../../app/Sort';
 import * as tagStore from '../../app/tagStore';
@@ -21,6 +23,8 @@ const FIX = (globalThis as any).FIX;
 };
 
 function Screen() {
+  // the whole app: Home, with Library, Sort, the bar and the player sheet as the phone layers them
+  if (FIX.screen === 'app') return <App />;
   if (FIX.screen === 'library') return <Library url="http://laptop" onBack={() => {}} />;
   if (FIX.screen === 'sort') return <Sort url="http://laptop" onBack={() => {}} />;
   // the player sheet: it sits 54 pt down, like the iOS sheet
@@ -33,7 +37,7 @@ function Screen() {
   );
 }
 
-(globalThis as any).app = { ...tagStore, ...Tagging, player, session, ratingStore };
+(globalThis as any).app = { ...tagStore, ...Tagging, player, session, ratingStore, versions };
 // taps the first thing on screen with exactly this text (a chip, a word button)
 (globalThis as any).app.tapText = (text: string) => {
   const el = [...document.querySelectorAll('[tabindex] *, [tabindex]')].find((one) => one.textContent === text && !one.children.length) as HTMLElement | undefined;

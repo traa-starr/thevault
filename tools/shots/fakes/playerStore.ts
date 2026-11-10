@@ -1,4 +1,5 @@
 // The player as the fixture says it is: no sound.
+import { closeQueue, openSheet } from '../../../app/sheetCore';
 import { FIX, notify, noop, useFix } from './store';
 
 export type PlayerSong = { id: string; title: string; mine: string; sorted: boolean };
@@ -30,8 +31,14 @@ export const player = noop({
     notify();
   },
   now: () => state,
-  upNext: () => [],
-  titleOf: (id: string) => id,
+  upNext: () => FIX.upNext ?? [],
+  titleOf: (id: string) => (FIX.songs ?? []).find((song: any) => song.id === id)?.title ?? id,
+  // the sheet moves by the app's real rules (sheetCore.ts)
+  open: (sheet: Sheet) => set(openSheet(state, sheet)),
+  closeQueue: () => set(closeQueue(state)),
+  toggle: () => set({ wanted: !state.wanted }),
+  current: () => state.song,
+  position: () => ({ time: state.time, wanted: false }),
   url: () => '',
   markOf: (song: PlayerSong) => ({ mine: song.mine, sorted: song.sorted }),
   seek: async (at: number) => set({ time: at }),

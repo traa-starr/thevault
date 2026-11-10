@@ -1,12 +1,13 @@
 # Status
 
-**Phase 2 (tagging): last item is mine (2.7); Phase 3 (search, on the phone) builds alongside.** Updated 2026-11-09 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 2 (tagging): last item is mine (2.7); Phase 3 (search, on the phone) builds alongside.** Updated 2026-11-10 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 **Ship line:** 2.7 passed (50 songs tagged in real sessions + wipe check) by 2026-11-15. No new phase before it (VISION).
 **In progress:** nothing.
-**Next up:** me: commit and push, then new Code session, `/next`. Alongside: real tagging sessions + wipe check (2.7).
-**Current task:** Steady screen, straight-back Queue, and the overhaul teardown + mockups (`NEXT.md`).
+**Next up:** me: commit and push, close and reopen the app (freeze + Queue fixes are published), then `Review.` in chat. The full rebuild (`overhaul/REBUILD.md`, steps inside) and the mockups (COMMANDS "Mockups on the phone") are mine, any time. Alongside: real tagging sessions + wipe check (2.7).
+**Current task:** Steady screen, straight-back Queue, and the overhaul teardown + mockups (`NEXT.md`): built, awaiting review.
 
 ## Done
+- Steady screen built 2026-11-10 (two sessions): freeze cause found (the iOS pop-up sheet couldn't turn round mid-slide) and the player sheet rebuilt as a layer in the app; Queue slides over the player; hang watch in `timings`; battery read back (PASS); `overhaul/TEARDOWN.md`; three clickable mockups (Wall, Line, Deal) in `spike/mockups/`; native pieces ready for one rebuild (`overhaul/REBUILD.md`). Details REPORT.
 - Cool, quick and rated reviewed 2026-11-09: checks 6 of 6 pass, 2 notes (freeze from the mini player; Queue swipe-down via Library). Battery: 1% in 30 min locked, no heat. Rating kept as built; 2.8 phone-verified. Results `PHASE-2-RESULTS.md`.
 - Cool, quick and rated built 2026-11-09: native press flash, eye keeps my choice, five battery causes fixed with energy counts in `timings`, rating (Fire / Shelved, 2.8), search as I type, Mine count in `/status`; lessons now tied to their tests. Board `board/rated-and-quick.md`. Details REPORT.
 - Play first reviewed 2026-11-09: checks 4 of 4 pass, 5 owner notes (all in the new NEXT); rating shape chosen (2.8). Results `PHASE-2-RESULTS.md`.

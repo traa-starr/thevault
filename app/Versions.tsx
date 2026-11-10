@@ -1,8 +1,9 @@
 // "+ Version" picker, the Versions view and their toast. Sheets over whatever screen is open, so the music
 // never stops. The rules are in family.ts; sending and Undo are in versions.ts.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, Keyboard, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { compare } from './compareStore';
+import { hang } from './hangWatch';
 import { useOutbox } from './outbox';
 import { player, usePlayerPick, type PlayerSong } from './playerStore';
 import { withPending } from './playOrder';
@@ -12,6 +13,17 @@ import { useVersions, type LibSong } from './versionStore';
 const SHORT_LIST = 40;
 const ROW_HEIGHT = 60;
 const AFTER_CLOSE_MS = 700;
+
+/** These two are still iOS pop-up sheets. If iOS never shows one that was asked for, the hang watch says so. */
+function useShownWatch(open: boolean, what: string) {
+  const shown = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    shown.current = hang.expect(what);
+    return () => shown.current?.();
+  }, [open, what]);
+  return () => shown.current?.();
+}
 
 /** The song on screen, as the picker needs it. */
 export type LinkSong = PlayerSong & { folder?: string | null };
@@ -108,9 +120,10 @@ function Picker({ url }: { url: string }) {
     return out.slice(0, SHORT_LIST);
   }, [all, query, picker, families, songs]);
 
+  const onShow = useShownWatch(!!picker, 'version picker');
   if (!picker) return null;
   return (
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={versions.closePicker}>
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={versions.closePicker} onShow={onShow}>
       <View style={s.sheet}>
         <View style={s.sheetHeader}>
           <Pressable onPress={versions.closePicker}>
@@ -164,6 +177,7 @@ function Picker({ url }: { url: string }) {
 function VersionsView({ url }: { url: string }) {
   const { versionsOf, songs } = useVersions();
   const { song: playing } = usePlayerPick('song');
+  const onShow = useShownWatch(!!versionsOf && versions.members(versionsOf).length > 1, 'versions');
   if (!versionsOf) return null;
   const list = versions.members(versionsOf);
   const close = () => versions.openVersions(null);
@@ -199,7 +213,7 @@ function VersionsView({ url }: { url: string }) {
   };
 
   return (
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={close} onShow={onShow}>
       <View style={s.sheet}>
         <View style={s.sheetHeader}>
           <Pressable onPress={close}>

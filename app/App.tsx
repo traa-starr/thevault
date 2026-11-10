@@ -1,11 +1,13 @@
 // One screen: the title and whether the laptop answers. The laptop's address is typed here and stays on the phone, never in the repo.
 import { File, Paths } from 'expo-file-system';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { Alert, AppState, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Alert, AppState, Linking, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import buildInfo from './build-info.json';
 import Library from './Library';
-import { setHome } from './nav';
+import { keychain } from './keychain';
+import { openSearch, setHome } from './nav';
+import { searchFromLink } from './search';
 import { offline } from './offline';
 import { pauseOutbox, startOutbox } from './outbox';
 import { tagStore } from './tagStore';
@@ -20,6 +22,7 @@ import { compare } from './compareStore';
 import { codeVersion, pointUpdatesAt, updateLine, useReloadOnUpdate } from './updates';
 import { logText } from './pressLog';
 import { meter } from './meter';
+import { hang } from './hangWatch';
 import { timing } from './timings';
 
 // every network call counts toward the energy numbers (how many a minute while a song plays)
@@ -39,15 +42,36 @@ const buildLine = buildInfo.build === 'dev'
 const TIMEOUT_MS = 5000;
 const addressFile = () => new File(Paths.document, 'laptop-address.txt');
 
-const loadAddress = () => {
-  const file = addressFile();
-  return file.exists ? file.textSync().trim() : '';
-};
+const ADDRESS_KEY = 'laptop-address';
 
-const saveAddress = (address: string) => {
+const writeAddressFile = (address: string) => {
   const file = addressFile();
   if (!file.exists) file.create();
   file.writeSync(address);
+};
+
+// The address lives in a file, and in the Keychain too: a reinstall wipes the file, the Keychain gives it back.
+const loadAddress = () => {
+  const file = addressFile();
+  const onFile = file.exists ? file.textSync().trim() : '';
+  if (onFile) {
+    keychain.keep(ADDRESS_KEY, onFile);
+    return onFile;
+  }
+  const kept = keychain.read(ADDRESS_KEY);
+  if (kept) {
+    try {
+      writeAddressFile(kept);
+    } catch {
+      // a full phone: the Keychain still has it next time
+    }
+  }
+  return kept;
+};
+
+const saveAddress = (address: string) => {
+  writeAddressFile(address);
+  keychain.keep(ADDRESS_KEY, address);
 };
 
 const serverUrl = (address: string) => {
@@ -82,7 +106,8 @@ export default function App() {
   const [inSort, setInSort] = useState(false);
   const [stamp] = useState(survivalStamp);
   const { waiting: fresh } = usePhoneBackup();
-  useReloadOnUpdate(() => player.position().wanted || compare.busy(), () => player.saveNow());
+  // a reload into new app code is not a hang: the watch stands down first
+  useReloadOnUpdate(() => player.position().wanted || compare.busy(), () => (hang.setActive(false), player.saveNow()));
 
   const check = useCallback(async () => {
     if (!address) return;
@@ -94,6 +119,30 @@ export default function App() {
       setLine('Laptop not reachable');
     }
   }, [address]);
+
+  // the hang watch names the screen in fixed words: which screen, and whether the player or Queue is over it
+  const where = useRef('Home');
+  where.current = inSort ? 'Sort' : inLibrary ? 'Library' : 'Home';
+  useEffect(() => {
+    hang.start(() => {
+      const { sheet } = player.now();
+      return sheet === 'none' ? where.current : `${where.current}+${sheet}`;
+    }, AppState.currentState === 'active');
+    return () => hang.setActive(false);
+  }, []);
+
+  // a lock-screen Shortcut's link (thevault://search): straight to the search box, from a cold start or from the back
+  const addressNow = useRef(address);
+  addressNow.current = address;
+  useEffect(() => {
+    const go = (link: string | null | undefined) => {
+      const ask = searchFromLink(link);
+      if (ask && addressNow.current) openSearch(ask.q);
+    };
+    Linking.getInitialURL().then(go).catch(() => {});
+    const sub = Linking.addEventListener('url', ({ url }) => go(url));
+    return () => sub.remove();
+  }, []);
 
   setHome(
     () => {
@@ -122,6 +171,7 @@ export default function App() {
     const sub = AppState.addEventListener('change', (state) => {
       // 'inactive' is a passing state (a call banner, the app switcher): only a real move to the back counts as away
       // (the spot is still saved: a swipe-away from the app switcher kills the app with no other warning)
+      hang.setActive(state === 'active'); // only time on screen is watched
       if (state === 'inactive') return player.saveNow();
       player.setOpen(state === 'active');
       if (state !== 'active') {

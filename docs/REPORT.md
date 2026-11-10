@@ -1,42 +1,37 @@
-**Step:** Cool, quick and rated: battery, instant taps, rating, every Mine song on the phone, 2026-11-09. Built by Fable 5 (owner's trial of a new model; see "Outside NEXT").
+**Step:** Steady screen, straight-back Queue, and the overhaul teardown + mockups, 2026-11-10. Built by Fable 5 over two sessions (the first hit its usage cap after the fresh-eyes review; the second finished the review's fixes, E's pages and F).
 
-**Verified by running:** `/verify` 17/17 PASS in 44 s (2 new app test files, 1 new check). Shots 52/52 (12 new: rating from Library, session, eye hidden, Sort card; Library marks, Fire filter, half-word search); rated and unrated pairs: same button boxes. Locked-hour model, per minute, before: wake-ups 120, redraws 120, network 15, writes 4; after: 120, 0.3, 0, 1.0. Press look during a 2 s load: lets go at 119 ms (old: 2,000). Search per keystroke on 27,000 fake tags: typical 2.9 ms, slow end 7.4. Real library: `status` says Mine 671, phone copies made 671, and live `/status` gives the same (`on_phone` empty until the phone reports).
+**Verified by running:** `/verify` 18/18 PASS in 50 s. Steady-screen test 24 checks (200-round spam, the old pop-up sheet shown getting stuck under the same taps, a fake 3.4 s stall reported, swipe-down per opener x7). Shots 71/71, 7 mid-close. Mockups: `node spike/mockups/check.mjs`: 3 directions, 0 script errors, 0 controls under 44 pt, 150 taps each. `check_repo` clean. Published twice (A+B first, then F's app code); typecheck clean.
 
-**Phone timings** (play-first build, judged per path; nothing from the new code yet):
+**Phone timings** (C; energy is from the 28 min locked listen on the build before this step):
 ```
-Search: typical 7 ms, slow end 13 ms, worst 15 ms (148 times), about 23 tags
-Energy while playing: none yet (the phone sends it after a minute or more of playing)
-Tap to first sound, app code 2026-11-09T05:01:38 (61 of 480 samples; older code not judged)
-  session: typical 278 ms, slow end 328 ms, worst 328 ms (14 times); over 1 s: 0. PASS
-  library: typical 194 ms, slow end 483 ms, worst 490 ms (30 times); over 1 s: 0. PASS
-  previous: typical 242 ms, slow end 295 ms, worst 295 ms (13 times); over 1 s: 0. PASS
-  lockscreen: 329 ms, not enough yet (3 of 5). restore: 203 ms, not enough yet (1 of 5). sort, search: none yet
+Search: typical 8 ms, slow end 13 ms, worst 15 ms (172 times), about 23 tags
+Energy while playing, app code 2026-11-09T19:56:17, per minute. Plays: 12 from the phone's copy, 0 streamed
+  open: none yet
+  locked (28 min): wake-ups 123, redraws 0.4, network calls 0.2, file writes 1.3. PASS
+Hang watch: nothing yet (the phone sends it when the app goes to the background, after a minute on screen)
+Tap to first sound: library, previous, lockscreen PASS (215 / 225 / 56 ms typical, none over 1 s); session, restore not enough yet (2 of 5); sort, search none yet
 ```
-No FAIL, so no goal A0. Session Next was already within 15% of Previous. By source: phone mp3 279 ms vs m4a 277: the MP3 copies are not the slow part, so no re-encode.
+C verdict: every locked ceiling PASS. Wake-ups (123) are the one number still high; the lever is F's slower locked reports (30 a minute), which needs the rebuild. "Open" has no line yet: needs a minute of playing with the screen on.
 
-**Phone update:** published 20261109-195617, server restarted (new routes and the ratings table).
+**Phone update:** published 2026-11-10 06:02 (A, B, hang watch, and F's app code, which waits quietly for the build). Then `full rebuild` for F's native pieces, mine, any time: steps in `docs/overhaul/REBUILD.md`.
 
 **Needs the phone:**
-1. Session and Library shuffle: Next 5 times, Previous twice, eye once, 10 more Nexts. Pass: every tap one quick press, Next as quick as Previous, the eye never moves by itself.
-2. Fire 3 songs, Shelve 3, shuffle Mine 15 times, search a Shelved song's tag. Pass: no Shelved song plays, search finds it with "Shelved", the Fire chip shows the 3.
-3. Type a tag word a few letters at a time. Pass: its song shows before the word is finished.
-4. Library's top line reads "N of N Mine songs on this phone"; airplane mode, play 5 Mine songs. Pass: all play.
-5. One hour locked from a good charge; note % before and after, then open the app. Pass: not warm. Code then reads the `timings` energy lines.
-6. Board extra: airplane mode, Fire one, Shelve another, Undo it, airplane off. Pass: `ratings` on the laptop lists only the Fire.
+1. Library, a song playing: open the mini player, pause/play 10 times fast, close, reopen, Next 5 times; 3 rounds. Pass: never freezes. Then app to the background and `timings` on the laptop: "Hang watch" shows minutes watched, 0 stalls.
+2. Full player, swipe up to Queue, swipe down. Pass: the player, no Library flash. Mini player on Library, then on Sort: swipe up, swipe down. Pass: same screen.
+3. After the rebuild: app connects without typing; a Shortcut "Open URLs" `thevault://search` lands on the search box; controls tick. Pass: all three. Locked listen 10 min: wake-ups about 30.
+4. COMMANDS "Mockups on the phone", tap through Wall, Line, Deal. Pass: every screen opens and moves; say which and why.
 
-**Changed:** app: `App, Library, Player, Tagging, Versions` (.tsx), `offline, outbox, playOrder, playerStore, search, sessionStore, tagStore, timings, versionStore` (.ts), new `Tap.tsx, pressLook.ts, energy.ts, meter.ts, ratingStore.ts, quickAndCool.test.mjs, searchTyping.test.mjs`, `search.test.mjs`. Server: `store, songs, server, timings`, `vault_cli.py`, `test_server.py`. Tools: shots entry, fakes, fixtures. `.claude/scripts/verify.py`, new `lessons.py`. Docs: BLUEPRINT, CHAT-INSTRUCTIONS, COMMANDS, DECISIONS, LESSONS, MAP, ROADMAP, STATUS, new `board/rated-and-quick.md`.
+**Changed:** app: `App.tsx Library.tsx Player.tsx Tap.tsx Versions.tsx nav.tsx playerStore.ts playlistCore.ts engine.ts energy.ts search.ts timings.ts app.json package.json package-lock.json`, new `sheetCore.ts hang.ts hangWatch.ts keychain.ts steadyScreen.test.mjs patches/expo-audio+58.0.11.patch`, tests `playlistCore.test.mjs search.test.mjs`. server: `timings.py test_server.py`. tools/shots (6 files). spike/mockups: `index/wall/line/deal.html app.css app.js check.mjs`. docs: `overhaul/TEARDOWN.md overhaul/REBUILD.md board/overhaul-mockups.md STATUS LESSONS DECISIONS ROADMAP COMMANDS REPORT`.
 
-**Done when:** timings judged per path: pass. Press look during a 2 s load: pass. Next song's info ready before Next: pass. Eye across 10 shuffled songs + restart: pass. Locked hour under ceilings, before and after: pass (model; the phone's numbers are check 5). Rating save, sync, restore, Shelved out of every shuffle path and in search: pass. `titt` finds `titties`, old search tests pass: pass (one old assertion now tests a finished search, with a space). Mine count from the real library matches `/status`: pass. `/verify` under 1 min: pass. I prove 1-5: not run (for chat).
+**Done when:** 200-round spam test + cause named: pass. Hang lines in `timings`, fake stall reported: pass. Test per opener + mid-close shots: pass. Energy judged: pass (above). TEARDOWN covers every screen with a screenshot name: pass (written in session 1; not re-read in session 2). 2-3 mockups open from the laptop, fake names, no app code: pass on the laptop, phone not run. F's pieces with tests, build config on a standard runner, REBUILD.md: pass; "below 120 after install": not run (mine). Rebuild steps: pass (REBUILD.md; COMMANDS had no rebuild line, added). `/verify` under 1 min: pass. I prove 1-4: not run (for chat).
 
-**Plan I chose:** 0 [x], A [x], B [x], C [x], D [x], E [x], F [x], reviews [x]. Stretch: none.
-Battery causes found by reading, not measured: (1) with the laptop off and 10 timings waiting, the app retried the send on every player report; (2) every report redrew the bar, sheet, toast and Queue, locked or not; (3) with the laptop off each Next asked the disk about every song (~1,400 calls); (4) the outbox retried every 10 s for ever; (5) the spot file (the whole list) was rewritten every 15 s. All fixed. Ceilings (locked, per minute): wake-ups 130, redraws 6, network 2, writes 6. The 120 wake-ups are iOS's own twice-a-second reports; lowering them needs a rebuild.
-Board splits (picked, change at review): two word toggles, not a cycle; Shelve keeps the song playing; the queue ahead is rebuilt at the tap. Reading of NEXT: a list played in order with shuffle off still plays a Shelved song (NEXT says "every shuffle and session").
-F was mostly built already (downloads, the count line). Added: the count covers every Mine song, the phone asks again 20 s after a verdict lands, the count reaches `/status`.
+**Cause of the freeze:** the player was an iOS pop-up sheet. iOS can't turn one round half-way: opened while still closing (or closed while opening), the request was dropped and an empty see-through sheet stayed over the whole app, taking every touch while the music played. Now it's a layer in the app that always heads where the player says.
 
-**Fresh-eyes review caught (all fixed):** a steady 30 s poll of the laptop while one Mine song had no copy; the 20 s re-ask lost while downloads ran; a song list already on its way wiping a just-taken rating; the stuck-song watch staying asleep after Compare; the spot not saved when the app is swiped away from the switcher; a rating arriving in a fresh list not rebuilding the queue. **Not taken:** a new phone with an old server refuses a rating (wrap restarts the server before publishing; the "laptop refused" line shows). My review caught: the energy clock padding its minutes after an unannounced pause; Library rows redrawing every render; a finger bounce turning a rating on and off.
+**Plan I chose:** A [x] B [x] C [x] D [x] E [x] F [x] reviews + verify + publish + wrap [x]. Guessed: locked reports every 2 s, not 5 (the start-spot finder and the stuck-song watch lean on reports); runtime version kept at 1 with every native piece checked before use, so publish works across the rebuild; `?q=` on the search link.
+**Fresh-eyes catches (session 1, fixed; listed from the code, the review text was lost with the session):** a freeze with no tap before it went unreported (on-screen flag added); an old slide's late end could be taken for the new one's; one tap could be named twice; a mark could be saved late for a tap that started nothing. Session 2 found the hang test not updated for the flag fix (1 FAIL, fixed + a new test), a squashed player tile and 8 small controls in the mockups (fixed), the shots kit breaking on the Keychain module (stand-in added).
 
-**Outside NEXT (owner asked this session for workflow upgrades):** LESSONS has a "Kept true by" column and `lessons.py` (in `/verify`) fails if a lesson's test or screenshot disappears; `/verify` now runs every `app/*.test.mjs` by itself; `ratings` and `status` commands.
-
-**Not done:** Stretch (budget). Downloads still run while locked if they were already going (tester wanted none; they stop by themselves). **Decisions needed:** the three board questions, defaults in use. Goal-format trial: keep, adjust, or go back?
-
-**Proposed next step:** read the phone's energy lines after check 5; if locked still FAILs, the next lever is fewer iOS reports (a rebuild). **Pitch:** show the last `timings` PASS/FAIL on the phone (long-press), so a session ends with a verdict and no laptop.
+**Not done:** stretch 1 and 2. The Swift patch isn't compiled (Windows can't): first proof is the GitHub build; fallback in REBUILD.md.
+**Decisions needed:** which mockup direction (no default: it's check 4). Rebuild now or with the overhaul's? Recommend now: 15 min of mine, and it proves the build pipeline before O.5 leans on it.
+**Proposed next step:** review, then 2.7 sessions; after my pick, O.4 wave 1 (shell: tabs + mini player) from the chosen mockup.
+**Pitch:** `timings` verdict on the phone (stretch 1): every check above that ends "run timings on the laptop" becomes a long-press.
+**Odd in how we work:** a session that dies mid-review leaves no trace of the review's findings; the reviewer should write its catches to a file before fixes start.

@@ -225,4 +225,65 @@ const make = (lengths = {}, startPoint = 0) => {
   assert.equal(list.playing, true);
 }
 
+// ---------- battery: fewer reports while locked (NEXT 2026-11-09 F) ----------------------------------------------------
+{
+  const { REPORT_MS } = await import('./playlistCore.ts');
+  const { GAP_MS, energyMeter } = await import('./energy.ts');
+  // today's build has no way to change the rate: asking for quiet changes nothing and breaks nothing
+  {
+    const { list, engine } = make();
+    engine.load(['a', 'b'], 0, 0, true);
+    await list.load();
+    engine.setQuiet(true);
+    list.emit();
+    engine.setQuiet(false);
+    assert.equal(list.playing, true);
+  }
+  // the new build: slow while locked, full rate on screen, and full rate while a song is finding its start spot
+  {
+    const { list, engine } = make({}, 15);
+    const rates = [];
+    list.setUpdateInterval = (ms) => rates.push(ms);
+    engine.load(['a', 'b', 'c'], 0, 0, true);
+    await list.load();
+    engine.setQuiet(true); // the phone locks
+    assert.deepEqual(rates, [REPORT_MS.locked]);
+    list.emit();
+    list.emit();
+    assert.deepEqual(rates, [REPORT_MS.locked], 'asked once, not on every report');
+    list.next(); // the song ends, or Next on the lock screen: the next one must find 0:15 before any sound
+    assert.equal(rates.at(-1), REPORT_MS.open, 'full rate while it finds its start spot');
+    await list.load();
+    list.currentTime = 15.2;
+    list.hear();
+    list.emit();
+    await flush();
+    list.emit();
+    assert.equal(rates.at(-1), REPORT_MS.locked, 'found: slow again');
+    assert.deepEqual(list.heard.filter((h) => h.song === 'b' && h.at < 15), [], 'and nothing was heard before 0:15');
+    engine.setQuiet(false); // unlocked
+    assert.equal(rates.at(-1), REPORT_MS.open);
+    assert.ok(rates.length <= 5, `the rate changes only when it has to (${rates})`);
+  }
+  // the energy counter keeps counting playing time at the slow rate
+  {
+    assert.equal(GAP_MS.locked, 3 * REPORT_MS.locked, 'energy.ts and playlistCore.ts in step');
+    let now = 1000;
+    const out = [];
+    const meter = energyMeter((sample) => out.push(sample), () => now);
+    meter.setOpen(false);
+    meter.setPlaying(true);
+    for (let i = 0; i < 301; i++) {
+      meter.count('reports');
+      now += REPORT_MS.locked;
+    }
+    meter.flush();
+    const total = out.reduce((sum, sample) => sum + sample.ms, 0);
+    const reports = out.reduce((sum, sample) => sum + sample.reports, 0);
+    assert.equal(total, 600000, '10 locked minutes counted');
+    assert.ok(reports / 10 <= 31, `about 30 wake-ups a minute, was 120 (${reports / 10})`);
+  }
+  console.log('ok  locked: reports every 2 s (30 a minute, was 120), full rate while a song finds its start spot; old build unchanged');
+}
+
 console.log('playlistCore: all start-spot checks pass');

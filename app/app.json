@@ -2,6 +2,7 @@
   "expo": {
     "name": "The Vault",
     "slug": "the-vault",
+    "scheme": "thevault",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -29,7 +30,8 @@
           "microphonePermission": false,
           "enableBackgroundPlayback": true
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "runtimeVersion": "1",
     "updates": {

@@ -54,7 +54,14 @@ export type Engine = {
   /** This player as Compare sees it: Compare sets its volume and moves it along with the other versions. */
   voice: () => Voice;
   stop: () => void;
+  /** Nobody is looking (locked or in the background): the player reports its progress less often, to save battery.
+   * While a song is still finding its start spot it reports at full rate all the same. */
+  setQuiet: (quiet: boolean) => void;
 };
+
+/** How often the player reports its progress: twice a second on screen, every 2 s locked or in the background (each
+ * report wakes the app, and nobody is watching the clock). The slow rate needs the build of 2026-11-10 or later. */
+export const REPORT_MS = { open: 500, locked: 2000 } as const;
 
 export type Raw = { currentTime: number; duration: number; isLoaded: boolean; isBuffering: boolean; playing: boolean; volume: number };
 type Status = { currentTime: number; duration: number; playing: boolean; isBuffering: boolean; isLoaded: boolean; didJustFinish: boolean };
@@ -70,6 +77,8 @@ export type List = Raw & {
   remove(index: number): void;
   clear(): void;
   skipTo(index: number): void;
+  /** Only in builds from 2026-11-10 on (a patch on expo-audio): older builds keep the rate they were made with. */
+  setUpdateInterval?(milliseconds: number): void;
   next(): void;
   previous(): void;
   play(): void;
@@ -231,8 +240,18 @@ export function playlistEngine(list: List, { onSound, onTrack, onStarted }: Hand
   };
 
   // Reads the player's live answer in settle: an event can be from before.
+  let quiet = false;
+  let every: number = REPORT_MS.open;
+  /** Sets the report rate to what fits now. Called after anything that can change it. */
+  const pace = () => {
+    const want = quiet && !gate.now() ? REPORT_MS.locked : REPORT_MS.open;
+    if (want === every || typeof list.setUpdateInterval !== 'function') return;
+    every = want;
+    list.setUpdateInterval(want);
+  };
   list.addListener('playlistStatusUpdate', (status) => {
     gate.settle();
+    pace(); // the start spot was found: back to the slow rate if nobody is looking
     const waiting = gate.now();
     onSound({
       time: waiting ? waiting.at : status.currentTime,
@@ -344,6 +363,18 @@ export function playlistEngine(list: List, { onSound, onTrack, onStarted }: Hand
       list.clearLockScreenControls();
       locked = false;
     },
+    setQuiet: (on) => {
+      quiet = on;
+    },
   };
+  // anything that can start or end a wait for a start spot, or the quiet itself: the rate is set again right after
+  for (const name of ['load', 'startHere', 'abandonWait', 'skip', 'next', 'previous', 'seek', 'stop', 'setQuiet'] as const) {
+    const inner = engine[name] as (...args: unknown[]) => unknown;
+    (engine as Record<string, unknown>)[name] = (...args: unknown[]) => {
+      const result = inner(...args);
+      pace();
+      return result;
+    };
+  }
   return engine;
 }

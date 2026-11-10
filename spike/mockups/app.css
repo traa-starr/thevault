@@ -1,0 +1,152 @@
+/* The Vault overhaul mockups (ROADMAP O.2). Throwaway: fake songs only, nothing here ships to the phone app.
+   One engine (app.js), three directions. The design system of each direction is the block of variables below. */
+:root { --bg:#000; --surface:#111114; --raised:#1c1c21; --text:#f2f2f4; --dim:#a0a0aa; --faint:#6a6a74; --line:#2a2a30;
+  --u:4px; --r-tile:14px; --r-sheet:22px; --title:28px; --row:17px; --meta:13px; --accent:#ffb020; --on-accent:#141006;
+  --font:-apple-system,"SF Pro Text","Segoe UI",system-ui,sans-serif; --display:var(--font); --tab-h:56px; --mini-h:60px; }
+body[data-dir=wall] { --accent:#ffb020; --on-accent:#141006; --r-tile:14px; --r-sheet:22px; }
+body[data-dir=line] { --accent:#5ee6b0; --on-accent:#04140d; --r-tile:10px; --r-sheet:16px; --title:24px;
+  --display:"New York","Iowan Old Style",Georgia,serif; }
+body[data-dir=deal] { --accent:#ff5a4d; --on-accent:#fff; --r-tile:28px; --r-sheet:28px; --title:34px; }
+
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body { margin:0; height:100%; background:var(--bg); color:var(--text); font:var(--row)/1.3 var(--font);
+  overscroll-behavior:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+button { font:inherit; color:inherit; background:none; border:0; padding:0; margin:0; }
+#app { position:fixed; inset:0; overflow:hidden; }
+#screen { position:absolute; inset:0; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  padding:calc(env(safe-area-inset-top) + 12px) 16px calc(var(--tab-h) + var(--mini-h) + env(safe-area-inset-bottom) + 40px); }
+h1 { font:800 var(--title)/1.1 var(--display); margin:8px 0 16px; letter-spacing:-.02em; }
+h2 { font:700 20px/1.2 var(--font); margin:24px 0 10px; display:flex; align-items:center; gap:8px; }
+.dim { color:var(--dim); } .meta { color:var(--dim); font-size:var(--meta); } .acc { color:var(--accent); }
+.pill { font:700 9px/1 var(--font); letter-spacing:.06em; padding:3px 5px; border-radius:4px; border:1px solid var(--faint);
+  color:var(--dim); white-space:nowrap; text-transform:uppercase; }
+body.nolabels .pill { display:none; }
+body.hits [data-act] { outline:1px dashed rgba(255,80,80,.8); outline-offset:-1px; }
+
+/* tiles: the picture every song gets until real art exists */
+.tile { position:relative; flex:none; border-radius:var(--r-tile); overflow:hidden; display:flex; align-items:flex-end;
+  width:52px; height:52px; }
+.tile b { position:absolute; left:6%; bottom:-8%; font:900 2.2em/1 var(--font); color:rgba(255,255,255,.14); letter-spacing:-.05em; }
+.tile.sm { width:44px; height:44px; border-radius:calc(var(--r-tile) * .6); font-size:11px; }
+.tile.md { width:132px; height:132px; font-size:30px; }
+.tile.xl { width:100%; aspect-ratio:1; font-size:76px; max-height:42vh; margin:0 auto; }
+body[data-dir=line] .tile:not(.sm) { filter:saturate(.55); }
+
+/* rows */
+.row { display:flex; align-items:center; gap:12px; min-height:60px; border-bottom:1px solid var(--line); }
+.row .t { flex:1; min-width:0; }
+.row .t div { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.row.off .t { opacity:.4; }
+.mark { font:700 11px/1 var(--font); color:var(--accent); } .mark.sh { color:var(--dim); }
+.now .t div:first-child { color:var(--accent); }
+.hscroll { display:flex; gap:12px; overflow-x:auto; margin:0 -16px; padding:0 16px 4px; scrollbar-width:none; }
+.hscroll::-webkit-scrollbar { display:none; }
+.card-sm { width:132px; flex:none; } .card-sm div.n { font-size:14px; margin-top:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.chips { display:flex; gap:8px; margin:0 0 8px; overflow-x:auto; scrollbar-width:none; }
+.chip { min-height:36px; padding:0 14px; border-radius:18px; background:var(--raised); color:var(--dim); font-size:14px; flex:none; }
+.chip.on { background:var(--text); color:#000; font-weight:700; }
+.field { display:flex; align-items:center; gap:8px; background:var(--raised); border-radius:12px; padding:0 12px; min-height:48px; }
+.field input { flex:1; background:none; border:0; outline:0; color:var(--text); font:17px var(--font); min-width:0;
+  -webkit-user-select:text; user-select:text; }
+body[data-dir=line] .field.hero { min-height:64px; border:1px solid var(--line); background:var(--surface); }
+body[data-dir=line] .field.hero input { font:22px var(--display); }
+.big { display:flex; align-items:center; justify-content:center; gap:8px; min-height:48px; border-radius:24px; padding:0 20px;
+  background:var(--accent); color:var(--on-accent); font-weight:700; }
+.quiet { min-height:44px; color:var(--dim); font-size:15px; display:flex; align-items:center; gap:8px; }
+.lineq { font:22px/1.25 var(--display); margin:0; } .lineq mark { background:none; color:var(--accent); font-weight:700; }
+.banner { background:#3a2a06; color:#ffd58a; font-size:13px; padding:8px 12px; border-radius:10px; margin:0 0 12px; }
+.skel { background:linear-gradient(90deg,var(--surface),var(--raised),var(--surface)); background-size:200% 100%;
+  animation:sk 1.2s infinite; border-radius:8px; min-height:14px; }
+@keyframes sk { to { background-position:-200% 0; } }
+.az { position:fixed; right:2px; top:22%; bottom:26%; display:flex; flex-direction:column; justify-content:space-between;
+  font:700 10px/1 var(--font); color:var(--accent); z-index:2; }
+.az button { padding:1px 6px; }
+
+/* glass: only the tab bar, the mini player and the transport */
+.glass { background:rgba(30,30,36,.62); -webkit-backdrop-filter:blur(24px) saturate(1.6); backdrop-filter:blur(24px) saturate(1.6);
+  border:1px solid rgba(255,255,255,.09); }
+#tabs { position:absolute; left:12px; bottom:calc(env(safe-area-inset-bottom) + 8px); height:var(--tab-h); border-radius:28px;
+  display:flex; padding:0 6px; z-index:5; right:80px; }
+#tabs button { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:10px; color:var(--dim); }
+#tabs button.on { color:var(--accent); }
+#searchtab { position:absolute; right:12px; bottom:calc(env(safe-area-inset-bottom) + 8px); width:var(--tab-h); height:var(--tab-h);
+  border-radius:50%; z-index:5; display:flex; align-items:center; justify-content:center; color:var(--dim); }
+#searchtab.on { color:var(--accent); }
+#mini { position:absolute; left:12px; right:12px; bottom:calc(env(safe-area-inset-bottom) + var(--tab-h) + 16px); height:var(--mini-h);
+  border-radius:18px; display:flex; align-items:center; gap:10px; padding:0 6px 0 8px; z-index:5; overflow:hidden; }
+#mini .t { flex:1; min-width:0; font-size:15px; } #mini .t div { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#mini .prog { position:absolute; left:0; bottom:0; height:2px; background:var(--accent); }
+.ic { width:44px; height:44px; display:flex; align-items:center; justify-content:center; flex:none; }
+.ic svg { width:24px; height:24px; fill:currentColor; }
+svg { fill:currentColor; }
+
+/* the player: a layer that follows the finger */
+.sheet { position:absolute; inset:0; z-index:10; background:var(--bg); transform:translateY(105%);
+  transition:transform .34s cubic-bezier(.2,.9,.25,1); display:flex; flex-direction:column;
+  padding:env(safe-area-inset-top) 20px calc(env(safe-area-inset-bottom) + 12px); overflow:hidden; }
+.sheet.open { transform:none; } .sheet.drag { transition:none; }
+.sheet.half { top:auto; height:72%; border-radius:var(--r-sheet) var(--r-sheet) 0 0; background:var(--raised); z-index:12; padding-top:0; }
+.sheet.full2 { z-index:12; background:var(--surface); }
+.grab { height:36px; flex:none; display:flex; align-items:center; justify-content:center; touch-action:none; }
+.grab i { width:40px; height:5px; border-radius:3px; background:var(--faint); }
+.ptitle { font:800 24px/1.2 var(--display); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:58px; margin-top:14px; }
+.pmeta { display:flex; align-items:center; gap:8px; min-height:28px; }
+.seek { position:relative; height:44px; margin-top:6px; touch-action:none; }
+.seek .tr { position:absolute; left:0; right:0; top:20px; height:4px; border-radius:2px; background:var(--line); }
+.seek .fl { position:absolute; left:0; top:20px; height:4px; border-radius:2px; background:var(--text); }
+.seek .dot { position:absolute; top:11px; width:6px; height:6px; margin-left:-3px; border-radius:50%; background:var(--accent); }
+.seek.wave { height:64px; } .seek.wave .bars { position:absolute; inset:0; display:flex; align-items:center; gap:2px; }
+.seek.wave .bars i { flex:1; background:var(--faint); border-radius:1px; } .seek.wave .bars i.p { background:var(--text); }
+.seek.wave .dot { top:0; width:8px; height:8px; margin-left:-4px; }
+.times { display:flex; justify-content:space-between; font:var(--meta) var(--font); color:var(--dim); font-variant-numeric:tabular-nums; }
+.resv { height:48px; display:flex; align-items:center; gap:8px; }
+.resv input { flex:1; min-width:0; height:40px; border-radius:10px; border:1px solid var(--accent); background:var(--surface);
+  color:var(--text); font:16px var(--font); padding:0 10px; outline:0; -webkit-user-select:text; user-select:text; }
+.transport { display:flex; align-items:center; justify-content:center; gap:28px; height:76px; }
+.transport .play { width:64px; height:64px; border-radius:50%; background:var(--text); color:#000; display:flex; align-items:center; justify-content:center; }
+.transport .play svg { width:28px; height:28px; } .transport .ic svg { width:30px; height:30px; }
+body[data-dir=deal] .transport { border-radius:38px; margin:0 12px; }
+.acts { display:flex; justify-content:space-between; }
+.acts button { min-width:56px; min-height:52px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  font-size:12px; color:var(--dim); }
+.acts button.on { color:var(--accent); font-weight:700; } .acts svg { width:22px; height:22px; }
+.acts button.tag { color:var(--accent); }
+.tagl { flex:1; overflow-y:auto; margin-top:4px; min-height:0; }
+.tagl .row { min-height:44px; font-size:15px; } .tagl .row span:first-child { width:44px; color:var(--dim); font-variant-numeric:tabular-nums; }
+.mine { font:700 11px/1 var(--font); border:1px solid var(--faint); color:var(--dim); border-radius:10px; padding:5px 8px; min-height:24px; }
+.mine.on { border-color:var(--accent); color:var(--accent); }
+.fill { flex:1; min-height:0; }
+.bgart { position:absolute; inset:0; z-index:-1; opacity:.55; filter:blur(40px) saturate(1.2); transform:scale(1.3); }
+
+/* the deck: one song at a time */
+.deck { position:relative; height:min(62vh,520px); margin:8px 0 0; }
+.dcard { position:absolute; inset:0; border-radius:var(--r-tile); overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end;
+  padding:20px; touch-action:none; box-shadow:0 10px 40px rgba(0,0,0,.6); }
+.dcard.back { transform:scale(.94) translateY(14px); opacity:.5; }
+.dcard h3 { font:800 30px/1.1 var(--display); margin:0 0 6px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.dcard .stamp { position:absolute; top:24px; font:900 28px var(--font); padding:4px 12px; border:3px solid; border-radius:10px; opacity:0; }
+.dcard .stamp.f { left:20px; color:var(--accent); transform:rotate(-12deg); } .dcard .stamp.s { right:20px; color:#fff; transform:rotate(12deg); }
+.dacts { display:flex; justify-content:space-around; align-items:center; margin-top:14px; }
+.dacts button { min-width:72px; min-height:48px; color:var(--dim); font-size:14px; } .dacts .tagb { color:var(--accent); font-weight:700; }
+
+#toast { position:absolute; left:16px; right:16px; bottom:calc(env(safe-area-inset-bottom) + var(--tab-h) + var(--mini-h) + 28px); z-index:30;
+  background:#2c2c33; border-radius:12px; padding:0 6px 0 14px; min-height:48px; display:none; align-items:center; gap:10px; font-size:15px; }
+#toast.on { display:flex; } #toast button { margin-left:auto; color:var(--accent); font-weight:700; min-width:64px; min-height:44px; }
+#first { position:absolute; inset:0; z-index:40; background:rgba(0,0,0,.88); padding:calc(env(safe-area-inset-top) + 24px) 24px 24px; overflow-y:auto; font-size:15px; }
+#first li { margin:6px 0; }
+.sw { display:inline-block; width:44px; height:44px; border-radius:8px; border:1px solid var(--line); vertical-align:middle; margin-right:8px; }
+table { border-collapse:collapse; width:100%; font-size:14px; } td { padding:8px 4px; border-bottom:1px solid var(--line); vertical-align:top; }
+.stack { position:relative; height:150px; margin:14px 0 6px; }
+.stack .tile { position:absolute; left:50%; top:0; width:132px; height:132px; margin-left:-66px; font-size:30px; box-shadow:0 6px 20px #000; }
+.wheel { display:flex; background:var(--surface); border-radius:12px; padding:3px; margin:10px 0; }
+.wheel button { flex:1; min-height:44px; border-radius:10px; font-size:13px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 6px; }
+.wheel button.on { background:var(--raised); color:var(--accent); font-weight:700; }
+
+/* Fixes from the smoke check (check.mjs): the big tile is a square, and every control is at least 44 pt tall. */
+.tile.xl { height:auto; width:min(100%,42vh); }
+.chip { min-height:44px; border-radius:22px; }
+.pmeta { min-height:44px; }
+.mine { position:relative; min-height:44px; border:0; padding:0 9px; background:none; }
+.mine::before { content:''; position:absolute; inset:9px 0; border:1px solid var(--faint); border-radius:10px; }
+.mine.on::before { border-color:var(--accent); }
+#mini .t { min-height:44px; display:flex; flex-direction:column; justify-content:center; }

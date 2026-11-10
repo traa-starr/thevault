@@ -13,6 +13,8 @@ import { onRated, ratingStore } from './ratingStore';
 import { meter } from './meter';
 import { timing, type Path } from './timings';
 import { redrawFor, SPOT_EVERY_MS } from './energy';
+import { hang } from './hangWatch';
+import { closeQueue, openSheet, type Sheet } from './sheetCore';
 import { currentId, eyeSetting, jumpTo, moveBy, shownLength, SORT_START_SEC, startSpot, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setFlag, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
 import { isVersion, members, removeEditFor, sendEdit, showToast, songTitle, undo as undoVersions, type Sent } from './versionStore';
 
@@ -21,7 +23,7 @@ export type PlayerSong = { id: string; title: string; mine: string; sorted: bool
 type Mark = { mine: string; sorted: boolean };
 type Undo = { order: Order; id: string; title: string; at: number; family: Sent | null };
 type Spot = { order: Order; at: number };
-export type Sheet = 'none' | 'player' | 'queue';
+export type { Sheet };
 /** What a shuffle plays: songs not yet called mine, or only Mine. */
 export type Pool = 'unsorted' | 'mine';
 
@@ -349,7 +351,12 @@ function stopForBadSongs() {
 
 /** The path a Next or a Queue tap is timed under. */
 const nextPath = (): Path => (state.sorting ? 'sort' : startPoint > 0 ? 'session' : 'library');
-const ensureEngine = () => (engine ??= createEngine(ENGINE, { onSound, onTrack, onStarted: (stages) => timing.heard(stages) }));
+const ensureEngine = () => {
+  if (engine) return engine;
+  engine = createEngine(ENGINE, { onSound, onTrack, onStarted: (stages) => timing.heard(stages) });
+  engine.setQuiet(!appOpen); // made while locked (a lock-screen Play after a restart): quiet from the start
+  return engine;
+};
 let modeReady = false;
 const ensureMode = () =>
   (modeSet ??= setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'doNotMix' })
@@ -403,6 +410,7 @@ function loadOrder(order: Order, asked: number | undefined, play: boolean) {
   // play first: once the audio mode is set (every load after the first), the sound is asked for before the screen
   // redraws, so no title, length or tag list sits in front of it
   if (modeReady) toSound(false);
+  hang.mark();
   update({ order, song: songNow(order), time: at, duration: storedLength(id), wanted: play, note: '', trouble: '' });
   if (!state.sorting) heard(id);
   saveSpot(true);
@@ -496,6 +504,7 @@ function stepQueue(step: 1 | -1, moved: Order) {
   ownMoves.push(currentId(moved));
   ahead = moved;
   engine!.skip(step, startPoint);
+  hang.mark(); // the sound is on its way: now the tap's mark may touch the disk
   update({ wanted: true, time: startPoint, duration: storedLength(currentId(moved)) });
   startStallWatch();
 }
@@ -514,6 +523,7 @@ onRated(() => {
 export const player = {
   /** A tap on a song in a list. During Sort it replaces the saved library spot, so the sort song keeps playing. */
   playList(serverUrl: string, list: PlayerSong[], startId: string, shuffle: boolean, pool: Pool = 'unsorted', at?: number, path: Path = 'library') {
+    hang.note(`play from ${path}`);
     url = serverUrl;
     list.forEach((song) => songs.set(song.id, song));
     const ids = list.map((song) => song.id);
@@ -536,6 +546,7 @@ export const player = {
     if (state.wanted) {
       timing.cancel(); // a tap still waiting for sound: paused, so no timing (a Play much later isn't its sound)
       engine?.pause();
+      hang.tap('pause'); // the hang watch's note comes after the sound is told, here and in every tap below: play first
       update({ wanted: false });
       saveSpot(true);
     } else {
@@ -544,6 +555,7 @@ export const player = {
       if (restored) tapFor('restore', currentId(state.order));
       restored = false;
       engine?.play();
+      hang.tap('play');
       update({ wanted: true, note: '' });
       startStallWatch();
     }
@@ -566,6 +578,7 @@ export const player = {
     }
     badInARow = 0;
     tapFor(nextPath(), currentId(moved));
+    hang.note('next'); // kept in memory; it goes on disk once the sound has been asked for (below)
     if (moveBy(startPoint, queueHolds(1, moved)) === 'queue') {
       stepQueue(1, moved);
     } else {
@@ -583,6 +596,7 @@ export const player = {
     }
     badInARow = 0;
     tapFor('previous', currentId(moved));
+    hang.note('previous');
     // landing on the queue's first song makes the player add one in front, which restarts it: a fresh load instead
     const landsFirst = !!engine?.windowed && engine.index() - 1 === 0 && !!previousInOrder(moved);
     if (!landsFirst && moveBy(startPoint, queueHolds(-1, moved)) === 'queue') {
@@ -606,6 +620,7 @@ export const player = {
   /** `at` left out: the song's start point. */
   jump(id: string, at?: number) {
     if (!state.order) return;
+    hang.note('jump to a song');
     badInARow = 0;
     const moved = jumpTo(ahead ?? state.order, id);
     if (at === undefined) tapFor(nextPath(), id); // a fresh card or song: timed to first sound
@@ -797,11 +812,17 @@ export const player = {
   },
 
   open(sheet: Sheet) {
-    if (sheet === 'queue' && state.sheet !== 'queue') update({ sheet, queueFrom: state.sheet === 'player' ? 'player' : 'none' });
-    else update({ sheet });
+    const word = sheet === state.sheet ? '' : sheet === 'none' ? `close ${state.sheet}` : `open ${sheet}`;
+    if (sheet !== 'none') afterClose = null; // opened again before it had gone: what was waiting for it to close is off
+    update(openSheet(state, sheet));
+    if (word) hang.tap(word); // after the screen is told, so the mark never sits in front of the sheet's first frame
   },
 
-  closeQueue: () => update({ sheet: state.queueFrom }),
+  /** Queue's Back, and a swipe down on Queue: back to where it was opened from (sheetCore.ts). */
+  closeQueue() {
+    update(closeQueue(state));
+    hang.tap('close queue');
+  },
 
   /** Closes the player sheet, then runs `then` once it has gone: iOS can't open another sheet over one still closing. */
   closeThen(then: () => void) {
@@ -881,6 +902,7 @@ export const player = {
     if (open === appOpen) return;
     appOpen = open;
     meter.setOpen(open);
+    engine?.setQuiet(!open); // locked: the player reports less often (battery)
     if (open) listeners.forEach((listener) => listener());
     else meter.flush();
   },

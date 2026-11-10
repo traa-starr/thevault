@@ -2,11 +2,11 @@
 // Nothing here knows about songs or queues: playerStore.ts decides what plays, this only makes it play.
 // The playlist player's logic lives in playlistCore.ts (testable with a fake player); this file makes the real ones.
 import { createAudioPlayer, createAudioPlaylist } from 'expo-audio';
-import { playlistEngine, startGate, voiceOf, type Engine, type Handlers, type List } from './playlistCore';
+import { playlistEngine, REPORT_MS, startGate, voiceOf, type Engine, type Handlers, type List } from './playlistCore';
 
 export type { Engine, Sound } from './playlistCore';
 
-const UPDATE_MS = 500;
+const UPDATE_MS = REPORT_MS.open;
 
 function singleEngine({ onSound, onStarted }: Handlers): Engine {
   const player = createAudioPlayer(null, { updateInterval: UPDATE_MS });
@@ -95,6 +95,7 @@ function singleEngine({ onSound, onStarted }: Handlers): Engine {
       player.clearLockScreenControls();
       locked = false;
     },
+    setQuiet: () => {}, // the one-song player isn't the one the phone uses: it keeps its rate
   };
   return engine;
 }

@@ -232,3 +232,18 @@ export function indexFor<T extends SearchTag>(tags: T[]): Index<T> {
   if (cached?.tags !== tags) cached = { tags, index: buildIndex(tags) };
   return cached.index;
 }
+
+/** A link that opens search, from a lock-screen Shortcut or Siri: `thevault://search`, or `thevault://search?q=cold hands`
+ * to fill the box too. Returns the words to search for (maybe none), or null for any other link. */
+export function searchFromLink(link: string | null | undefined): { q: string } | null {
+  const match = /^thevault:\/\/\/?search\/?(?:\?(.*))?$/i.exec((link ?? '').trim());
+  if (!match) return null;
+  const raw = /(?:^|&)q=([^&]*)/.exec(match[1] ?? '')?.[1] ?? '';
+  let q = raw.replace(/\+/g, ' ');
+  try {
+    q = decodeURIComponent(q);
+  } catch {
+    // a stray % sign: the words as they came
+  }
+  return { q: q.trim().slice(0, 200) };
+}

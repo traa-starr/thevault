@@ -5,7 +5,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Hidden from './Hidden';
-import { HomeButton, takeSeed, useSeed } from './nav';
+import { HomeButton, takeSearchAsk, takeSeed, useSearchAsk, useSeed } from './nav';
 import { loadSongList, offline, saveSongList, useOffline } from './offline';
 import { flush, useOutbox } from './outbox';
 import { LaptopLine, RestoreNotice, WaitingLine } from './Notices';
@@ -84,6 +84,8 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
   const [ticked, setTicked] = useState<string[]>([]);
   const rows = useRef<FlatList<Song>>(null);
   const seed = useSeed();
+  const searchAsk = useSearchAsk();
+  const searchBox = useRef<React.ComponentRef<typeof TextInput>>(null);
 
   useEffect(() => {
     const abort = new AbortController();
@@ -276,6 +278,16 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     setTicked([song.id]);
   };
 
+  // a Shortcut's search link: the box in focus with the keyboard up, filled if the link brought words
+  useEffect(() => {
+    if (!searchAsk || !songs) return;
+    takeSearchAsk();
+    setSelecting(false);
+    setFilter(searchAsk.q);
+    const timer = setTimeout(() => searchBox.current?.focus(), 50); // the box is drawn once the songs are in
+    return () => clearTimeout(timer);
+  }, [searchAsk, songs]);
+
   // the full player's "+ Version": select mode with the playing song (its family's row) ticked, scrolled to
   useEffect(() => {
     if (!seed || !songs) return;
@@ -374,6 +386,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
       ) : (
         <>
           <TextInput
+            ref={searchBox}
             style={s.input}
             value={filter}
             onChangeText={setFilter}
