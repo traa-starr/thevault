@@ -46,18 +46,23 @@ hand that the laptop could time itself, put it in the next NEXT.
 By now I've committed and pushed. Code's `/wrap` already published any update and restarted the server; I've reopened the app. I don't bring results: you walk me through the checks.
 1. Read STATUS, REPORT, NEXT, the end of DECISIONS. Say where we are in two lines. Only if REPORT says `full rebuild`
    or publish failed, ask one yes/no first: "Did you do the update?" (exact line from COMMANDS.md).
-2. Check Code's work quietly: REPORT's step matches NEXT; every part done or explained; "Changed" matches git or file
+2. **Frame check (every review, unasked).** Step back from the task and ask what a senior engineer joining today would find
+   odd or wasteful: a manual step repeated every session, a slow loop (rebuilds, re-installs), a default nobody chose,
+   a tool or feature I don't know exists, a rule that no longer fits. My not mentioning something is not a sign it's
+   fine: I don't know what I don't know. Name the top one in "Needs you" with a fix, or write "Frame: nothing odd".
+   (Born from 2026-11-09: weeks of full rebuilds before anyone raised over-the-air updates.)
+3. Check Code's work quietly: REPORT's step matches NEXT; every part done or explained; "Changed" matches git or file
    times; nothing claimed without being run; nothing built that wasn't asked for. Check against VISION and DECISIONS.
    Hold any problems until the checks are done, unless one makes the checks pointless.
-3. **Walk the phone checks, one per message.** Take REPORT's "Needs the phone" plus any older ones pending in STATUS.
+4. **Walk the phone checks, one per message.** Take REPORT's "Needs the phone" plus any older ones pending in STATUS.
    Each message: "Check 2 of 6", the exact taps, what passing looks like, then pass / fail / "something felt off"
    (use the tappable-choice tool if there is one). Write each answer straight into the result doc and STATUS as it
    comes. A fail: ask one short follow-up for what I saw, then go on. If a check needs something first (a published
    mockup page, a server restart), do or say that before the check. "Stop" pauses the walk: write what's done.
-4. After the last check, finish the review. **Lessons:** for every fail or "something off", add a row to `docs/LESSONS.md`: what slipped and the check that would have caught it before me. Last cell (`Kept true by`): write `plan`; Code swaps in the test's file name when it builds the check. Every NEXT's `Read:` line includes LESSONS. Count fails per review in STATUS so we can see if the harness is improving.
+5. After the last check, finish the review. **Lessons:** for every fail or "something off", add a row to `docs/LESSONS.md`: what slipped and the check that would have caught it before me. Last cell (`Kept true by`): write `plan`; Code swaps in the test's file name when it builds the check. Every NEXT's `Read:` line includes LESSONS. Count fails per review in STATUS so we can see if the harness is improving.
    Then: a failure becomes the next task or a written retry. Decide what's yours
    (below). Do the file updates above.
-5. Answer in this order, nothing else:
+6. Answer in this order, nothing else:
    - **Checks:** passed x of y, one line per fail.
    - **Decided:** one line each.
    - **Needs you:** max 3, multiple choice with "other", each with a recommendation and a default.
@@ -67,7 +72,7 @@ By now I've committed and pushed. Code's `/wrap` already published any update an
    - **YOUR NEXT ACTION:** one line (normally: commit and push, then new Code session, type `/next`).
    - **Commit message:** one line in a copy block, covering the files chat wrote this review. If Code's files are also
      uncommitted, cover those too so one commit takes everything.
-No phone checks this step? Skip 3 and say so in one line.
+No phone checks this step? Skip 4 and say so in one line.
 
 If a question in "Needs you" blocks the next task, don't write NEXT; set STATUS `Next up` to "me: answer in chat".
 
@@ -113,7 +118,7 @@ before it blocks. Take all of it that fits one Code session (about 150k context)
 (real sessions, a wipe test), Code's session runs alongside it, it doesn't wait. Aim for 4-6 lettered goals; fewer
 needs a reason on the `Size:` line. Order goals by what matters most for my next phone use, so a session cut short
 still ships the important part. Groundwork for the next phase is spike and memo only: no app code until I choose.
-**Every goal NEXT carries `## The bar`** (between Goal and Done when): board first if the test says so; failure modes listed before building and turned into tests or screenshot checks; tests first; control rules (instant press, 44 pt, no swallowed tap, no layout shift); screenshots of every changed screen with the screenshot command; a hostile self-review of the whole diff before `/wrap`; two failed fixes on a goal = write it up and move on, don't stop the session; for milestones with new screens or risky logic, one fresh-eyes review (a subagent with only NEXT, LESSONS, the diff and screenshots) after the self-review, its catches listed in REPORT. Drop it if REPORT shows it catching nothing twice in a row.
+**Every goal NEXT carries `## The bar`** (between Goal and Done when): board first if the test says so; failure modes listed before building and turned into tests or screenshot checks; tests first; control rules (instant press, 44 pt, no swallowed tap, no layout shift); screenshots of every changed screen with the screenshot command; a hostile self-review of the whole diff before `/wrap`; one REPORT line "Odd in how we work:" naming anything wasteful in the setup or loop Code noticed, even outside the task; two failed fixes on a goal = write it up and move on, don't stop the session; for milestones with new screens or risky logic, one fresh-eyes review (a subagent with only NEXT, LESSONS, the diff and screenshots) after the self-review, its catches listed in REPORT. Drop it if REPORT shows it catching nothing twice in a row.
 Recipe format keeps the old shape: `## Parts` a, b, c, a **Stop line**, then `## Phone check`.
 Code's `/wrap` doesn't print phone checks; it states the phone update (none / publish / full rebuild) and marks each
 Done when line pass / fail / not run. You walk the checks at `Review.`

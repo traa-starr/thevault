@@ -20,6 +20,13 @@ so the overhaul can redraw screens without rewriting how they work.
   dots on the seek bar where a line was tagged.
 - Nobody found does "search by a line I rapped". That's The Vault's own thing; make it the hero of the home screen.
 
+## Owner's bar (2026-11-09)
+Copy the QUALITY of YouTube, Spotify, Apple Music, X, Instagram, not their looks. Someone used to those apps should not
+feel a step down. Questions every screen must answer: does finishing an action feel smooth? Does the layout make sense
+for how I actually use it? Is it friendly to iPhone hardware (lock screen, Dynamic Island, AirPods, haptics, one hand)?
+Is it a better place to listen than Files or Apple Music? The app is also where I rediscover 12 years of self-taught
+work and see what stood the test of time: it should feel like that.
+
 ## Ideas: look and feel (UX)
 1. **Seek bar becomes a waveform** with tag dots. Tap a dot: jump to the line. Same bar in Compare shows where versions differ.
 2. **Cover art everywhere.** Songs have none yet: generate a plain tile per song from its title and date (colour from

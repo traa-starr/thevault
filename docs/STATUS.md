@@ -20,7 +20,8 @@
 ## Queue
 1. Now: Code: battery, instant taps, eye, rating, search as I type, Mine on the phone (`NEXT.md`). Me: real tagging sessions + wipe check (2.7).
 2. Then: my 20 acceptance searches (3.7) at ~50 tags, and revisit E (3.4, 3.5); Phase 2 closes when I pass 2.7, and chat folds its DECISIONS rows into `decisions/phase-2.md` (short summary left in DECISIONS).
-3. Parked: Keychain note so a reinstall keeps the laptop address (native); lock-screen search Shortcut (needs a URL scheme, full rebuild). Stretch: A-Z strip, split the 638 set. MP3 phone copies (523): fix next step if the timings blame them.
+3. Owner pitch 2026-11-09: **design overhaul** (real UI + UX at the quality bar of Spotify / Apple Music / YouTube / Instagram, while the Fable promo lasts). Owner's bar in `DESIGN-NOTES.md`. Owner chose (DECISIONS 2026-11-09): teardown + mockups start now alongside 2.7, no app code until 2.7 passes; Expo + native pieces, one full rebuild. Goes into the NEXT written at this Review.
+4. Parked: Keychain note so a reinstall keeps the laptop address (native); lock-screen search Shortcut (needs a URL scheme, full rebuild). Stretch: A-Z strip, split the 638 set. MP3 phone copies (523): fix next step if the timings blame them.
 
 ## Open questions
 - Goal-format trial: task 3 of 3 is this NEXT. At its review, ask me: keep, adjust, or go back.
