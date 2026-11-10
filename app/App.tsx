@@ -1,22 +1,27 @@
-// One screen: the title and whether the laptop answers. The laptop's address is typed here and stays on the phone, never in the repo.
+// The app's frame (overhaul wave 1): the tab screens (Home, Library) with Sort opened over them, then the tab bar, the
+// mini player and the player sheet above, as siblings, so changing screen never touches the player. Home and Library
+// both stay drawn (the one not showing is only hidden): a tab change never loads the songs again.
+// The laptop's address is typed on Home and stays on the phone, never in the repo.
 import { File, Paths } from 'expo-file-system';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, Linking, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import buildInfo from './build-info.json';
 import Library from './Library';
 import { keychain } from './keychain';
-import { openSearch, setHome } from './nav';
+import { closeSort, openSearch, placeNow, usePlace } from './nav';
+import { TabBar } from './Frame';
+import Home from './Home';
+import { C, coveredBelow, T } from './theme';
 import { searchFromLink } from './search';
 import { offline } from './offline';
 import { pauseOutbox, startOutbox } from './outbox';
 import { tagStore } from './tagStore';
-import { NowPlayingBar, PlayerSheet, UndoToast } from './Player';
-import { player } from './playerStore';
+import { MiniPlayer, PlayerSheet, UndoToast } from './Player';
+import { player, usePlayerPick } from './playerStore';
 import { session } from './sessionStore';
 import Sort from './Sort';
 import { VersionsLayer } from './Versions';
-import { RestoreNotice, WaitingLine } from './Notices';
 import { phoneBackup, survivalStamp, usePhoneBackup } from './phoneBackup';
 import { compare } from './compareStore';
 import { codeVersion, pointUpdatesAt, updateLine, useReloadOnUpdate } from './updates';
@@ -102,8 +107,8 @@ export default function App() {
   const [draft, setDraft] = useState(address);
   const [editing, setEditing] = useState(!address);
   const [line, setLine] = useState('');
-  const [inLibrary, setInLibrary] = useState(false);
-  const [inSort, setInSort] = useState(false);
+  const { tab, sort } = usePlace();
+  const { song } = usePlayerPick('song');
   const [stamp] = useState(survivalStamp);
   const { waiting: fresh } = usePhoneBackup();
   // a reload into new app code is not a hang: the watch stands down first
@@ -121,12 +126,12 @@ export default function App() {
   }, [address]);
 
   // the hang watch names the screen in fixed words: which screen, and whether the player or Queue is over it
-  const where = useRef('Home');
-  where.current = inSort ? 'Sort' : inLibrary ? 'Library' : 'Home';
   useEffect(() => {
     hang.start(() => {
       const { sheet } = player.now();
-      return sheet === 'none' ? where.current : `${where.current}+${sheet}`;
+      const at = placeNow();
+      const where = at.sort ? 'Sort' : at.tab === 'library' ? 'Library' : 'Home';
+      return sheet === 'none' ? where : `${where}+${sheet}`;
     }, AppState.currentState === 'active');
     return () => hang.setActive(false);
   }, []);
@@ -143,17 +148,6 @@ export default function App() {
     const sub = Linking.addEventListener('url', ({ url }) => go(url));
     return () => sub.remove();
   }, []);
-
-  setHome(
-    () => {
-      setInLibrary(false);
-      setInSort(false);
-    },
-    () => {
-      setInSort(false);
-      setInLibrary(true);
-    },
-  );
 
   // the last song back in the bar, paused where it was, as soon as the app opens
   useEffect(() => {
@@ -200,84 +194,79 @@ export default function App() {
     setEditing(false);
   };
 
-  // The player lives outside the screens, so changing screen never touches it.
-  const withPlayer = (screen: ReactNode) => (
-    <View style={s.root}>
-      <StatusBar style="light" />
-      <View style={s.screen}>
-        {screen}
-        <UndoToast />
-      </View>
-      <NowPlayingBar />
-      <PlayerSheet />
-      {address ? <VersionsLayer url={serverUrl(address)} /> : null}
+  // back on Home: the laptop's line is asked again (the old Back from Library did this)
+  useEffect(() => {
+    if (tab === 'home' && !sort) check();
+  }, [tab, sort]);
+
+  const url = address ? serverUrl(address) : '';
+  // first open (or Change laptop address): the box to type it in
+  const addressBox = (
+    <View style={s.setup}>
+      {fresh && !address ? <Text style={s.line}>Fresh install: type your laptop address, with the laptop on, and everything comes back.</Text> : null}
+      <TextInput
+        style={s.input}
+        value={draft}
+        onChangeText={setDraft}
+        onSubmitEditing={save}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+        returnKeyType="done"
+        placeholder="Laptop address"
+        placeholderTextColor={C.faint}
+      />
+      <Pressable onPress={save}>
+        <Text style={s.link}>Save</Text>
+      </Pressable>
     </View>
   );
-
-  if (inSort) {
-    return withPlayer(<Sort url={serverUrl(address)} onBack={() => setInSort(false)} />);
-  }
-
-  if (inLibrary) {
-    return withPlayer(
-      <Library
-        url={serverUrl(address)}
-        onBack={() => {
-          setInLibrary(false);
-          check();
-        }}
-      />,
-    );
-  }
-
-  return withPlayer(
-    <View style={s.page}>
-      <Text style={s.title}>The Vault</Text>
-      {fresh && !address ? <Text style={s.line}>Fresh install: type your laptop address, with the laptop on, and everything comes back.</Text> : null}
-      <RestoreNotice />
-      <WaitingLine />
-      {editing ? (
-        <>
-          <TextInput
-            style={s.input}
-            value={draft}
-            onChangeText={setDraft}
-            onSubmitEditing={save}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-            returnKeyType="done"
-            placeholder="Laptop address"
-            placeholderTextColor="#888"
-          />
-          <Pressable onPress={save}>
-            <Text style={s.link}>Save</Text>
-          </Pressable>
-        </>
-      ) : (
+  // the bottom of Home: the laptop, and the quiet build line (a long press shows the lock-screen log, 6.7)
+  const about = (
+    <View style={s.about}>
+      {address && editing ? addressBox : address ? (
         <>
           <Text style={s.line}>{line}</Text>
           <Pressable onPress={() => setEditing(true)}>
             <Text style={s.link}>Change laptop address</Text>
           </Pressable>
         </>
-      )}
-      {address ? (
-        <>
-          <Pressable onPress={() => setInLibrary(true)}>
-            <Text style={s.link}>Open library</Text>
-          </Pressable>
-          <Pressable onPress={() => setInSort(true)}>
-            <Text style={s.link}>Sort</Text>
-          </Pressable>
-        </>
       ) : null}
-      <Text style={s.stamp}>Data since {stamp}</Text>
-      {/* hidden: a long press shows the lock-screen log (6.7) */}
-      <Pressable style={s.build} onLongPress={showPressLog}>
-        <Text style={s.buildText}>{updateLine(buildLine)}</Text>
+      <Text style={s.small}>Data since {stamp}</Text>
+      <Pressable onLongPress={showPressLog}>
+        <Text style={s.small}>{updateLine(buildLine)}</Text>
       </Pressable>
-    </View>,
+    </View>
+  );
+
+  // Only the tab content swaps. The tab bar, mini player, player sheet and Versions sit above it and never reload.
+  return (
+    <View style={s.root}>
+      <StatusBar style="light" />
+      <View style={s.screen}>
+        <View style={[s.screen, (tab !== 'home' || sort) && s.away]}>
+          <Home url={url} setup={addressBox} about={about} showing={tab === 'home' && !sort} />
+        </View>
+        {/* Library: drawn once there's a laptop to ask, then kept, so its songs load once. Its list ends above the
+            tab bar and the mini player */}
+        {url ? (
+          <View style={[s.screen, { paddingBottom: coveredBelow(true, !!song) }, (tab !== 'library' || sort) && s.away]}>
+            <Library url={url} />
+          </View>
+        ) : null}
+        {sort && url ? (
+          <View style={[s.screen, { paddingBottom: coveredBelow(false, !!song) }]}>
+            <Sort url={url} onBack={closeSort} />
+          </View>
+        ) : null}
+        <UndoToast />
+      </View>
+      {/* no tabs until there's a laptop to show songs from: Library isn't drawn yet */}
+      {url ? <TabBar /> : null}
+      <MiniPlayer />
+      <PlayerSheet />
+      {url ? <VersionsLayer url={url} /> : null}
+    </View>
   );
 }
 
@@ -292,14 +281,13 @@ function showPressLog() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#111' },
-  screen: { flex: 1 },
-  page: { flex: 1, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 },
-  title: { color: '#fff', fontSize: 34, fontWeight: '700' },
-  line: { color: '#ddd', fontSize: 18 },
-  input: { alignSelf: 'stretch', color: '#fff', fontSize: 16, borderColor: '#555', borderWidth: 1, borderRadius: 8, padding: 12 },
-  link: { color: '#8ab4f8', fontSize: 15, padding: 8 },
-  stamp: { color: '#666', fontSize: 12, position: 'absolute', bottom: 40 },
-  build: { position: 'absolute', bottom: 20 },
-  buildText: { color: '#666', fontSize: 12 },
+  root: { flex: 1, backgroundColor: C.bg },
+  screen: { flex: 1, backgroundColor: C.bg },
+  away: { display: 'none' },
+  setup: { gap: 12, marginTop: 8 },
+  about: { marginTop: 28, gap: 8, alignItems: 'flex-start' },
+  line: { ...T.meta, fontSize: 15 },
+  input: { alignSelf: 'stretch', color: C.text, fontSize: 16, backgroundColor: C.raised, borderRadius: 12, padding: 12 },
+  link: { color: C.text, fontSize: 15, paddingVertical: 10 },
+  small: { color: C.faint, fontSize: 12 },
 });

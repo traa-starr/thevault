@@ -13,10 +13,17 @@ export function WaitingLine() {
   const { pending } = useOutbox();
   const { reachable } = useOffline();
   if (!pending.length) return null;
+  // plays aren't choices of mine: counted apart, so a long listen with the laptop off doesn't read as 40 changes
+  const played = pending.filter((change) => change.kind === 'play_add' && !change.data.end).length;
+  const extra = pending.filter((change) => change.kind === 'play_add').length;
+  const changes = pending.length - extra;
+  // plays alone never raise the line: they're safe on the phone, and a line that came and went with every song would
+  // push Home's rows down and up again (review 2026-11-10)
+  if (!changes) return null;
   return (
     <Pressable onPress={() => flush()}>
       <Text style={s.waiting}>
-        {count(pending.length, 'change', 'changes')} waiting to send{reachable === false ? ' · Laptop not reachable' : ''}
+        {[changes ? count(changes, 'change', 'changes') : '', played ? count(played, 'play', 'plays') : ''].filter(Boolean).join(' and ')} waiting to send{reachable === false ? ' · Laptop not reachable' : ''}
       </Text>
     </Pressable>
   );

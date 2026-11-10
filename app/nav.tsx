@@ -1,14 +1,35 @@
-// Home from anywhere: every screen and the player sheet show the same Home link, top right, across from Back.
+// Where I am in the app (overhaul wave 1): the two tabs, and Sort opened over Home. Kept here, outside the screens, so
+// anything can move me (a tab, a link from the lock screen, the player's "+ Version") and nothing a tab does can touch
+// the player: the player's own state lives in playerStore.
 import { useSyncExternalStore } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
 import { player } from './playerStore';
+import { sortClosed, sortOpened, tabTapped, type Place, type Tab } from './sheetCore';
 
-let goHomeNow = () => {};
-let goLibraryNow = () => {};
-export const setHome = (go: () => void, library: () => void) => {
-  goHomeNow = go;
-  goLibraryNow = library;
+export type { Place, Tab };
+let place: Place = { tab: 'home', sort: false };
+const placeListeners = new Set<() => void>();
+const setPlace = (next: Place) => {
+  if (next.tab === place.tab && next.sort === place.sort) return;
+  place = next;
+  placeListeners.forEach((listener) => listener());
 };
+export const usePlace = () =>
+  useSyncExternalStore(
+    (listener) => {
+      placeListeners.add(listener);
+      return () => {
+        placeListeners.delete(listener);
+      };
+    },
+    () => place,
+  );
+export const placeNow = () => place;
+/** A tab tapped. Leaves Sort if it was open. The player and the music are never touched. */
+export const goTab = (tab: Tab) => setPlace(tabTapped(place, tab));
+export const openSort = () => setPlace(sortOpened(place));
+export const closeSort = () => setPlace(sortClosed(place));
+const goHomeNow = () => goTab('home');
+const goLibraryNow = () => goTab('library');
 
 // Search asked for from outside the app (a lock-screen Shortcut's link): Library opens with the box ready to type in.
 let asked: { q: string } | null = null;
@@ -73,15 +94,8 @@ export const goHome = () => {
   goHomeNow();
 };
 
+/** The old Home link on every screen: the tab bar does its job now, so it draws nothing. Kept so the screens not yet
+ * restyled (Sort, Cards, Hidden, Queue) need no change in this wave. */
 export function HomeButton() {
-  return (
-    <Pressable onPress={goHome} hitSlop={8} style={s.home} accessibilityLabel="Home">
-      <Text style={s.text}>Home</Text>
-    </Pressable>
-  );
+  return null;
 }
-
-const s = StyleSheet.create({
-  home: { marginLeft: 'auto' },
-  text: { color: '#8ab4f8', fontSize: 15, padding: 8 },
-});

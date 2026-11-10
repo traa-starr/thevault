@@ -1,37 +1,39 @@
-**Step:** Steady screen, straight-back Queue, and the overhaul teardown + mockups, 2026-11-10. Built by Fable 5 over two sessions (the first hit its usage cap after the fresh-eyes review; the second finished the review's fixes, E's pages and F).
+# REPORT
+**Step:** Overhaul wave 1: the new frame, Home and player, 2026-11-10. Built by Fable 5 in one session.
 
-**Verified by running:** `/verify` 18/18 PASS in 50 s. Steady-screen test 24 checks (200-round spam, the old pop-up sheet shown getting stuck under the same taps, a fake 3.4 s stall reported, swipe-down per opener x7). Shots 71/71, 7 mid-close. Mockups: `node spike/mockups/check.mjs`: 3 directions, 0 script errors, 0 controls under 44 pt, 150 taps each. `check_repo` clean. Published twice (A+B first, then F's app code); typecheck clean.
+**Verified by running:** `/verify` 21/21 PASS in 45 s (new: `frame` 32 checks, `playData` 34, `labels` 4; `test_server` plays 28). Screenshots: 92 of 92 drawn, plus 4 side-by-side with the mockups (`side-*.png`). `expo export` builds (1,241 modules); publish went out. `status` on the real library: "Plays: 0 of 0 songs".
 
-**Phone timings** (C; energy is from the 28 min locked listen on the build before this step):
+**Phone timings:**
 ```
-Search: typical 8 ms, slow end 13 ms, worst 15 ms (172 times), about 23 tags
-Energy while playing, app code 2026-11-09T19:56:17, per minute. Plays: 12 from the phone's copy, 0 streamed
-  open: none yet
-  locked (28 min): wake-ups 123, redraws 0.4, network calls 0.2, file writes 1.3. PASS
-Hang watch: nothing yet (the phone sends it when the app goes to the background, after a minute on screen)
-Tap to first sound: library, previous, lockscreen PASS (215 / 225 / 56 ms typical, none over 1 s); session, restore not enough yet (2 of 5); sort, search none yet
+Search: typical 7 ms, slow end 13 ms, worst 15 ms (179 times), about 23 tags
+Energy while playing, app code build 23, per minute. Plays: 34 from the phone's copy, 0 streamed
+  open (1 min): wake-ups 204, redraws 263.3, network calls 1.5, file writes 27.4. not enough yet (1 of 5 min)
+  locked: none yet
+Hang watch (screen stuck over 2 s), app code build 23: watched 6 min on screen. PASS (quiet)
+Tap to first sound, app code build 23 (18 of 564 samples; older code not judged)
+  library: typical 237 ms, slow end 368 ms, worst 368 ms (14 times); over 1 s: 0. PASS
+  previous: typical 271 ms ... not enough yet (4 of 5)
+  session, sort, lockscreen, search, restore: none yet
 ```
-C verdict: every locked ceiling PASS. Wake-ups (123) are the one number still high; the lever is F's slower locked reports (30 a minute), which needs the rebuild. "Open" has no line yet: needs a minute of playing with the screen on.
+These are the old code's numbers: the new code has none until I use it. Locked wake-ups (~30 expected) still not measured.
+**Phone update:** `published 2026-11-10 07:52 UTC` (close and reopen the app), server started (it was stopped) on the new code; the session then went idle mid-wrap and a second session finished STATUS and found the server stopped again, restarted it (RUNNING). Then `full rebuild` for check 4 only (`app/package.json` gained two packages; steps in `overhaul/REBUILD.md`).
 
-**Phone update:** published 2026-11-10 06:02 (A, B, hang watch, and F's app code, which waits quietly for the build). Then `full rebuild` for F's native pieces, mine, any time: steps in `docs/overhaul/REBUILD.md`.
+**Needs the phone:** the 4 "I prove" lines of NEXT. Extra for chat to walk: (a) play a song past 0:30, skip one at 0:10, go to Library and back: only the first is in Recently played; `python server\vault_cli.py plays E:\VaultLibrary` shows it. (b) Tag a line with the keyboard up: the field stays visible. (c) Tap Lines: the list takes the art's place, nothing below moves.
 
-**Needs the phone:**
-1. Library, a song playing: open the mini player, pause/play 10 times fast, close, reopen, Next 5 times; 3 rounds. Pass: never freezes. Then app to the background and `timings` on the laptop: "Hang watch" shows minutes watched, 0 stalls.
-2. Full player, swipe up to Queue, swipe down. Pass: the player, no Library flash. Mini player on Library, then on Sort: swipe up, swipe down. Pass: same screen.
-3. After the rebuild: app connects without typing; a Shortcut "Open URLs" `thevault://search` lands on the search box; controls tick. Pass: all three. Locked listen 10 min: wake-ups about 30.
-4. COMMANDS "Mockups on the phone", tap through Wall, Line, Deal. Pass: every screen opens and moves; say which and why.
+**Changed:** new `app/` Home, Frame, Icon, Art, theme, tileColor, native, nativePieces, playLog, playStore + 3 tests; rewritten App, Player, nav; touched Library, Tagging, Notices, outbox, phoneBackup, playerStore, playOrder, sheetCore, sortData, ratingStore, Versions, Sort/Cards/Hidden (background only); `server/` store, songs, server, cli, test; `tools/shots` (fixtures, `side.mjs`); build workflow (prints Xcode version); docs: board x2, DESIGN-SYSTEM, LABELS, REBUILD, COMMANDS, MAP, ROADMAP, DECISIONS.
 
-**Changed:** app: `App.tsx Library.tsx Player.tsx Tap.tsx Versions.tsx nav.tsx playerStore.ts playlistCore.ts engine.ts energy.ts search.ts timings.ts app.json package.json package-lock.json`, new `sheetCore.ts hang.ts hangWatch.ts keychain.ts steadyScreen.test.mjs patches/expo-audio+58.0.11.patch`, tests `playlistCore.test.mjs search.test.mjs`. server: `timings.py test_server.py`. tools/shots (6 files). spike/mockups: `index/wall/line/deal.html app.css app.js check.mjs`. docs: `overhaul/TEARDOWN.md overhaul/REBUILD.md board/overhaul-mockups.md STATUS LESSONS DECISIONS ROADMAP COMMANDS REPORT`.
+**Done when:** A pass (wipe + restore test; `status` and new `plays` command). B pass (200 rounds through tabs, 3,687 taps; swipe-down = down button from 6 openers; mid-close shots). C, D pass (shots of Home x8, player dark / light / no art / long titles, mini on each tab, side by side). E pass for SF Symbols and glass (tests both ways, publish builds, REBUILD updated, standard runner); **native tab bar not taken** (below). `/verify` pass; `check_repo` clean. I prove 1-4: not run (for chat).
 
-**Done when:** 200-round spam test + cause named: pass. Hang lines in `timings`, fake stall reported: pass. Test per opener + mid-close shots: pass. Energy judged: pass (above). TEARDOWN covers every screen with a screenshot name: pass (written in session 1; not re-read in session 2). 2-3 mockups open from the laptop, fake names, no app code: pass on the laptop, phone not run. F's pieces with tests, build config on a standard runner, REBUILD.md: pass; "below 120 after install": not run (mine). Rebuild steps: pass (REBUILD.md; COMMANDS had no rebuild line, added). `/verify` under 1 min: pass. I prove 1-4: not run (for chat).
+**Plan I chose:** all 6 lines ticked. Board `board/wave1-frame.md`; defaults in use for its 3 owner questions (amber; day-one row; Mine / Not mine as two quiet words).
 
-**Cause of the freeze:** the player was an iOS pop-up sheet. iOS can't turn one round half-way: opened while still closing (or closed while opening), the request was dropped and an empty see-through sheet stayed over the whole app, taking every touch while the music played. Now it's a layer in the app that always heads where the player says.
+**Fresh-eyes review** (`board/wave1-review.md`, written before any fix): 15 catches. Fixed 9: replay after a list ends never counted (1), Compare time credited as one play (2), laptop's 6-decimal times maybe unreadable on the phone (3), "1 play waiting" line pushing Home down (4), blank Library with no address (5), rows moving under the thumb at 0:30 (6), versions doubling in Recently played (7), Home taps dead during Compare (8), tile colour stuck (11), laptop line not refreshed (14). Not taken, reason checked in the code: 9 (a count can read +1 for the length of one song-list fetch; the next list corrects it; ratings share the pattern), 10 (the typing field's place doesn't depend on screen height: the art is the only stretchy row and it lifts away whole), 12 (under a second), 13 (by design), 15 (playStore can't load on the laptop; its maths is tested, its wiring isn't).
 
-**Plan I chose:** A [x] B [x] C [x] D [x] E [x] F [x] reviews + verify + publish + wrap [x]. Guessed: locked reports every 2 s, not 5 (the start-spot finder and the stuck-song watch lean on reports); runtime version kept at 1 with every native piece checked before use, so publish works across the rebuild; `?q=` on the search link.
-**Fresh-eyes catches (session 1, fixed; listed from the code, the review text was lost with the session):** a freeze with no tap before it went unreported (on-screen flag added); an old slide's late end could be taken for the new one's; one tap could be named twice; a mark could be saved late for a tap that started nothing. Session 2 found the hang test not updated for the flag fix (1 FAIL, fixed + a new test), a squashed player tile and 8 small controls in the mockups (fixed), the shots kit breaking on the Keychain module (stand-in added).
+**Not done:** native tab bar: it needs the app moved onto a navigation package and can't run on today's build; the drawn bar is the same on both and can't reload the player. Stretch: none started. My own find mid-build: the first tint let grey text drop to 3.1:1 on bright songs; the test caught it, now 4.6:1 worst case.
 
-**Not done:** stretch 1 and 2. The Swift patch isn't compiled (Windows can't): first proof is the GitHub build; fallback in REBUILD.md.
-**Decisions needed:** which mockup direction (no default: it's check 4). Rebuild now or with the overhaul's? Recommend now: 15 min of mine, and it proves the build pipeline before O.5 leans on it.
-**Proposed next step:** review, then 2.7 sessions; after my pick, O.4 wave 1 (shell: tabs + mini player) from the chosen mockup.
-**Pitch:** `timings` verdict on the phone (stretch 1): every check above that ends "run timings on the laptop" becomes a long-press.
-**Odd in how we work:** a session that dies mid-review leaves no trace of the review's findings; the reviewer should write its catches to a file before fixes start.
+**Decisions needed:** (1) accent amber or coral: default amber. (2) "Not played in a while" on day one is a different dozen never-played Mine songs each day: default keep. (3) Mine / Not mine as two small words beside the eye: default keep; say if you want the eye gone now sorting is done. (4) Session's Next is now "Next song" in the action row plus the pill's Next (was a big button): default keep.
+
+**Proposed next step:** wave 2: Library and the search screen in Wall's style (art tiles on rows, filter chips, search as its own screen from the round button).
+
+**Pitch:** a waveform strip for the seek bar made once on the laptop (DESIGN-NOTES Tech 1): tag dots on a real shape is the one thing no benchmark app has.
+
+**Odd in how we work:** NEXT said "tab bar ... if it can host B" but REBUILD already said native tabs need a navigation rewrite; the two docs disagreed and I had to pick. Also `/next` tells me to hold fixes for the review file, which cost a 7 minute idle wait: the review could run while docs are written.

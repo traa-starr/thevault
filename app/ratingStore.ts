@@ -65,7 +65,8 @@ export const ratingStore = {
     const value = ratingAfterTap(before, tapped);
     const change = addRatingChange(id, value);
     ratedListeners.forEach((listener) => listener());
-    const word = value === 'none' ? (tapped === 'fire' ? 'Not Fire: ' : 'Off the shelf: ') : value === 'fire' ? 'Fire: ' : 'Shelved: ';
+    // plain words on screen (owner, 2026-11-10): Favorite and Archive. The stored values keep their old names
+    const word = value === 'none' ? (tapped === 'fire' ? 'Not a Favorite: ' : 'Not archived: ') : value === 'fire' ? 'Favorite: ' : 'Archived: ';
     say({
       text: word,
       bold: title,

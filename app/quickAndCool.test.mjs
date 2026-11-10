@@ -56,8 +56,10 @@ const source = (file) => readFileSync(new URL(file, import.meta.url), 'utf8');
     assert.ok(tap.includes('onPressIn'), 'starts at finger-down, before the tap does its work');
     const player = source('./Player.tsx');
     assert.ok(!/p\.pressed|tint\(p\)|pressed &&/.test(player), 'no player button still draws its look from the app thread');
-    for (const label of ['Previous', 'Next', "'Pause' : 'Play'", 'Not mine', 'Mine']) assert.ok(player.includes(label));
-    assert.ok((player.match(/<Tap\b/g) ?? []).length >= 14, 'Previous, Play, Next, Shuffle, Fire, Shelve, Back, eye, Mine, Not mine, the bar, the session');
+    for (const label of ['Previous', 'Next', "'Pause' : 'Play'", 'Not mine', 'Mine', 'Favorite', 'Archive', 'Queue']) assert.ok(player.includes(label));
+    // the action row's five buttons (Favorite, Archive, Tag, Lines, Queue) are one <Action>, itself a <Tap>
+    assert.ok(/function Action\([\s\S]*?<Tap\b/.test(player), 'the action row is made of Taps');
+    assert.ok((player.match(/<Tap\b/g) ?? []).length + (player.match(/<Action\b/g) ?? []).length >= 18, 'Previous, Play, Next, Shuffle, Favorite, Archive, Tag, Lines, Queue, close, eye, Mine, Not mine, the mini player, the session');
   });
 }
 

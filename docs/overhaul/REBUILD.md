@@ -30,15 +30,36 @@ copies the shape of the lines next to it), and that SideStore's signing gives th
 behaves as today, nothing breaks). If the build fails on the patch: delete `app/patches/expo-audio+58.0.11.patch`,
 rebuild, and the other two pieces still ship.
 
-## Left for the overhaul's own rebuild (O.5)
+## The overhaul's rebuild, wave 1 (ready now, waiting for me)
+
+Written by Code, 2026-11-10 (NEXT 2026-11-10 E). The new look already runs on the build I have, by publish, with its own
+drawn icons and solid bars. This rebuild swaps in the real things; nothing else changes and nothing moves.
+
+| Piece | What I get | How it was made safe |
+|---|---|---|
+| Apple's icons (SF Symbols) | Play, Next, Home, Search, Favorite, Archive and the rest drawn by iOS itself, sharp at any size | `app/Icon.tsx` asks whether this build has them. It does: Apple's. It doesn't (today's build, the laptop's screenshots): the app's own drawn ones, in the same box. Tested both ways (`app/frame.test.mjs`) |
+| Liquid Glass | Real glass on the tab bar, the search button, the mini player and the transport pill | Needs this rebuild and iOS 26. Anything less: the solid dark bar I see today. Lists and text never sit on glass |
+
+**Steps (mine):** the same four as above: commit and push; GitHub, Actions, "Build iOS (unsigned)", Run workflow; download
+the `.ipa`; SideStore, install it over the app (don't delete the app first). Then phone check 4 in NEXT.
+The build's log now starts with the Xcode version it used: glass needs Xcode 26 or newer on GitHub's Mac. If the log
+says older, the app still builds and runs, with icons but solid bars.
+
+**Not proven until the phone has it:** that the two new packages compile on GitHub's Mac (they are stock Expo packages,
+so this is the usual risk), and what real glass looks like behind the mini player's text. If a build fails on one:
+take that one line out of `app/package.json` (`expo-symbols` or `expo-glass-effect`), run `npm install` in `app`,
+rebuild. The app code needs no change: it already copes with a missing piece.
+
+**Not in this rebuild (Code's call, reasons in REPORT 2026-11-10):** the native tab bar. The tab bar is drawn by the
+app (`app/Frame.tsx`), so it looks and works the same on the build I have and the new one, and it can't reload the
+player. iOS's own tab bar would need the whole app moved onto a navigation package first.
+
+## Left for a later rebuild (O.5)
 
 | Piece | Gain | Risk | Notes |
 |---|---|---|---|
-| SF Symbols (Apple's own icons) | Controls read as iPhone-native at once; symbols replace words on the transport. Biggest look-per-effort win | Low | One Expo package (`expo-symbols`). Icons need a fallback picture in the screenshot kit |
-| Native tab bar | Real iOS tabs: the system's press feel, the tab bar that shrinks on scroll, Search as the round button (iOS 26) | Medium | The app has no tab navigation today (screens are swapped by hand in `App.tsx`), so this is the shell wave of O.4, not a drop-in. The player and mini player must sit above it without reloading: test with the steady-screen spam test |
-| Liquid Glass (tab bar, mini player, transport) | The iOS 26 look the mockups fake with blur | Medium | Needs iOS 26 on the phone and a build made with Xcode 26; on older iOS it must fall back to a solid bar. Glass under text hurts reading: lists stay solid (board) |
-| Live Activity (lock screen / Dynamic Island card) | Now-playing with my own buttons (Tag, Fire) on the lock screen | High | It's a second mini-app inside the app (a widget target). A free Apple ID gets few app slots and SideStore must sign both parts every 7 days; may not work sideloaded at all. The lock-screen controls I have already work. Try last, on a throwaway build first |
+| Native tab bar | Real iOS tabs: the system's press feel, the tab bar that shrinks on scroll | Medium | Not taken in wave 1 (above). Worth another look only if the drawn tab bar feels wrong in the hand |
+| Live Activity (lock screen / Dynamic Island card) | Now-playing with my own buttons (Tag, Favorite) on the lock screen | High | It's a second mini-app inside the app (a widget target). A free Apple ID gets few app slots and SideStore must sign both parts every 7 days; may not work sideloaded at all. The lock-screen controls I have already work. Try last, on a throwaway build first |
 
-Order a senior engineer would pick: SF Symbols with the shell wave, native tabs + glass together (one rebuild), Live
-Activity as its own experiment after the overhaul ships. Each mockup's "Design system and native pieces" page says
+Order a senior engineer would pick: Live Activity as its own experiment after the overhaul ships, on a throwaway build. Each mockup's "Design system and native pieces" page says
 which of these that direction needs.

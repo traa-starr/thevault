@@ -31,8 +31,17 @@ const whole = (fix = {}, steps = []) => ({
   },
   steps,
 });
-const LIB = "app.tapText('Open library')";
-const SORT = "app.tapText('Sort')";
+const LIB = "app.goTab('library')";
+const SORT = "app.openSort()";
+const HOME = "app.goTab('home')";
+// play data for Home's rows: five songs heard lately, three not for a long while, the rest never. Dates spread over
+// the years, so tiles run from dark (old) to bright (new)
+const daysAgo = (n) => new Date(Date.now() - n * 864e5).toISOString();
+const HEARD = { s1: [14, 0], s3: [3, 1], s4: [1, 2], s7: [6, 4], s9: [2, 9], s10: [1, 45], s12: [5, 120], s13: [2, 400] };
+const played = songs.map((one, i) => ({ ...one, date: `${2014 + (i * 5) % 13}-0${(i % 9) + 1}-1${i % 9}`, plays: HEARD[one.id]?.[0] ?? 0, last_heard: HEARD[one.id] ? daysAgo(HEARD[one.id][1]) : null, length: 214 }));
+const HARD_TITLES = ['this is the one where the hook finally lands after the second verse (final final v7 REAL) 🔥', 'NO SLEEP TILL THE MIX IS DONE', 'Untitled 2019-03-14', 'ночной забег (demo)', 'verylongtitlewithnospacesatallbecauseitwasbouncedstraightfromtheprojectname_v12', '???'];
+const hard = played.map((one, i) => (i < HARD_TITLES.length ? { ...one, title: HARD_TITLES[i] } : one));
+const art = (title, date, extra = {}) => player({ player: playing({ song: { ...song, title } }), songs: [{ ...songs[0], title, date }], files: tagFile(tags(4)), ...extra });
 const OPEN = "app.player.open('player')";
 const QUEUE = "app.player.open('queue')";
 const PULL = [195, 76, 330]; // the grab area at the top of the sheet, pulled 254 pt down and held
@@ -101,8 +110,32 @@ export const fixtures = [
   { name: 'search-many-keyboard', fix: { screen: 'library', songs: MANY, files: MANY_TAGS }, steps: ["app.type('hook')", 'app.keyboard()'] },
   { name: 'sort', fix: { screen: 'sort', routes: { '/sorting': SORTING } } },
   // ---- the whole app (2026-11-09): Home, the bar (mini player), the sheet as a layer, Queue from every opener ----
-  { name: 'home', ...whole({ player: { sheet: 'none' } }) },
-  { name: 'home-mini-player', ...whole() },
+  // ---- overhaul wave 1 (2026-11-10): Wall's Home, the tabs, the mini player that grows, Deal's player ----
+  { name: 'home', ...whole({ songs: played, player: { sheet: 'none', song: null } }) },
+  { name: 'home-mini-player', ...whole({ songs: played }) },
+  { name: 'home-fresh-wipe', ...whole({ player: { sheet: 'none', song: null } }) },
+  { name: 'home-no-songs-yet', ...whole({ songs: [], player: { sheet: 'none', song: null } }) },
+  { name: 'home-no-address', ...whole({ songs: [], files: { 'laptop-address.txt': '' }, player: { sheet: 'none', song: null } }) },
+  { name: 'home-laptop-off', ...whole({ songs: played, laptopOff: true, onPhone: ['s1', 's3', 's4', 's13'], pending: [{ id: 'p1', kind: 'play_add', data: { play_id: 'x', song_id: 's5', started_at: daysAgo(0), seconds: 30, source: 'phone' } }, { id: 'p2', kind: 'rating_set', data: { song_id: 's5', value: 'fire' } }] }) },
+  { name: 'home-hard-titles', ...whole({ songs: hard, player: { song: { ...song, title: HARD_TITLES[0] } } }) },
+  { name: 'home-scrolled-to-more', ...whole({ songs: played }, ["document.querySelectorAll('div').forEach((el) => { if (el.scrollHeight > el.clientHeight + 40) el.scrollTop = 9999; })"]) },
+  { name: 'library-tab', ...whole({ songs: played, player: { sheet: 'none', song: null } }, [LIB]) },
+  { name: 'tabs-back-to-home', ...whole({ songs: played }, [LIB, HOME]) },
+  // the player on a dark tile (an old song), a bright one (a new song) and the grey one (no letters in the title)
+  { name: 'player-art-dark', ...art('Basement Tape 4', '2014-02-01') },
+  { name: 'player-art-light', ...art('Summer Lights', '2026-06-01') },
+  { name: 'player-art-none', ...art('???', null) },
+  { name: 'player-art-70-chars', ...art(HARD_TITLES[0], '2021-01-01') },
+  { name: 'player-art-caps', ...art(HARD_TITLES[1], '2019-01-01') },
+  { name: 'player-art-no-spaces', ...art(HARD_TITLES[4], '2023-01-01') },
+  { name: 'player-typing-keyboard', ...player({ player: playing(), files: tagFile(tags(3)) }, ["app.tagLine.tap('s1','Midnight Run (rough 3)',62.4)", 'app.keyboard()']) },
+  { name: 'player-paused', ...player({ player: playing({ wanted: false }), files: tagFile(tags(3)) }) },
+  // the mini player growing into the player: caught part-way, then a tab tapped while it grows, then pulled part-way down
+  { name: 'grow-part-way', ...whole({ songs: played }, [OPEN]), wait: 90 },
+  { name: 'grow-mid-tab-switch', ...whole({ songs: played }, [OPEN, LIB]), wait: 60 },
+  { name: 'player-over-home', ...whole({ songs: played }, [OPEN]) },
+  { name: 'player-mid-close-on-home', ...whole({ songs: played }, [OPEN]), drag: PULL },
+  { name: 'player-mid-close-almost-mini', ...whole({ songs: played }, [OPEN]), drag: [195, 76, 640] },
   { name: 'library-mini-player', ...whole({}, [LIB]) },
   { name: 'sort-mini-player', ...whole({}, [SORT]) },
   { name: 'cards', ...whole({ player: { sheet: 'none' } }, [SORT, "app.tapText('Cards · 15 left')"]) },

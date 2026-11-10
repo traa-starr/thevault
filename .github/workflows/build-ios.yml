@@ -28,6 +28,9 @@ jobs:
           echo "{\"build\": \"${{ github.run_number }}\", \"commit\": \"${GITHUB_SHA::7}\", \"date\": \"$(date -u +%Y-%m-%d)\"}" > build-info.json
           cat build-info.json
       - run: npx expo prebuild --platform ios --non-interactive
+      # Liquid Glass (expo-glass-effect) needs Xcode 26 or newer; with an older one the app still builds, with solid bars
+      - name: Which Xcode
+        run: xcodebuild -version
       - name: Compile without signing
         run: |
           SCHEME=$(basename ios/*.xcworkspace .xcworkspace)

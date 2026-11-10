@@ -28,7 +28,7 @@ from .family import in_family, set_family
 from .importer import kept, mine_without_copy, phone_copy
 from .library import DB_NAME, MARKER_NAME, LibraryMissing, LibraryRefused, open_library
 from .scanner import is_cloud_only
-from .songs import restore_mine, set_mine, set_rating
+from .songs import add_play, restore_mine, set_mine, set_rating
 from .store import RATINGS
 from .store import LOCK_NAME, SCHEMA_VERSION, Busy, write_lock
 from .tags import add_tag, all_tags, remove_tag
@@ -50,7 +50,7 @@ MAX_BODY = 1024 * 1024
 # What this code can do for the app, as one number. Raise it when the app starts needing a new route or answer, and
 # raise NEEDS_SERVER in app/phoneBackup.ts with it: a laptop still running older code then says "out of date".
 # 1: phone backup (6.2). 2: this number in /health (6.3). 3: app updates at /update (6.5). 4: tags (GET /tags, tag_add/tag_remove).
-SERVER_LEVEL = 4
+SERVER_LEVEL = 5
 PHONE_BACKUP_NAME = "phone-backup.json"  # in the library folder; not the record, so the journal never sees it
 MINE_VALUES = ("mine", "not mine")
 MIN_FOLDER_SET = 2
@@ -140,10 +140,11 @@ def list_songs(conn, hidden=False):
     rows = conn.execute(f"""
         SELECT g.id, g.title, COALESCE(f.value, 'unknown') AS mine, d.value AS date, COALESCE(f.origin = 'manual', 0) AS sorted,
                {PLACE_SQL} AS place, {FOLDER_SQL} AS folder, m.main_id AS main, k.main_id IS NOT NULL AS picked, l.seconds AS length,
-               r.value AS rating
+               r.value AS rating, COALESCE(p.n, 0) AS plays, p.last AS last_heard
         FROM songs g LEFT JOIN song_fields f ON f.song_id=g.id AND f.field='mine'
         LEFT JOIN song_lengths l ON l.song_id=g.id
         LEFT JOIN song_ratings r ON r.song_id=g.id
+        LEFT JOIN (SELECT song_id, COUNT(*) AS n, MAX(started_at) AS last FROM plays GROUP BY song_id) p ON p.song_id=g.id
         LEFT JOIN song_fields d ON d.song_id=g.id AND d.field='date'
         LEFT JOIN song_family m ON m.song_id=g.id
         LEFT JOIN family_pick k ON k.main_id=g.id
@@ -151,7 +152,8 @@ def list_songs(conn, hidden=False):
         ORDER BY {"f.ts DESC, " if hidden else "place='laptop' DESC, "}g.title COLLATE NOCASE""")
     return [{"id": r["id"], "title": r["title"], "mine": r["mine"], "where": r["place"], "date": r["date"],
              "sorted": bool(r["sorted"]), "folder": show_folder(r["folder"]), "main": r["main"],
-             "picked": bool(r["picked"]), "length": r["length"], "rating": r["rating"]} for r in rows]
+             "picked": bool(r["picked"]), "length": r["length"], "rating": r["rating"],
+             "plays": r["plays"], "last_heard": r["last_heard"]} for r in rows]
 
 
 def song_count(conn):
@@ -170,6 +172,9 @@ def status_counts(conn, root):
             "copies": len(copies),
             "fire": one("SELECT COUNT(*) FROM song_ratings WHERE value='fire'"),
             "shelved": one("SELECT COUNT(*) FROM song_ratings WHERE value='shelved'"),
+            "plays": one("SELECT COUNT(*) FROM plays"),
+            "played": one("SELECT COUNT(DISTINCT song_id) FROM plays"),
+            "last_play": one("SELECT MAX(started_at) FROM plays"),
             "on_phone": read_phone_count(root)}
 
 
@@ -259,6 +264,8 @@ def apply_one(store, change):
         if data.get("value") not in RATINGS:
             raise ValueError(f"rating_set value must be one of {RATINGS}.")
         done = set_rating(store, data["song_id"], data["value"], change["id"])
+    elif change.get("kind") == "play_add":  # one play (overhaul wave 1): the log count and last heard come from
+        done = add_play(store, data, change["id"])
     elif change.get("kind") == "tag_add":
         done = add_tag(store, data, change["id"])
     elif change.get("kind") == "tag_remove":
@@ -375,7 +382,7 @@ def write_phone_backup(root, backup):
 def asks_mine(changes):
     """True if any of these changes can make a song Mine (a mark, an undo back to the folder's guess, a version link): the
     server then catches its copies up soon after (autocopy). Tags never do. A run with nothing to do only reads folders."""
-    return any(isinstance(c, dict) and not str(c.get("kind", "")).startswith(("tag_", "rating_"))
+    return any(isinstance(c, dict) and not str(c.get("kind", "")).startswith(("tag_", "rating_", "play_"))
                and not (c.get("kind") == "mine_set" and isinstance(c.get("data"), dict) and c["data"].get("value") == "not mine")
                for c in changes)
 

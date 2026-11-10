@@ -3,7 +3,8 @@
 import { createRoot } from 'react-dom/client';
 import { View } from 'react-native';
 import App from '../../app/App';
-import { FullPlayer } from '../../app/Player';
+import { PlayerSheet } from '../../app/Player';
+import * as nav from '../../app/nav';
 import * as versions from './fakes/others';
 import Library from '../../app/Library';
 import Sort from '../../app/Sort';
@@ -25,19 +26,17 @@ const FIX = (globalThis as any).FIX;
 function Screen() {
   // the whole app: Home, with Library, Sort, the bar and the player sheet as the phone layers them
   if (FIX.screen === 'app') return <App />;
-  if (FIX.screen === 'library') return <Library url="http://laptop" onBack={() => {}} />;
+  if (FIX.screen === 'library') return <Library url="http://laptop" />;
   if (FIX.screen === 'sort') return <Sort url="http://laptop" onBack={() => {}} />;
-  // the player sheet: it sits 54 pt down, like the iOS sheet
+  // the player on its own: the real sheet, open, over an empty screen
   return (
-    <View style={{ flex: 1, backgroundColor: '#000', paddingTop: 54 }}>
-      <View style={{ flex: 1, backgroundColor: '#111', borderTopLeftRadius: 12, borderTopRightRadius: 12 }}>
-        <FullPlayer />
-      </View>
+    <View style={{ flex: 1, backgroundColor: '#000' }}>
+      <PlayerSheet />
     </View>
   );
 }
 
-(globalThis as any).app = { ...tagStore, ...Tagging, player, session, ratingStore, versions };
+(globalThis as any).app = { ...tagStore, ...Tagging, ...nav, player, session, ratingStore, versions };
 // taps the first thing on screen with exactly this text (a chip, a word button)
 (globalThis as any).app.tapText = (text: string) => {
   const el = [...document.querySelectorAll('[tabindex] *, [tabindex]')].find((one) => one.textContent === text && !one.children.length) as HTMLElement | undefined;
@@ -58,7 +57,7 @@ function Screen() {
   document.body.appendChild(k);
 };
 createRoot(document.getElementById('root')!).render(
-  <View style={{ height: '100vh' as any, backgroundColor: '#111' }}>
+  <View style={{ height: '100vh' as any, backgroundColor: '#000' }}>
     <Screen />
   </View>,
 );

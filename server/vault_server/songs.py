@@ -8,7 +8,7 @@ import os
 import re
 import shutil
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from . import scanner
 
@@ -261,13 +261,62 @@ def set_rating(store, song_id, value, change_id=None):
     return store.record("song_rating", {"song_id": song_id, "value": value}, change_id=change_id)
 
 
+PLAY_SOURCES = ("phone",)
+MAX_PLAY_SECONDS = 6 * 3600
+
+
+def add_play(store, data, change_id=None):
+    """One play of a song, from the phone: `play_id`, `song_id`, `started_at` (the phone's clock, ISO), `seconds` heard.
+    A second line for the same play (the song was left later) only makes it longer. A song merged away: the one it
+    joined gets it. A start time later than now (a wrong phone clock) becomes now, so "last heard" is never in the
+    future. Raises ValueError for anything malformed."""
+    play_id, seconds, source = str(data.get("play_id")), data.get("seconds"), data.get("source", "phone")
+    if not re.fullmatch(r"[0-9a-fA-F-]{36}", play_id):
+        raise ValueError("A play needs an id.")
+    if isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or not 0 <= seconds <= MAX_PLAY_SECONDS:
+        raise ValueError("A play needs the seconds heard.")
+    if source not in PLAY_SOURCES:
+        raise ValueError(f"A play's source must be one of {PLAY_SOURCES}.")
+    try:
+        started = datetime.fromisoformat(str(data.get("started_at")).replace("Z", "+00:00"))
+    except ValueError:
+        raise ValueError("A play needs the time it started.") from None
+    if started.tzinfo is None:
+        raise ValueError("A play's start time needs its time zone.")
+    song_id = store.survivor(data["song_id"])
+    if not song_id:
+        raise ValueError("That play is for a song that doesn't exist.")
+    started = min(started.astimezone(timezone.utc), datetime.now(timezone.utc))
+    cur = store.conn.execute("SELECT seconds FROM plays WHERE play_id=?", (play_id,)).fetchone()
+    if cur and cur["seconds"] >= seconds:
+        return False
+    return store.record("song_play", {"play_id": play_id, "song_id": song_id, "started_at": started.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                                      "seconds": round(float(seconds), 1), "source": source}, change_id=change_id)
+
+
+def plays_report(conn, shown=20):
+    """The play log in plain lines: totals, the most played, and the latest plays, newest first. Times are UTC."""
+    total, songs = conn.execute("SELECT COUNT(*), COUNT(DISTINCT song_id) FROM plays").fetchone()
+    if not total:
+        return ["No plays yet."]
+    out = [f"{total:,} plays of {songs:,} songs.", "", "Most played:"]
+    top = conn.execute("""SELECT s.title, COUNT(*) AS n, MAX(p.started_at) AS last FROM plays p JOIN songs s ON s.id=p.song_id
+                          GROUP BY p.song_id ORDER BY n DESC, last DESC, s.title COLLATE NOCASE LIMIT 10""").fetchall()
+    out += [f"  {r['n']:>4}  {r['title']}  (last heard {r['last'][:16].replace('T', ' ')})" for r in top]
+    out += ["", "Latest plays:"]
+    rows = conn.execute("""SELECT p.started_at, p.seconds, s.title FROM plays p JOIN songs s ON s.id=p.song_id
+                           ORDER BY p.started_at DESC, p.play_id LIMIT ?""", (shown,)).fetchall()
+    out += [f"  {r['started_at'][:16].replace('T', ' ')}  {int(r['seconds'] // 60)}:{int(r['seconds'] % 60):02d}  {r['title']}" for r in rows]
+    return out
+
+
 def ratings_report(conn):
-    """Every rated song by title, Fire first, for comparing with the phone after a restore (2.7, 2.8)."""
+    """Every rated song by title, Favorites first (stored as fire / shelved; the app says Favorite / Archived), for comparing with the phone after a restore (2.7, 2.8)."""
     rows = conn.execute("""SELECT r.value, s.title, s.id FROM song_ratings r JOIN songs s ON s.id=r.song_id
                            ORDER BY r.value, s.title COLLATE NOCASE, s.id""").fetchall()
-    out = [f"{'Fire' if r['value'] == 'fire' else 'Shelved':<8} {r['title']}  ({r['id']})" for r in rows]
+    out = [f"{'Favorite' if r['value'] == 'fire' else 'Archived':<8} {r['title']}  ({r['id']})" for r in rows]
     fire = sum(r["value"] == "fire" for r in rows)
-    out.append(f"{fire} Fire, {len(rows) - fire} Shelved." if rows else "No ratings yet.")
+    out.append(f"{fire} Favorite, {len(rows) - fire} Archived." if rows else "No ratings yet.")
     return out
 
 

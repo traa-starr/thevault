@@ -1,5 +1,6 @@
-// What you see of the player: the bar, the full player as a sheet, the queue and the Undo toast. The player itself is
-// playerStore.ts, so closing any of these never touches the music.
+// What you see of the player: the mini player, the full player as a sheet that grows out of it, the queue and the
+// Undo toast. The player itself is playerStore.ts, so closing any of these never touches the music.
+// Look (overhaul wave 1): the player from the Deal mockup on Wall's design system (theme.ts).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { Animated, Dimensions, Easing, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -11,17 +12,21 @@ import ReorderableList, { useIsActive, useReorderableDrag, type ReorderableListD
 const tick = () => {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 };
+import { Tile, Tint } from './Art';
 import { CompareDial, WHEEL_WIDTH } from './Compare';
+import { Glass } from './Frame';
+import { Icon, type IconName } from './Icon';
 import { Tap } from './Tap';
 import { compare, useCompare } from './compareStore';
-import { openLibrarySelect, HomeButton } from './nav';
-import { player, usePlayer, usePlayerPick, type Pool } from './playerStore';
-import { draftGoesOnChange, seekRelease, shuffleAfterTap, shuffleWords, type ShownTag } from './playOrder';
+import { openLibrarySelect, usePlace } from './nav';
+import { player, usePlayer, usePlayerPick } from './playerStore';
+import { draftGoesOnChange, listIsOpen, seekRelease, shuffleAfterTap, shuffleWords, type ShownTag } from './playOrder';
 import { ratingStore, useRating } from './ratingStore';
 import { session, useSession, useSessionCount } from './sessionStore';
 import { layers, pullCloses, slideController, type Nav } from './sheetCore';
-import { jumpToTag, ReservedLine, TagButton, TagList, TagsButton, usePassedTag } from './Tagging';
+import { jumpToTag, ReservedLine, TagList, usePassedTag } from './Tagging';
 import { sayAside, tagLine, useTagLine, useTags } from './tagStore';
+import { C, coveredBelow, R, S, T } from './theme';
 import { VersionsChip, VersionsToast } from './Versions';
 import * as versions from './versionStore';
 
@@ -29,20 +34,24 @@ const ROW_HEIGHT = 48;
 const HOLD_MS = 300; // not lower: a hold let go just short of this jumps to the song
 const SLIDE_MS = 220;
 const EDGE_ZONE = 0.3; // the share of the list, top and bottom, that scrolls it during a drag; the middle 40% is safe
-const SHEET_TOP = 54; // clears the status bar and leaves the screen behind showing, like an iOS sheet
-const OPEN_MS = 280;
-const CLOSE_MS = 200;
+const SHEET_PAD = 50; // the sheet fills the screen; its own top padding clears the status bar
+const OPEN_MS = 300;
+const CLOSE_MS = 220;
 const SWIPE_UP = 40;
 const SWIPE_UP_SPEED = 0.4;
-const HIDE_MS = 250;
-const EYE_DROP = 64; // the verdict row's height plus the gap above it, so the hidden eye sits where the buttons were
-const VERDICT_DROP = 120; // far enough to leave the bottom of the screen
+const HIDE_MS = 200;
 const PULSE_MS = 600;
-const SLOT_HEIGHT = 52; // the controls row: a fixed height, so nothing below moves
+const LIFT_MS = 220;
 
 const clock = (seconds: number) => {
   const whole = Math.floor(seconds);
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+};
+
+/** The song's date, for its tile (older songs are darker). */
+const useSongDate = (id: string | null | undefined) => {
+  const { songs } = versions.useVersions(); // asked again once the song list is in: the tile matches its Home card
+  return useMemo(() => (id ? versions.songInfo(id)?.date ?? null : null), [id, songs]);
 };
 
 type SeekBarProps = {
@@ -50,11 +59,11 @@ type SeekBarProps = {
   max: number;
   onDrag: (value: number) => void;
   onDrop: (value: number) => void;
-  /** Tag ticks: a quick still tap within half a finger of one calls onTick with it instead of seeking to the spot. */
+  /** Tag dots: a quick still tap within half a finger of one calls onTick with it instead of seeking to the spot. */
   ticks?: ShownTag[];
   onTick?: (tag: ShownTag) => void;
 };
-const TICK_MERGE = 0.025; // ticks closer than this share of the bar draw as one wider tick
+const TICK_MERGE = 0.025; // dots closer than this share of the bar draw as one wider dot
 
 export function SeekBar({ value, max, onDrag, onDrop, ticks = [], onTick }: SeekBarProps) {
   const width = useRef(1);
@@ -63,7 +72,7 @@ export function SeekBar({ value, max, onDrag, onDrop, ticks = [], onTick }: Seek
   latest.current = { max, onDrag, onDrop, ticks, onTick };
 
   const grabbedWhen = useRef(0);
-  // a tick only on a quick still tap (seekRelease): a drag lands where it's let go, never on a tick
+  // a dot only on a quick still tap (seekRelease): a drag lands where it's let go, never on a dot
   const release = (dx: number) => {
     const { max: m, ticks: all, onTick, onDrop } = latest.current;
     const r = seekRelease({ grabX: grabbedAt.current, dx, heldMs: Date.now() - grabbedWhen.current, width: width.current, max: m, ticks: onTick ? all : [] });
@@ -126,8 +135,9 @@ function useSwipeUp(onSwipe: () => void) {
 }
 
 /**
- * Touch handlers for an empty area: it takes the touch as the finger lands, like the sheet's grab area, and calls onSwipe
- * on an upward swipe. Waiting for the finger to move first (useSwipeUp) never got the touch inside the player sheet.
+ * Touch handlers for an area with nothing to tap (the art): it takes the touch as the finger lands, like the sheet's
+ * grab area, and calls onSwipe on an upward swipe. Waiting for the finger to move first (useSwipeUp) never got the
+ * touch inside the player sheet.
  */
 function useBlankSwipeUp(onSwipe: () => void) {
   const latest = useRef(onSwipe);
@@ -143,38 +153,11 @@ function useBlankSwipeUp(onSwipe: () => void) {
   ).current.panHandlers;
 }
 
-/** Open eye while the buttons show, crossed out while they're hidden. Drawn, so it needs no icon package. */
-function EyeIcon({ crossed }: { crossed: boolean }) {
-  return (
-    <View style={s.eye}>
-      <View style={s.eyeLid}>
-        <View style={s.eyePupil} />
-      </View>
-      {crossed ? <View style={s.eyeSlash} /> : null}
-    </View>
-  );
-}
-
-/** Two arrows, one each way. Drawn, like the eye. */
-function ShuffleIcon({ color }: { color: string }) {
-  return (
-    <View style={s.shuffleIcon}>
-      <View style={s.arrowRow}>
-        <View style={[s.arrowBar, { backgroundColor: color }]} />
-        <View style={[s.arrowHeadRight, { borderLeftColor: color }]} />
-      </View>
-      <View style={s.arrowRow}>
-        <View style={[s.arrowHeadLeft, { borderRightColor: color }]} />
-        <View style={[s.arrowBar, { backgroundColor: color }]} />
-      </View>
-    </View>
-  );
-}
-
-/** The 5-second Undo. Sits above the bar and survives changing screens, because it belongs to the player. */
-export function UndoToast({ aboveButtons = false }: { aboveButtons?: boolean }) {
-  const { undo, message } = usePlayerPick('undo', 'message');
-  const style = [s.toast, aboveButtons && s.toastAboveButtons];
+/** The 5-second Undo. Above the mini player on any screen, and inside the player, because it belongs to the player. */
+export function UndoToast({ inPlayer = false }: { inPlayer?: boolean }) {
+  const { undo, message, song } = usePlayerPick('undo', 'message', 'song');
+  const { sort } = usePlace();
+  const style = [s.toast, inPlayer ? s.toastInPlayer : { bottom: coveredBelow(!sort, !!song) + 8 }];
   if (message) {
     return (
       <View style={style}>
@@ -191,27 +174,59 @@ export function UndoToast({ aboveButtons = false }: { aboveButtons?: boolean }) 
   );
 }
 
-/** Near the bottom of every screen once something has played. */
-export function NowPlayingBar() {
+// ---------- the mini player and the sheet are one object: one value moves both --------------------------------------
+/** 0: the player fills the screen. 1: it is the mini player. A finger or a slide moves it; nothing else. */
+const sheetAt = new Animated.Value(1);
+/** The share of the way, at the mini player's end, over which one fades into the other. */
+const HANDOVER = 0.82;
+
+/** How far above the screen's bottom the mini player's top edge sits: where the sheet grows from. */
+const miniTopFromBottom = (tabs: boolean) => coveredBelow(tabs, true) - 8;
+
+/** The thin line along the mini player's bottom. On its own, so the clock redraws only this. */
+function MiniProgress() {
+  const { time, duration } = usePlayerPick('time', 'duration');
+  return <View style={[s.miniProgress, { width: `${duration > 0 ? Math.min(time / duration, 1) * 100 : 0}%` }]} pointerEvents="none" />;
+}
+
+/** Floats above the tab bar on every screen once something has played. Tap: it grows into the player. Swipe up: Queue. */
+export function MiniPlayer() {
   const { song, wanted, sorting, trouble, note, comparing } = usePlayerPick('song', 'wanted', 'sorting', 'trouble', 'note', 'comparing');
+  const { sort } = usePlace();
   const swipe = useSwipeUp(() => player.open('queue'));
+  const date = useSongDate(song?.id);
   if (!song) return null;
+  const fade = sheetAt.interpolate({ inputRange: [0, HANDOVER, 1], outputRange: [0, 0, 1], extrapolate: 'clamp' });
   return (
-    // Tap opens the player; swipe up opens Queue straight away.
-    <View {...swipe}>
-      <Pressable style={s.bar} onPress={() => player.open('player')}>
-        <View style={s.barText}>
-          <Text style={s.barTitle} numberOfLines={1}>{song.title}</Text>
-          <Text style={s.barDetail} numberOfLines={2}>{comparing ? 'Comparing versions' : trouble || note || (sorting ? 'Sorting' : wanted ? 'Playing' : 'Paused')}</Text>
-        </View>
-        <Tap style={s.barButton} onPress={player.toggle} hitSlop={8}>
-          <Text style={s.barButtonText}>{wanted ? 'Pause' : 'Play'}</Text>
+    <Animated.View style={[s.miniDock, { bottom: miniTopFromBottom(!sort) - S.mini, opacity: fade }]} {...swipe}>
+      <Glass style={s.mini} radius={R.mini}>
+        <Pressable style={s.miniOpen} onPress={() => player.open('player')} accessibilityLabel={`Open player: ${song.title}`}>
+          <Tile title={song.title} date={date} size={S.rowTile} radius={R.rowTile} />
+          <View style={s.miniText}>
+            <Text style={s.miniTitle} numberOfLines={1}>{song.title}</Text>
+            <Text style={s.miniDetail} numberOfLines={1}>{comparing ? 'Comparing versions' : trouble || note || (sorting ? 'Sorting' : wanted ? 'Playing' : 'Paused')}</Text>
+          </View>
+        </Pressable>
+        <Tap style={s.miniButton} radius={22} onPress={player.toggle} accessibilityLabel={wanted ? 'Pause' : 'Play'}>
+          <Icon name={wanted ? 'pause' : 'play'} size={24} color={C.text} />
         </Tap>
-        <Tap style={s.barButton} onPress={player.next} hitSlop={8}>
-          <Text style={s.barButtonText}>Next</Text>
+        <Tap style={s.miniButton} radius={22} onPress={player.next} accessibilityLabel="Next">
+          <Icon name="next" size={24} color={C.text} />
         </Tap>
-      </Pressable>
-    </View>
+        <MiniProgress />
+      </Glass>
+    </Animated.View>
+  );
+}
+
+/** One slot of the row under the transport: a symbol over a plain word. Always the same box, on or off. */
+function Action({ icon, word, on = false, accent = false, onPress, label }: { icon: IconName; word: string; on?: boolean; accent?: boolean; onPress: () => void; label?: string }) {
+  const color = on || accent ? C.accent : C.dim;
+  return (
+    <Tap style={s.action} radius={12} onPress={onPress} accessibilityLabel={label ?? word}>
+      <Icon name={icon} size={22} color={color} />
+      <Text style={[s.actionWord, { color }, on && s.actionOn]} numberOfLines={1} allowFontScaling={false}>{word}</Text>
+    </Tap>
   );
 }
 
@@ -261,12 +276,21 @@ export function FullPlayer() {
   }, [buttonsHidden, hidden]);
 
   // Next or another song while typing: the draft is saved to the song it was tapped on
-  const { draft } = useTagLine();
+  const { draft, listFor } = useTagLine();
   const lastSong = useRef(song?.id);
   useEffect(() => {
     if (draftGoesOnChange(draft, lastSong.current, song?.id)) tagLine.finish(song?.id);
     lastSong.current = song?.id;
   }, [song?.id]);
+
+  // The keyboard covers the bottom of the screen, so while a line is being typed the page rides up by the art's
+  // height: the field sits where the art was, above the keyboard. Nothing else changes place.
+  const [artBox, setArtBox] = useState({ width: 0, height: 0 });
+  const lift = useRef(new Animated.Value(0)).current;
+  const typing = !!draft;
+  useEffect(() => {
+    Animated.timing(lift, { toValue: typing ? 1 : 0, duration: LIFT_MS, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [typing, lift]);
 
   const drop = async (value: number) => {
     setDragAt(null);
@@ -285,177 +309,156 @@ export function FullPlayer() {
   const canRate = !!song && !sorting && !comparing;
   const shuffleOn = !!order?.shuffle;
   const { on: inSession } = useSession();
-  // playback passing a tick says its words: only while playing on its own, never while dragged, seeking or typing
+  // playback passing a dot says its words: only while playing on its own, never while dragged, seeking or typing
   const passed = usePassedTag(song?.id, comparing ? [] : tags, playerTime, !comparing && playerWanted && dragAt === null && seekingTo === null && !draft);
   const tapShuffle = () => {
     const pick = shuffleAfterTap({ on: shuffleOn, pool });
     player.setShuffleOn(pick.on, pick.pool);
     sayAside(pick.on ? { text: 'Shuffle: ', bold: shuffleWords(pick) } : { text: 'Shuffle ', bold: 'off' });
   };
+  const title = comparing ? versions.songTitle(shownId ?? '') : song?.title;
+  const date = useSongDate(shownId);
+  const linesOpen = !comparing && !!shownId && listIsOpen(listFor, shownId);
+  const tile = Math.max(Math.min(artBox.width, artBox.height), 0);
+  const out = player.isOut();
   return (
-    <View style={s.page}>
-      {/* the tagging session: Close back to where I came from, and the count */}
+    <Animated.View style={[s.page, { transform: [{ translateY: lift.interpolate({ inputRange: [0, 1], outputRange: [0, -artBox.height] }) }] }]}>
+      {/* beside the grab mark: down (Done in Compare), or the tagging session's Close and count */}
       {inSession ? <SessionTop /> : (
         <View style={s.topRow}>
-          <HomeButton />
+          <Tap style={s.down} radius={22} onPress={comparing ? compare.done : () => player.open('none')} accessibilityLabel={comparing ? 'Done' : 'Close player'}>
+            {comparing ? <Text style={s.word}>Done</Text> : <Icon name="down" size={22} color={C.dim} />}
+          </Tap>
         </View>
       )}
-      <View style={s.pageTop}>
-        {/* two lines' height always, so a longer version name never moves the bar */}
-        <View style={s.titleBox}>
-          <Text style={s.title} numberOfLines={2}>{comparing ? versions.songTitle(shownId ?? '') : song?.title}</Text>
-        </View>
-        <SeekBar value={shown} max={duration} onDrag={setDragAt} onDrop={drop} ticks={tags} onTick={comparing ? undefined : (tag) => (setDragAt(null), jumpToTag(tag))} />
-        <View style={s.times}>
-          {/* both times in fixed boxes: "–:––" becoming "3:42" (or a late length) moves nothing */}
-          <View style={s.timeBox}>
-            <Text style={s.time}>{clock(shown)}</Text>
+      {/* the art: whatever height is left, so every row under it keeps its place on any phone. A swipe up on it opens
+          Queue. While Lines is open the song's lines sit here instead: nothing below moves */}
+      <View style={s.art} onLayout={(e) => setArtBox(e.nativeEvent.layout)} {...(comparing || linesOpen ? {} : swipe)}>
+        {linesOpen ? (
+          <View style={s.lines}>
+            <TagList songId={shownId} songTitle={song?.title ?? ''} tags={tags} time={shown} />
           </View>
-          <Pressable style={s.timeTap} onPress={player.toggleTimeLeft}>
-            <Text style={s.time}>{!duration ? '–:––' : timeLeft ? `-${clock(Math.max(duration - shown, 0))}` : clock(duration)}</Text>
-          </Pressable>
-        </View>
-        {/* also the player's own note when nothing about tags is showing */}
-        <ReservedLine songId={song?.id} duration={duration} fallback={trouble || note} passed={passed} />
-        {/* the same buttons in Compare: Play/Pause works the version heard, the rest end Compare first */}
-        <View style={s.slot}>
-          <View style={s.controls}>
-            {/* a slot as wide as Shuffle's on the other side: Previous / Play / Next sit dead centre wherever the player opens
-                (Library, a Sort card, a session, after a restore), and never move between them (2026-11-08 review) */}
-            {/* Fire (2.8) lives in it: one tap on, one tap off, never moved by the eye or a session */}
-            {canRate ? (
-              <Tap
-                filled={rating === 'fire'}
-                style={[s.button, s.shuffle, s.fire, rating === 'fire' && s.fireOn]}
-                onPress={() => ratingStore.tap(song.id, song.title, 'fire')}
-                accessibilityLabel={rating === 'fire' ? 'Fire, on' : 'Fire, off'}
-              >
-                <Text style={[s.fireText, rating === 'fire' && s.playText]}>Fire</Text>
-              </Tap>
-            ) : (
-              <View style={s.shuffle} />
-            )}
-            <Tap style={[s.button, s.side]} onPress={leavingCompare(player.previous)}>
-              <Text style={s.buttonText}>Previous</Text>
-            </Tap>
-            <Tap filled style={[s.button, s.play]} onPress={comparing ? compare.toggle : player.toggle}>
-              <Text style={[s.buttonText, s.playText]}>{wanted ? 'Pause' : 'Play'}</Text>
-            </Tap>
-            <Tap style={[s.button, s.side]} onPress={leavingCompare(player.next)}>
-              <Text style={s.buttonText}>Next</Text>
-            </Tap>
-            {/* each tap: Off > Mine > Unsorted > Off, no box. On: filled, like Mine. Hidden while sorting and in a session, its
-                width kept so the row never shifts */}
-            {inSession || sorting ? (
-              <View style={s.shuffle} />
-            ) : (
-              <Tap
-                filled={shuffleOn}
-                style={[s.button, s.shuffle, shuffleOn && s.shuffleOn]}
-                onPress={leavingCompare(tapShuffle)}
-                accessibilityLabel={shuffleOn ? `Shuffle on, ${pool === 'mine' ? 'Mine' : 'unsorted'}` : 'Shuffle off'}
-              >
-                <ShuffleIcon color={shuffleOn ? '#111' : '#8e8e93'} />
-              </Tap>
-            )}
-          </View>
-        </View>
-        {!shownId ? null : (
-          <View style={s.versionRow}>
-            {/* in a session a Not mine song keeps its row, so nothing jumps */}
-            {!comparing && (sorting || (player.isOut() && !inSession)) ? null : (
-              <>
-                {/* never a sheet over this sheet (iOS froze on that): the player closes first, then the next screen opens */}
-                {/* already in a group: hidden, its Versions chip and Compare do the work */}
-                {versions.members(shownId).length > 1 ? null : (
-                  <Pressable onPress={() => player.closeThen(() => openLibrarySelect(shownId))}>
-                    <Text style={s.link}>+ Version</Text>
-                  </Pressable>
-                )}
-                <VersionsChip id={shownId} onPress={() => player.closeThen(() => versions.openVersions(shownId))} />
-                {/* one fixed-width slot: the Compare word, or in Compare the wheel in its place, so nothing beside it moves */}
-                {versions.members(shownId).length > 1 ? (
-                  <View style={s.compareSlot}>
-                    {comparing ? (
-                      <CompareDial />
-                    ) : (
-                      <Animated.View style={{ opacity: pulse }}>
-                        <Pressable onPress={() => compare.openFromPlayer(player.url())}>
-                          <Text style={s.link}>Compare</Text>
-                        </Pressable>
-                      </Animated.View>
-                    )}
-                  </View>
-                ) : null}
-              </>
-            )}
-            {/* hidden in Compare: its ticks and rows would be another version's */}
-            {comparing ? null : <TagsButton songId={shownId} tags={tags} />}
-          </View>
-        )}
-        <View style={s.backRow}>
-          {/* while comparing, Back is Done: same spot, same size */}
-          <Tap onPress={comparing ? compare.done : () => player.open('none')}>
-            <Text style={s.link}>{comparing ? 'Done' : 'Back'}</Text>
+        ) : tile > 0 ? (
+          <Tile title={title} date={date} size={tile} radius={R.playerTile} />
+        ) : null}
+      </View>
+      {/* two lines' height always, so a longer version name never moves the bar */}
+      <View style={s.titleBox}>
+        <Text style={s.title} numberOfLines={2}>{title}</Text>
+      </View>
+      {/* the quiet row: Mine / Not mine (the eye hides them, and keeps my choice), Shuffle on the right. In a session,
+          Not mine alone. On a Sort card, nothing. The row keeps its height either way */}
+      <View style={s.quiet}>
+        {inSession ? (
+          <Tap style={s.verdict} radius={14} onPress={session.notMine} disabled={out} accessibilityLabel="Not mine">
+            <Text style={[s.verdictWord, out && s.verdictOff]}>Not mine</Text>
           </Tap>
-          {/* Shelve (2.8): a quiet word between Back and Tag, the same spot in a session; its slot always there */}
-          <View style={s.shelveSlot}>
-            {canRate ? (
-              <Tap
-                style={s.shelveTap}
-                onPress={() => ratingStore.tap(song.id, song.title, 'shelved')}
-                accessibilityLabel={rating === 'shelved' ? 'Shelved, on' : 'Shelve'}
-              >
-                <Text style={[s.shelveText, rating === 'shelved' && s.shelveOn]}>{rating === 'shelved' ? 'Shelved ✓' : 'Shelve'}</Text>
-              </Tap>
-            ) : null}
-          </View>
-          {/* the most-used button: full-size, the thumb's side. Its slot stays in Compare so Done never moves */}
-          {comparing || !song ? <View style={s.tagSlot} /> : <TagButton songId={song.id} title={song.title} />}
-        </View>
-      </View>
-      {/* the song's tags, while Tags · N has them open; the space under them is the swipe area */}
-      <View style={s.tagZone}>
-        {comparing ? null : <TagList songId={shownId} songTitle={song?.title ?? ""} tags={tags} time={shown} />}
-        {/* The blank space under the tags: a swipe up opens Queue, a tap does nothing. */}
-        <View style={s.swipeZone} {...(comparing ? {} : swipe)} />
-      </View>
-      {/* Keeps its height with the buttons hidden or gone, so nothing above it jumps. */}
-      <View style={s.dock}>
-        {/* the session's Not mine / Next take the Mine / Not mine spot exactly, with no eye */}
-        {inSession ? <SessionDock onNext={leavingCompare(player.next)} /> : sorting ? null : (
-          <Animated.View style={{ transform: [{ translateY: hidden.interpolate({ inputRange: [0, 1], outputRange: [0, EYE_DROP] }) }] }}>
-            <Tap
-              style={s.hideTap}
-              onPress={player.toggleButtonsHidden}
-              accessibilityLabel={buttonsHidden ? 'Show buttons' : 'Hide buttons'}
-            >
-              <EyeIcon crossed={buttonsHidden} />
+        ) : sorting ? null : (
+          <>
+            <Tap style={s.eyeTap} radius={22} onPress={player.toggleButtonsHidden} accessibilityLabel={buttonsHidden ? 'Show Mine and Not mine' : 'Hide Mine and Not mine'}>
+              <Icon name={buttonsHidden ? 'eyeOff' : 'eye'} size={22} color={C.faint} />
             </Tap>
-          </Animated.View>
+            {/* only the eye shows or hides these; in Compare they stay as the eye says, dimmed, and take no taps */}
+            <Animated.View
+              style={[s.verdicts, comparing && s.resting, { opacity: hidden.interpolate({ inputRange: [0, 1], outputRange: [comparing ? 0.35 : 1, 0] }) }]}
+              pointerEvents={buttonsHidden || comparing ? 'none' : 'auto'}
+            >
+              {out ? null : (
+                <>
+                  <Tap style={[s.verdict, isMine && s.verdictOn]} radius={14} onPress={player.tapMine} accessibilityLabel={isMine ? 'Mine, on' : 'Mine'}>
+                    <Text style={[s.verdictWord, isMine && s.verdictWordOn]}>Mine</Text>
+                  </Tap>
+                  <Tap style={s.verdict} radius={14} onPress={player.tapNotMine} accessibilityLabel="Not mine">
+                    <Text style={s.verdictWord}>Not mine</Text>
+                  </Tap>
+                </>
+              )}
+            </Animated.View>
+          </>
         )}
-        {inSession ? null : (
-        <Animated.View
-          style={[s.verdicts, { transform: [{ translateY: hidden.interpolate({ inputRange: [0, 1], outputRange: [0, VERDICT_DROP] }) }] }]}
-          pointerEvents={buttonsHidden || comparing ? 'none' : 'auto'}
-        >
-          {/* only the eye shows or hides these; in Compare they stay as the eye says, dimmed, and take no taps */}
-          {player.isOut() || sorting ? null : (
-            <View style={[s.verdictPair, comparing && s.verdictsResting]}>
-              <Tap filled={isMine} style={[s.verdict, isMine && s.mineOn]} onPress={player.tapMine}>
-                <Text style={[s.verdictText, isMine && s.playText]}>Mine</Text>
-              </Tap>
-              <Tap style={s.verdict} onPress={player.tapNotMine}>
-                <Text style={s.verdictText}>Not mine</Text>
-              </Tap>
-            </View>
-          )}
-        </Animated.View>
+        <View style={s.fill} />
+        {/* each tap: Off > Mine > Unsorted > Off, no box. Hidden while sorting and in a session, its place kept */}
+        {inSession || sorting ? null : (
+          <Tap style={s.eyeTap} radius={22} onPress={leavingCompare(tapShuffle)} accessibilityLabel={shuffleOn ? `Shuffle on, ${pool === 'mine' ? 'Mine' : 'unsorted'}` : 'Shuffle off'}>
+            <Icon name="shuffle" size={22} color={shuffleOn ? C.accent : C.faint} />
+          </Tap>
         )}
       </View>
-      <UndoToast aboveButtons />
+      {/* versions: + Version, the Versions chip, and Compare (or its wheel) in one fixed slot. The row keeps its height */}
+      <View style={s.versionRow}>
+        {!shownId || (!comparing && (sorting || (out && !inSession))) ? null : (
+          <>
+            {/* never a sheet over this sheet (iOS froze on that): the player closes first, then the next screen opens */}
+            {/* already in a group: hidden, its Versions chip and Compare do the work */}
+            {versions.members(shownId).length > 1 ? null : (
+              <Pressable onPress={() => player.closeThen(() => openLibrarySelect(shownId))}>
+                <Text style={s.word}>+ Version</Text>
+              </Pressable>
+            )}
+            <VersionsChip id={shownId} onPress={() => player.closeThen(() => versions.openVersions(shownId))} />
+            {/* one fixed-width slot: the Compare word, or in Compare the wheel in its place, so nothing beside it moves */}
+            {versions.members(shownId).length > 1 ? (
+              <View style={s.compareSlot}>
+                {comparing ? (
+                  <CompareDial />
+                ) : (
+                  <Animated.View style={{ opacity: pulse }}>
+                    <Pressable onPress={() => compare.openFromPlayer(player.url())}>
+                      <Text style={s.word}>Compare</Text>
+                    </Pressable>
+                  </Animated.View>
+                )}
+              </View>
+            ) : null}
+          </>
+        )}
+      </View>
+      <SeekBar value={shown} max={duration} onDrag={setDragAt} onDrop={drop} ticks={tags} onTick={comparing ? undefined : (tag) => (setDragAt(null), jumpToTag(tag))} />
+      <View style={s.times}>
+        {/* both times in fixed boxes: "–:––" becoming "3:42" (or a late length) moves nothing */}
+        <View style={s.timeBox}>
+          <Text style={s.time}>{clock(shown)}</Text>
+        </View>
+        <Pressable style={s.timeTap} onPress={player.toggleTimeLeft}>
+          <Text style={s.time}>{!duration ? '–:––' : timeLeft ? `-${clock(Math.max(duration - shown, 0))}` : clock(duration)}</Text>
+        </Pressable>
+      </View>
+      {/* also the player's own note when nothing about tags is showing */}
+      <ReservedLine songId={song?.id} duration={duration} fallback={trouble || note} passed={passed} />
+      {/* the same buttons in Compare: Play/Pause works the version heard, the rest end Compare first. Three fixed
+          boxes in a pill: dead centre from every place the player opens */}
+      <Glass style={s.pill} radius={R.pill}>
+        <Tap style={s.skip} radius={28} onPress={leavingCompare(player.previous)} accessibilityLabel="Previous">
+          <Icon name="previous" size={30} color={C.text} />
+        </Tap>
+        <Tap filled style={s.play} radius={S.play / 2} onPress={comparing ? compare.toggle : player.toggle} accessibilityLabel={wanted ? 'Pause' : 'Play'}>
+          <Icon name={wanted ? 'pause' : 'play'} size={28} color="#000" />
+        </Tap>
+        <Tap style={s.skip} radius={28} onPress={leavingCompare(player.next)} accessibilityLabel="Next">
+          <Icon name="next" size={30} color={C.text} />
+        </Tap>
+      </Glass>
+      {/* five fixed slots. A slot with nothing to offer (rating on a Sort card, tagging in Compare) stays empty, so
+          the others never move */}
+      <View style={s.actions}>
+        {canRate ? (
+          <Action icon={rating === 'fire' ? 'favoriteOn' : 'favorite'} word="Favorite" on={rating === 'fire'} onPress={() => ratingStore.tap(song.id, song.title, 'fire')} label={rating === 'fire' ? 'Favorite, on' : 'Favorite, off'} />
+        ) : <View style={s.action} />}
+        {canRate ? (
+          <Action icon={rating === 'shelved' ? 'archiveOn' : 'archive'} word={rating === 'shelved' ? 'Archived' : 'Archive'} on={rating === 'shelved'} onPress={() => ratingStore.tap(song.id, song.title, 'shelved')} label={rating === 'shelved' ? 'Archived, on' : 'Archive'} />
+        ) : <View style={s.action} />}
+        {/* the most-used button: the middle, under the thumb. While a line is being typed it cancels */}
+        {comparing || !song ? <View style={s.action} /> : (
+          <Action icon={draft ? 'close' : 'tag'} word="Tag" accent onPress={() => tagLine.tap(song.id, song.title, player.positionNow())} label={draft ? 'Cancel tag' : 'Tag here'} />
+        )}
+        {comparing || !shownId ? <View style={s.action} /> : (
+          <Action icon="lines" word={`Lines · ${tags.length}`} on={linesOpen} onPress={() => tagLine.toggleList(shownId)} label={linesOpen ? 'Hide lines' : 'Show lines'} />
+        )}
+        {inSession ? <Action icon="next" word="Next song" onPress={leavingCompare(player.next)} /> : <Action icon="queue" word="Queue" onPress={() => player.open('queue')} />}
+      </View>
+      <UndoToast inPlayer />
       <VersionsToast />
-    </View>
+    </Animated.View>
   );
 }
 
@@ -465,24 +468,9 @@ function SessionTop() {
   return (
     <View style={s.sessionTop}>
       <Tap style={s.sessionClose} onPress={session.close}>
-        <Text style={s.link}>Close</Text>
+        <Text style={s.word}>Close</Text>
       </Tap>
       <Text style={s.sessionCount}>{tagged.toLocaleString('en-US')} of {of.toLocaleString('en-US')} tagged</Text>
-    </View>
-  );
-}
-
-/** The session's dock, where Mine / Not mine sit in the player: Not mine (the song plays on, with Undo) and Next. */
-function SessionDock({ onNext }: { onNext: () => void }) {
-  const out = usePlayerPick('song', 'order').song ? player.isOut() : false;
-  return (
-    <View style={s.verdicts}>
-      <Tap style={[s.verdict, out && s.verdictDone]} onPress={session.notMine} disabled={out}>
-        <Text style={[s.verdictText, out && s.verdictDoneText]}>Not mine</Text>
-      </Tap>
-      <Tap filled style={[s.verdict, s.sessionNext]} onPress={onNext}>
-        <Text style={[s.verdictText, s.playText]}>Next</Text>
-      </Tap>
     </View>
   );
 }
@@ -547,10 +535,9 @@ function Queue() {
     <View style={s.queue}>
       <View style={s.queueHeader}>
         <Pressable onPress={player.closeQueue}>
-          <Text style={s.link}>Back</Text>
+          <Text style={s.word}>Back</Text>
         </Pressable>
         <Text style={s.queueTitle}>Queue</Text>
-        <HomeButton />
       </View>
       <Text style={s.queueLabel}>Now playing</Text>
       <Text style={s.queueNow} numberOfLines={1}>{song?.title}</Text>
@@ -575,20 +562,19 @@ function Queue() {
 }
 
 /**
- * One layer that slides up from the bottom while `open` and back down when not. Where it's heading always follows
- * `open` (sheetCore.ts), so it can be turned round at any moment: nothing waits for a slide to finish. Only its grab
- * area pulls it; a pull let go far or fast enough calls `onClose`, anything less goes back up.
+ * One layer that moves between on screen (0) and away (1) as `open` says. Where it's heading always follows `open`
+ * (sheetCore.ts), so it can be turned round at any moment: nothing waits for a slide to finish. Only its grab area
+ * pulls it; a pull let go far or fast enough calls `onClose`, anything less goes back up. `at` is the layer's place,
+ * 0 to 1; `travel` is how many points that is, so a finger moves it one for one.
  */
-function useSlide(open: boolean, onClose: () => void, onGone?: () => void) {
-  const height = Dimensions.get('window').height;
-  const y = useRef(new Animated.Value(height)).current;
+function useSlide(at: Animated.Value, travel: number, open: boolean, onClose: () => void, onGone?: () => void) {
   const [mounted, setMounted] = useState(false);
-  const latest = useRef({ onClose, onGone });
-  latest.current = { onClose, onGone };
+  const latest = useRef({ onClose, onGone, travel });
+  latest.current = { onClose, onGone, travel };
   const made = useRef<ReturnType<typeof slideController> | null>(null);
   const slide = (made.current ??= slideController({
     animate: (to, done) =>
-      Animated.timing(y, { toValue: to * height, duration: to ? CLOSE_MS : OPEN_MS, easing: Easing.out(Easing.cubic), useNativeDriver: true })
+      Animated.timing(at, { toValue: to, duration: to ? CLOSE_MS : OPEN_MS, easing: Easing.out(Easing.cubic), useNativeDriver: true })
         .start(({ finished }) => done(finished)),
     setMounted,
     later: (fn) => void setTimeout(fn, 0),
@@ -600,13 +586,22 @@ function useSlide(open: boolean, onClose: () => void, onGone?: () => void) {
       onStartShouldSetPanResponder: () => true,
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: () => slide.grabbed(),
-      onPanResponderMove: (_, g) => y.setValue(Math.max(g.dy, 0)),
+      onPanResponderMove: (_, g) => at.setValue(Math.min(Math.max(g.dy, 0) / latest.current.travel, 1)),
       onPanResponderRelease: (_, g) => slide.released(pullCloses(g.dy, g.vy), () => latest.current.onClose()),
       onPanResponderTerminate: () => slide.released(false, () => {}),
     }),
   ).current.panHandlers;
   // drawn from the moment it's asked for, so the first frame of the slide already has its content
-  return { y, shown: open || mounted, grab };
+  return { shown: open || mounted, grab };
+}
+
+/** The player's background, on its own so the clock never redraws it. */
+function SheetTint() {
+  const { song } = usePlayerPick('song');
+  const cmp = useCompare();
+  const id = cmp.open ? cmp.sound.sounding || cmp.ids[0] : song?.id;
+  const date = useSongDate(id);
+  return <Tint title={cmp.open ? versions.songTitle(id ?? '') : song?.title} date={date} />;
 }
 
 /**
@@ -614,10 +609,13 @@ function useSlide(open: boolean, onClose: () => void, onGone?: () => void) {
  * second request inside its half-second slide was dropped, and an empty see-through sheet could stay over the whole
  * app, taking every touch while the music played on (the freeze, 2026-11-09). This one takes touches only while the
  * player says it is open, and only its grab area pulls it, so nothing inside it can move it.
+ * It grows out of the mini player: its top edge starts at the mini player's and rises to the top of the screen, one
+ * fading into the other at that end (the same value moves both, so they can't come apart).
  * Queue opened from the player is its own layer over the player: pulled down, it uncovers the player, like Back.
  */
 export function PlayerSheet() {
   const { sheet, song, queueFrom, comparing } = usePlayerPick('sheet', 'song', 'queueFrom', 'comparing');
+  const { sort } = usePlace();
   // Compare from a Library group may have no queue song: the sheet still opens, on the group
   const visible = sheet !== 'none' && (!!song || comparing);
   const wasVisible = useRef(visible);
@@ -633,18 +631,27 @@ export function PlayerSheet() {
   if (visible) lastNav.current = { sheet, queueFrom };
   const { base, queueOver } = layers(lastNav.current);
 
-  const whole = useSlide(visible, () => player.open('none'), () => {
+  const height = Dimensions.get('window').height;
+  const travel = height - miniTopFromBottom(!sort);
+  const overAt = useRef(new Animated.Value(1)).current;
+  const whole = useSlide(sheetAt, travel, visible, () => player.open('none'), () => {
     lastNav.current = { sheet: 'player', queueFrom: 'none' }; // gone: the next opening starts with no Queue left on top
     player.runAfterClose();
   });
-  const over = useSlide(queueOver, player.closeQueue);
+  const over = useSlide(overAt, height, queueOver, player.closeQueue);
 
   return (
     <View style={s.sheetLayer} pointerEvents={visible ? 'auto' : 'none'} accessibilityViewIsModal={visible}>
       <GestureHandlerRootView style={s.sheetRoot}>
-        <Animated.View style={[s.sheet, { transform: [{ translateY: whole.y }] }]}>
+        <Animated.View
+          style={[s.sheet, {
+            opacity: sheetAt.interpolate({ inputRange: [0, HANDOVER, 1], outputRange: [1, 1, 0], extrapolate: 'clamp' }),
+            transform: [{ translateY: sheetAt.interpolate({ inputRange: [0, 1], outputRange: [0, travel] }) }],
+          }]}
+        >
           {whole.shown ? (
             <>
+              {base === 'queue' ? null : <SheetTint />}
               <View style={s.grabArea} {...whole.grab}>
                 <View style={s.grabMark} />
               </View>
@@ -652,7 +659,7 @@ export function PlayerSheet() {
             </>
           ) : null}
           <Animated.View
-            style={[s.overLayer, { transform: [{ translateY: over.y }] }]}
+            style={[s.overLayer, { transform: [{ translateY: overAt.interpolate({ inputRange: [0, 1], outputRange: [0, height] }) }] }]}
             pointerEvents={queueOver && visible ? 'auto' : 'none'}
             accessibilityViewIsModal={queueOver}
           >
@@ -672,97 +679,78 @@ export function PlayerSheet() {
 }
 
 const s = StyleSheet.create({
-  bar: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 16, paddingRight: 8, paddingTop: 10, paddingBottom: 30, backgroundColor: '#222', borderTopColor: '#333', borderTopWidth: 1 },
-  barText: { flex: 1 },
-  barTitle: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  barDetail: { color: '#888', fontSize: 12, marginTop: 2 },
-  barButton: { paddingVertical: 12, paddingHorizontal: 10 },
-  barButtonText: { color: '#8ab4f8', fontSize: 15, fontWeight: '600' },
-  // over every screen and the bar; the strip above the sheet still shows the screen behind, as before
+  fill: { flex: 1 },
+  // the mini player: floats above the tab bar (or the screen's bottom edge when Sort hides the tabs)
+  miniDock: { position: 'absolute', left: S.miniSide, right: S.miniSide, height: S.mini, zIndex: 6 },
+  mini: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingLeft: 8, paddingRight: 4 },
+  miniOpen: { flex: 1, height: S.mini, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  miniText: { flex: 1, minHeight: S.tap, justifyContent: 'center' },
+  miniTitle: { color: C.text, fontSize: 15, fontWeight: '600' },
+  miniDetail: { ...T.meta, fontSize: 12, marginTop: 1 },
+  miniButton: { width: S.tap, height: S.tap, alignItems: 'center', justifyContent: 'center' },
+  miniProgress: { position: 'absolute', left: 0, bottom: 0, height: 2, backgroundColor: C.accent },
+  // over every screen, the tab bar and the mini player
   sheetLayer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 10 },
   sheetRoot: { flex: 1 },
+  sheet: { flex: 1, paddingTop: SHEET_PAD, backgroundColor: C.surface, borderTopLeftRadius: R.sheet, borderTopRightRadius: R.sheet, overflow: 'hidden' },
   // its own top edge, so a Queue pulled part-way down reads as a layer over the player
-  overLayer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: '#111', borderTopLeftRadius: 12, borderTopRightRadius: 12, borderTopWidth: StyleSheet.hairlineWidth, borderColor: '#3a3a3c' },
-  sheet: { flex: 1, marginTop: SHEET_TOP, backgroundColor: '#111', borderTopLeftRadius: 12, borderTopRightRadius: 12, overflow: 'hidden' },
+  overLayer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, paddingTop: SHEET_PAD, backgroundColor: C.surface, borderTopLeftRadius: R.sheet, borderTopRightRadius: R.sheet, borderTopWidth: StyleSheet.hairlineWidth, borderColor: C.line },
   grabArea: { height: 44, alignItems: 'center', justifyContent: 'center' },
-  grabMark: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#555' },
-  page: { flex: 1, backgroundColor: '#111' },
-  // beside the grab mark, only as wide as Home, so the rest of the grab area still pulls the sheet down
-  topRow: { alignSelf: 'flex-end', marginTop: -44, height: 44, justifyContent: 'center', paddingRight: 8 },
-  sessionTop: { marginTop: -44, height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8 },
+  grabMark: { width: 40, height: 5, borderRadius: 3, backgroundColor: C.faint },
+  page: { flex: 1, paddingHorizontal: S.playerSide, paddingBottom: S.homeBar },
+  // beside the grab mark, only as wide as its button, so the rest of the grab area still pulls the sheet down
+  topRow: { alignSelf: 'flex-start', marginTop: -44, marginLeft: -8, height: 44, justifyContent: 'center' },
+  down: { minWidth: S.tap, height: S.tap, alignItems: 'center', justifyContent: 'center' },
+  word: { color: C.dim, fontSize: 15, paddingHorizontal: 8, paddingVertical: 13, textAlign: 'center' },
+  sessionTop: { marginTop: -44, marginHorizontal: -8, height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sessionClose: { minWidth: 64, height: 44, justifyContent: 'center' },
-  sessionCount: { color: '#8e8e93', fontSize: 15, paddingRight: 8, fontVariant: ['tabular-nums'] },
-  sessionNext: { backgroundColor: '#fff', borderColor: '#fff' },
-  verdictDone: { borderColor: '#3a3a3c' },
-  verdictDoneText: { color: '#636366' },
-  versionRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, minHeight: 46, marginTop: -8 },
-  pageTop: { paddingHorizontal: 24, gap: 12 },
-  tagZone: { flex: 1, marginTop: 8, paddingHorizontal: 24 },
-  swipeZone: { flex: 1, minHeight: 24 },
-  backRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: -8 },
-  tagSlot: { width: 56, height: 48 },
-  dock: { height: 160, justifyContent: 'flex-end', paddingHorizontal: 24, paddingBottom: 40 },
-  hideTap: { height: 44, justifyContent: 'center', alignSelf: 'flex-start', paddingRight: 24, marginBottom: 8 },
-  eye: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
-  eyeLid: { width: 28, height: 16, borderRadius: 8, borderWidth: 2, borderColor: '#aaa', alignItems: 'center', justifyContent: 'center' },
-  eyePupil: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#aaa' },
-  eyeSlash: { position: 'absolute', width: 32, height: 2, backgroundColor: '#aaa', transform: [{ rotate: '-35deg' }] },
-  verdicts: { height: 56, flexDirection: 'row', gap: 12 },
-  verdictPair: { flex: 1, flexDirection: 'row', gap: 12 },
-  verdictsResting: { opacity: 0.35 },
-  verdict: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: '#555' },
-  verdictText: { color: '#fff', fontSize: 17, fontWeight: '600' },
-  titleBox: { height: 72, justifyContent: 'flex-end' },
-  title: { color: '#fff', fontSize: 30, lineHeight: 36, fontWeight: '700', textAlign: 'center' },
-  seek: { height: 44, justifyContent: 'center' },
-  track: { height: 6, borderRadius: 3, backgroundColor: '#444', overflow: 'hidden' },
-  filled: { height: 6, backgroundColor: '#8ab4f8' },
-  tick: { position: 'absolute', top: 12, width: 2, height: 10, marginLeft: -1, borderRadius: 1, backgroundColor: '#f5b041' },
-  tickWide: { width: 4, marginLeft: -2 },
-  knob: { position: 'absolute', width: 18, height: 18, borderRadius: 9, marginLeft: -9, backgroundColor: '#fff' },
-  times: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: -12 },
-  time: { color: '#ddd', fontSize: 14, fontVariant: ['tabular-nums'] },
+  sessionCount: { ...T.meta, fontSize: 15, paddingRight: 8, fontVariant: ['tabular-nums'] },
+  art: { flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', paddingVertical: 4 },
+  lines: { alignSelf: 'stretch', flex: 1 },
+  titleBox: { height: 58, justifyContent: 'center', marginTop: 8 },
+  title: { ...T.playerTitle },
+  quiet: { height: S.tap, flexDirection: 'row', alignItems: 'center', marginHorizontal: -10 },
+  eyeTap: { width: S.tap, height: S.tap, alignItems: 'center', justifyContent: 'center' },
+  verdicts: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  resting: {},
+  verdict: { height: S.tap, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 14 },
+  verdictOn: {},
+  verdictWord: { color: C.dim, fontSize: 15, fontWeight: '600' },
+  verdictWordOn: { color: C.text, fontWeight: '700' },
+  verdictOff: { color: C.faint },
+  versionRow: { height: 46, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+  compareSlot: { width: WHEEL_WIDTH, height: 46, justifyContent: 'center', alignItems: 'flex-end' }, // the closed word ends where the pill does (6.7)
+  seek: { height: S.seek, justifyContent: 'center' },
+  track: { height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.22)', overflow: 'hidden' },
+  filled: { height: 4, backgroundColor: C.text },
+  // tag dots sit just above the track, in the one accent colour
+  tick: { position: 'absolute', top: 10, width: 6, height: 6, marginLeft: -3, borderRadius: 3, backgroundColor: C.accent },
+  tickWide: { width: 10, marginLeft: -5 },
+  knob: { position: 'absolute', width: 14, height: 14, borderRadius: 7, marginLeft: -7, backgroundColor: C.white },
+  times: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 18, marginTop: -8 },
+  time: { ...T.meta, fontVariant: ['tabular-nums'] },
   timeBox: { width: 64 },
   timeTap: { paddingVertical: 14, paddingLeft: 32, width: 96, alignItems: 'flex-end' },
-  slot: { height: SLOT_HEIGHT, marginTop: 8, justifyContent: 'center' },
-  controls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 },
-  shuffle: { width: 44, alignItems: 'center' },
-  // Previous and Next the same width, so Play sits on the centre line
-  side: { width: 80, paddingHorizontal: 0, alignItems: 'center' },
-  shuffleOn: { backgroundColor: '#8ab4f8', borderColor: '#8ab4f8' },
-  // Fire: the same 44 pt box as Shuffle on the other side, so Previous / Play / Next stay dead centre
-  fire: { paddingHorizontal: 0, justifyContent: 'center' },
-  fireOn: { backgroundColor: '#f5b041', borderColor: '#f5b041' },
-  fireText: { color: '#8e8e93', fontSize: 14, fontWeight: '600' },
-  shelveSlot: { width: 104, height: 46, alignItems: 'center', justifyContent: 'center' },
-  shelveTap: { minWidth: 88, height: 44, alignItems: 'center', justifyContent: 'center' },
-  shelveText: { color: '#8e8e93', fontSize: 15 },
-  shelveOn: { color: '#f5b041', fontWeight: '700' },
-  shuffleIcon: { width: 20, height: 22, justifyContent: 'center', gap: 5 },
-  arrowRow: { flexDirection: 'row', alignItems: 'center' },
-  arrowBar: { flex: 1, height: 2 },
-  arrowHeadRight: { width: 0, height: 0, borderTopWidth: 4, borderBottomWidth: 4, borderLeftWidth: 6, borderTopColor: 'transparent', borderBottomColor: 'transparent' },
-  arrowHeadLeft: { width: 0, height: 0, borderTopWidth: 4, borderBottomWidth: 4, borderRightWidth: 6, borderTopColor: 'transparent', borderBottomColor: 'transparent' },
-  compareSlot: { width: WHEEL_WIDTH, height: 46, justifyContent: 'center', alignItems: 'flex-end' }, // the closed word ends where the pill does (6.7)
-  button: { paddingVertical: 14, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#555' },
-  buttonText: { color: '#fff', fontSize: 16 },
-  play: { minWidth: 88, alignItems: 'center', backgroundColor: '#fff', borderColor: '#fff' },
-  playText: { color: '#111', fontWeight: '700' },
-  mineOn: { backgroundColor: '#8ab4f8', borderColor: '#8ab4f8' },
-  toast: { position: 'absolute', left: 16, right: 16, bottom: 40, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 8, backgroundColor: '#333' },
-  toastAboveButtons: { left: 24, right: 24, bottom: 104 },
-  toastText: { flex: 1, color: '#fff', fontSize: 15 },
-  toastUndo: { color: '#8ab4f8', fontSize: 16, fontWeight: '700' },
-  link: { color: '#8ab4f8', fontSize: 15, paddingHorizontal: 8, paddingVertical: 13, textAlign: 'center' },
-  queue: { flex: 1, backgroundColor: '#111', paddingHorizontal: 16 },
+  pill: { height: S.pill, marginHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 28 },
+  skip: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
+  play: { width: S.play, height: S.play, borderRadius: S.play / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: C.white, overflow: 'hidden' },
+  actions: { height: S.actions, flexDirection: 'row', marginTop: 8, marginHorizontal: -8 },
+  action: { flex: 1, height: S.actions, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  actionWord: { ...T.action, fontVariant: ['tabular-nums'] },
+  actionOn: { fontWeight: '700' },
+  toast: { position: 'absolute', left: 16, right: 16, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: R.toast, backgroundColor: C.toast, zIndex: 7 },
+  toastInPlayer: { left: S.playerSide, right: S.playerSide, top: 8 },
+  toastText: { flex: 1, ...T.toast },
+  toastUndo: { color: C.accent, fontSize: 16, fontWeight: '700' },
+  queue: { flex: 1, backgroundColor: C.surface, paddingHorizontal: 16 },
   queueHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  queueTitle: { color: '#fff', fontSize: 26, fontWeight: '700' },
-  queueLabel: { color: '#888', fontSize: 13, marginTop: 8, marginBottom: 4 },
-  queueNow: { color: '#fff', fontSize: 17, fontWeight: '600', marginBottom: 12 },
+  queueTitle: { color: C.text, fontSize: 26, fontWeight: '700' },
+  queueLabel: { color: C.dim, fontSize: 13, marginTop: 8, marginBottom: 4 },
+  queueNow: { color: C.accent, fontSize: 17, fontWeight: '600', marginBottom: 12 },
   queueList: { flex: 1 },
-  queueRow: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderBottomColor: '#2a2a2a', borderBottomWidth: 1 },
-  queueLifted: { backgroundColor: '#2a2a2a', borderRadius: 6 },
-  queueSong: { flex: 1, color: '#fff', fontSize: 16 },
-  queueGrip: { color: '#555', fontSize: 20, paddingLeft: 16 },
-  queueEmpty: { color: '#888', fontSize: 15, paddingTop: 16 },
+  queueRow: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderBottomColor: C.line, borderBottomWidth: 1 },
+  queueLifted: { backgroundColor: C.raised, borderRadius: 6 },
+  queueSong: { flex: 1, color: C.text, fontSize: 16 },
+  queueGrip: { color: C.faint, fontSize: 20, paddingLeft: 16 },
+  queueEmpty: { color: C.dim, fontSize: 15, paddingTop: 16 },
 });

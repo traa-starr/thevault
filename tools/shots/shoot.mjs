@@ -18,7 +18,9 @@ const PACKAGES = {
   'react-native-gesture-handler': fake('gesture.tsx'),
   'react-native-reorderable-list': fake('gesture.tsx'),
 };
-for (const name of ['expo-audio', 'expo-haptics', 'expo-secure-store', 'expo-updates', 'expo-status-bar', 'react-native-reanimated', 'react-native-worklets'])
+// 'expo', expo-symbols, expo-glass-effect: the laptop has no Apple icons and no glass, so the app draws its stand-ins,
+// exactly as an older build on the phone does
+for (const name of ['expo', 'expo-symbols', 'expo-glass-effect', 'expo-audio', 'expo-haptics', 'expo-secure-store', 'expo-updates', 'expo-status-bar', 'react-native-reanimated', 'react-native-worklets'])
   PACKAGES[name] = fake('misc.ts');
 // the app's own modules that touch sound, files or the network
 const LOCAL = {
@@ -56,7 +58,7 @@ await build({
 });
 writeFileSync(
   join(out, 'index.html'),
-  `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body,#root{margin:0;height:100%;background:#111;
+  `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{user-select:none}html,body,#root{margin:0;height:100%;background:#000;
   font-family:-apple-system,"SF Pro Text","Segoe UI",system-ui,sans-serif}</style></head>
   <body><div id="root"></div><script src="bundle.js"></script></body></html>`,
 );
@@ -79,7 +81,7 @@ for (const f of chosen) {
     await page.evaluate(step);
     await page.waitForTimeout(120);
   }
-  await page.waitForTimeout(f.steps?.length > 2 ? 450 : 250); // a sheet that slid up has landed
+  await page.waitForTimeout(f.wait ?? 480); // a sheet that grew out of the mini player has landed
   // `drag: [x, fromY, toY]`: a finger pulls from one spot to another and holds there, so the shot is mid-gesture
   if (f.drag) {
     const [x, from, to] = f.drag;

@@ -21,4 +21,8 @@ export const StatusBar = () => null;
 export const selectionAsync = async () => {};
 // expo-secure-store (the Keychain): empty here, so the app falls back to its address file
 export const getItem = () => null;
+// expo: no native piece is ever found on the laptop (nativePieces.ts then picks the stand-ins)
+export const requireOptionalNativeModule = () => null;
+export const SymbolView = null;
+export const GlassView = null;
 export const setItem = () => {};

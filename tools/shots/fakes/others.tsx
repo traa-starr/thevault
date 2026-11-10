@@ -31,6 +31,7 @@ const setVersions = (next: any) => {
 export const useVersions = () => useFix(() => versions);
 export const members = (id: string) => family(families.get(id) ?? id);
 export const songTitle = (id: string) => FIX.titles?.[id] ?? (FIX.songs ?? []).find((song: any) => song.id === id)?.title ?? id;
+export const songInfo = (id: string) => (FIX.songs ?? []).find((song: any) => song.id === id);
 export const openVersions = (id: string | null) => setVersions({ versionsOf: id });
 export const openPicker = (picker: any) => setVersions({ picker });
 export const closePicker = () => setVersions({ picker: null });

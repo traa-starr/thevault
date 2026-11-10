@@ -535,13 +535,98 @@ def rating_path(tmp):
     report = ratings_report(lib.store.conn)
     before = lib.store.snapshot()
     lib.close()
-    check("ratings command lists them, Fire first", report[0].startswith("Fire     Beta") and report[-1] == "1 Fire, 3 Shelved.", " | ".join(report))
+    check("ratings command lists them in plain words", report[0].startswith("Favorite Beta") and report[-1] == "1 Favorite, 3 Archived.", " | ".join(report))
     (root / DB_NAME).unlink()
     lib = open_library(root)
     after = lib.store.snapshot()
     lib.close()
     check("ratings rebuild from the journal row for row", after["song_ratings"] == before["song_ratings"] and len(before["song_ratings"]) == 4,
           str(before["song_ratings"]))
+
+
+def plays_path(tmp):
+    """POST /changes play_add (overhaul wave 1): one line per play, a longer line for the same play, counts and last
+    heard in /songs and /status, a wrong phone clock, 50 plays made offline, merges, a rebuild, the plays command."""
+    from vault_server.songs import plays_report
+    music, root = tmp / "pmusic", tmp / "plib"
+    lib = init_library(root)
+    a = add_song(lib, music / "a.mp3", b"a", title="Alpha")
+    b = add_song(lib, music / "b.mp3", b"b", title="Beta")
+    away = add_song(lib, music / "away.mp3", b"c")
+    stays = add_song(lib, music / "stays.mp3", b"d", title="Stays")
+    lib.close()
+    journal = root / JOURNAL_NAME
+    lines = lambda: journal.read_text(encoding="utf-8").count("\n")
+    servers = server.start_servers(root, [server.LOOPBACK], 0)
+    port = servers[0].server_port
+
+    def send(*changes):
+        data = json.dumps({"changes": list(changes)}).encode()
+        c = http.client.HTTPConnection(server.LOOPBACK, port, timeout=30)
+        c.request("POST", "/changes", data, {server.CLIENT_HEADER: "app", "Content-Length": str(len(data))})
+        reply = json.loads(c.getresponse().read())
+        c.close()
+        return [x["status"] for x in reply["results"]]
+
+    def get(path):
+        c = http.client.HTTPConnection(server.LOOPBACK, port, timeout=10)
+        c.request("GET", path)
+        out = json.loads(c.getresponse().read())
+        c.close()
+        return out
+
+    row = lambda song: next(((s["plays"], s["last_heard"]) for s in get("/songs")["songs"] if s["id"] == song), "gone")
+    play = lambda song, at, seconds=30, play_id=None, **more: {"id": str(uuid.uuid4()), "kind": "play_add", "data": {
+        "play_id": play_id or str(uuid.uuid4()), "song_id": song, "started_at": at, "seconds": seconds, "source": "phone", **more}}
+    try:
+        check("plays: a song never played lists 0 and no last heard", row(a) == (0, None), str(row(a)))
+        first = play(a, "2026-11-01T10:00:00.000Z")
+        check("plays: a play is saved and counted", send(first) == ["saved"] and row(a) == (1, "2026-11-01T10:00:00.000000Z"), str(row(a)))
+        n = lines()
+        check("plays: a resend of the same line does nothing", send(first) == ["nothing to do"] and lines() == n and row(a)[0] == 1)
+        pid = first["data"]["play_id"]
+        check("plays: the same play, left later, is one play made longer", send(play(a, "2026-11-01T10:00:00.000Z", 201.4, pid)) == ["saved"] and row(a)[0] == 1)
+        check("plays: a shorter line for the same play does nothing", send(play(a, "2026-11-01T10:00:00.000Z", 30, pid)) == ["nothing to do"])
+        check("plays: a second listen is a second play", send(play(a, "2026-11-02T09:00:00.000Z")) == ["saved"] and row(a) == (2, "2026-11-02T09:00:00.000000Z"), str(row(a)))
+        check("plays: last heard is the latest start, not the latest to arrive", send(play(a, "2026-10-20T09:00:00.000Z")) == ["saved"]
+              and row(a) == (3, "2026-11-02T09:00:00.000000Z"), str(row(a)))
+        # a phone clock a year ahead: the play counts, and last heard is never later than when the laptop got it
+        send(play(b, "2099-01-01T00:00:00.000Z"))
+        check("plays: a start time in the future becomes now", row(b)[0] == 1 and row(b)[1] < "2090", str(row(b)))
+        check("plays: a start time with an offset is kept as the same moment", send(play(b, "2026-11-03T12:00:00+02:00")) == ["saved"])
+        n = lines()
+        for name, bad in (("unknown song", play(str(uuid.uuid4()), "2026-11-01T10:00:00Z")), ("no start time", play(a, None)),
+                          ("a start time that isn't one", play(a, "yesterday")), ("no time zone", play(a, "2026-11-01T10:00:00")),
+                          ("seconds that aren't a number", play(a, "2026-11-01T10:00:00Z", "30")), ("negative seconds", play(a, "2026-11-01T10:00:00Z", -1)),
+                          ("a made-up source", play(a, "2026-11-01T10:00:00Z", source="radio")), ("no play id", play(a, "2026-11-01T10:00:00Z", play_id="x"))):
+            check(f"play refused: {name}", send(bad) == ["refused"])
+        check("plays: refused ones reach no journal line", lines() == n)
+        # laptop off for days: 50 plays arrive in one send, and the whole send again (the answer was lost)
+        many = [play(stays, f"2026-11-04T{10 + i // 60:02d}:{i % 60:02d}:00.000Z") for i in range(50)]
+        check("plays: 50 made offline all count", send(*many) == ["saved"] * 50 and row(stays)[0] == 50, str(row(stays)))
+        check("plays: the same 50 sent again count nothing", send(*many) == ["nothing to do"] * 50 and row(stays)[0] == 50)
+        send(play(away, "2026-11-05T10:00:00.000Z"))
+        st = get("/status")
+        check("plays: /status counts plays and songs played", (st["plays"], st["played"]) == (56, 4) and "2026-11-05" <= st["last_play"] < "2090", str(st))
+        check("plays: a play never asks for phone copies", not server.asks_mine([first]))
+    finally:
+        server.stop_servers(servers)
+    lib = open_library(root)
+    lib.store.record("song_merge", {"from_id": away, "into_id": stays})
+    count = lambda song: lib.store.conn.execute("SELECT COUNT(*) FROM plays WHERE song_id=?", (song,)).fetchone()[0]
+    check("plays: a merge hands the survivor the plays", count(stays) == 51 and count(away) == 0)
+    check("plays: a play for a merged-away song follows the merge",
+          songs_module.add_play(lib.store, {"play_id": str(uuid.uuid4()), "song_id": away, "started_at": "2026-11-06T10:00:00Z", "seconds": 40}) and count(stays) == 52)
+    report = plays_report(lib.store.conn)
+    before = lib.store.snapshot()
+    lib.close()
+    check("plays command: totals, most played first, latest plays", report[0] == "57 plays of 3 songs." and "Stays" in report[3] and "  52  " in report[3]
+          and any("Latest plays" in line for line in report), " | ".join(report[:5]))
+    (root / DB_NAME).unlink()
+    lib = open_library(root)
+    after = lib.store.snapshot()
+    lib.close()
+    check("plays rebuild from the journal row for row", after["plays"] == before["plays"] and len(before["plays"]) == 57, str(len(before["plays"])))
 
 
 def timings_path(tmp):
@@ -872,7 +957,7 @@ def main():
     r, body = ask("/status")
     st = json.loads(body)
     check("/status: the count is the list's, with Mine, copies, ratings and the phone's own count", r.status == 200 and st["songs"] == len(songs)
-          and set(st) == {"songs", "mine", "copies", "fire", "shelved", "on_phone"} and st["on_phone"] is None, str(st))
+          and set(st) == {"songs", "mine", "copies", "fire", "shelved", "plays", "played", "last_play", "on_phone"} and st["on_phone"] is None, str(st))
     r, body = ask("/")
     check("the page opens and shows titles as plain text", r.status == 200 and b"textContent = song.title" in body and b"innerHTML" not in body)
 
@@ -960,6 +1045,7 @@ def main():
     write_path(tmp)
     tag_path(tmp)
     rating_path(tmp)
+    plays_path(tmp)
     sorting_path(tmp)
     family_path(tmp)
     phone_backup_path(tmp)

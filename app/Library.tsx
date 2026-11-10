@@ -10,6 +10,7 @@ import { loadSongList, offline, saveSongList, useOffline } from './offline';
 import { flush, useOutbox } from './outbox';
 import { LaptopLine, RestoreNotice, WaitingLine } from './Notices';
 import { NOT_HERE, player, usePlayerWith, type Pool } from './playerStore';
+import { playStore } from './playStore';
 import { ratingStore, useRatings } from './ratingStore';
 import { session } from './sessionStore';
 import { indexFor, pieces, queryStems, searchSongs, stems, typedWord, type SongHit } from './search';
@@ -25,11 +26,11 @@ type Song = LibSong;
 type Sort = 'title' | 'date';
 /** One filter at a time; tap it again for all songs. Unsorted: not called Mine and not judged yet. */
 type Filter = 'all' | 'mine' | 'fire' | 'unsorted' | 'grouped';
-const FILTER_WORD: Record<Filter, string> = { all: 'songs', mine: 'Mine', fire: 'Fire', unsorted: 'unsorted', grouped: 'version groups' };
+const FILTER_WORD: Record<Filter, string> = { all: 'songs', mine: 'Mine', fire: 'Favorites', unsorted: 'unsorted', grouped: 'version groups' };
 const FILTER_EMPTY: Record<Filter, string> = {
   all: 'No songs yet',
   mine: 'No Mine songs yet',
-  fire: 'No Fire songs yet: tap Fire in the player',
+  fire: 'No Favorites yet: tap Favorite in the player',
   unsorted: 'Nothing left unsorted',
   grouped: 'No version groups yet',
 };
@@ -67,9 +68,12 @@ function HitLine({ hit, stems, typed }: { hit: SongHit<ShownTag>; stems: string[
   );
 }
 
-export default function Library({ url, onBack }: { url: string; onBack: () => void }) {
+export default function Library({ url }: { url: string }) {
   const [fetched, setFetched] = useState<Song[] | null>(null);
-  const { pending, refused } = useOutbox();
+  const { pending: waitingAll, refused } = useOutbox();
+  // my choices only: a play joining the outbox changes nothing Library draws, so it must not redraw 1,395 rows
+  const choiceKey = waitingAll.filter((change) => change.kind !== 'play_add').map((change) => change.id).join();
+  const pending = useMemo(() => waitingAll.filter((change) => change.kind !== 'play_add'), [choiceKey]);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [sort, setSort] = useState<Sort>('date'); // Newest every time the app opens
@@ -104,6 +108,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
         setHiddenOnLaptop(data.hidden ?? null);
         saveSongList(data.songs, asked);
         ratingStore.setBase(data.songs, asked);
+        playStore.setBase(data.songs, asked);
         setLibrary(data.songs, asked);
         setFetched(data.songs);
       } catch {
@@ -127,7 +132,8 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     };
   }, [url, attempt]);
 
-  // the outbox has just emptied, so the laptop now holds what it held
+  // the outbox has just emptied, so the laptop now holds what it held. A play isn't a choice: it never asks for the
+  // list again (the list would come every song, and redraw Library under the music)
   const waiting = pending.length > 0;
   const wasWaiting = useRef(waiting);
   useEffect(() => {
@@ -348,9 +354,12 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
     {showHidden ? <Hidden url={url} onBack={closeHidden} /> : null}
     <View style={[s.page, showHidden && s.hidden]}>
       <View style={s.header}>
-        <Pressable onPress={selecting ? cancelSelect : onBack}>
-          <Text style={s.link}>{selecting ? 'Cancel' : 'Back'}</Text>
-        </Pressable>
+        {/* a tab now, so no Back: only select mode's Cancel */}
+        {selecting ? (
+          <Pressable onPress={cancelSelect}>
+            <Text style={s.link}>Cancel</Text>
+          </Pressable>
+        ) : null}
         <Text style={s.title}>{selecting ? `${number(ticked.length)} ticked` : 'Library'}</Text>
         <View style={s.headerRight}>
           {/* the tagging session: Mine songs that can play now, one card at a time */}
@@ -412,7 +421,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
                 <Text style={[s.sort, only === 'mine' && s.sortOn]}>Mine</Text>
               </Pressable>
               <Pressable onPress={() => toggle('fire')}>
-                <Text style={[s.sort, only === 'fire' && s.sortOn]}>Fire</Text>
+                <Text style={[s.sort, only === 'fire' && s.sortOn]}>Favorites</Text>
               </Pressable>
               <Pressable onPress={() => toggle('unsorted')}>
                 <Text style={[s.sort, only === 'unsorted' && s.sortOn]}>Unsorted</Text>
@@ -470,7 +479,7 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
                   <Text style={[s.rowTitle, !canPlay(item) && s.rowOff]} numberOfLines={1}>{item.title}</Text>
                   <VersionsChip id={item.id} />
                   {/* my rating, as a word (never colour alone); a search hit shows it too */}
-                  {ratings.get(item.id) ? <Text style={ratings.get(item.id) === 'fire' ? s.fireMark : s.shelvedMark}>{ratings.get(item.id) === 'fire' ? 'Fire' : 'Shelved'}</Text> : null}
+                  {ratings.get(item.id) ? <Text style={ratings.get(item.id) === 'fire' ? s.fireMark : s.shelvedMark}>{ratings.get(item.id) === 'fire' ? 'Favorite' : 'Archived'}</Text> : null}
                   {found?.hitOf.get(item.id) ? <Text style={s.hitTime}>{clock(found.hitOf.get(item.id)!.tag.at_sec)}</Text> : null}
                 </View>
                 {found?.hitOf.get(item.id) ? (
@@ -510,9 +519,9 @@ export default function Library({ url, onBack }: { url: string; onBack: () => vo
 }
 
 const s = StyleSheet.create({
-  fill: { flex: 1, backgroundColor: '#111' },
+  fill: { flex: 1, backgroundColor: '#000' },
   hidden: { display: 'none' },
-  page: { flex: 1, backgroundColor: '#111', paddingTop: 60, paddingHorizontal: 16 },
+  page: { flex: 1, backgroundColor: '#000', paddingTop: 60, paddingHorizontal: 16 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   headerRight: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center' },
   tagSongs: { minHeight: 44, justifyContent: 'center' },

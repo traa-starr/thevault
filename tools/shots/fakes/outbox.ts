@@ -35,6 +35,11 @@ export function addRatingChange(songId: string, value: string) {
   put([...state.pending, made]);
   return made;
 }
+export function addPlayChange(data: any) {
+  const made = { id: newId(), kind: 'play_add', data };
+  put([...state.pending, made]);
+  return made;
+}
 export const pauseOutbox = () => {};
 export const restoreChanges = () => 0;
 export const startOutbox = () => {};

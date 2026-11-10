@@ -315,7 +315,7 @@ const s = StyleSheet.create({
   rowTitle: { color: '#fff', fontSize: 16 },
   rowDetail: { color: '#888', fontSize: 13, marginTop: 2 },
   toast: {
-    position: 'absolute', left: 12, right: 12, bottom: 150, flexDirection: 'row', alignItems: 'center', gap: 14,
+    position: 'absolute', left: 12, right: 12, bottom: 178, flexDirection: 'row', alignItems: 'center', gap: 14,
     backgroundColor: '#333', borderRadius: 10, paddingVertical: 12, paddingHorizontal: 14,
   },
   toastText: { color: '#fff', fontSize: 15, flex: 1 },

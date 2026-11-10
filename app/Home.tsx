@@ -1,0 +1,200 @@
+// Home (overhaul wave 1, Wall): something to play within one tap. Search, Shuffle and Favorites, what I played
+// lately, and songs I haven't played in a while. Sort, the tagging session and the laptop's address are at the bottom
+// under More: reachable in one tap, never in the way. A row with nothing in it isn't drawn (a fresh install shows no
+// blank headings). The rows' rules: playLog.ts.
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Tile } from './Art';
+import { Icon } from './Icon';
+import { openSearch, openSort } from './nav';
+import { LaptopLine, RestoreNotice, WaitingLine } from './Notices';
+import { loadSongList, offline, useOffline } from './offline';
+import { useOutbox } from './outbox';
+import { NOT_HERE, player, usePlayerPick } from './playerStore';
+import { A_WHILE_DAYS, dayOf, notPlayedInAWhile, recentlyPlayed, rediscoverStart, ROW_SONGS, type PlayMap } from './playLog';
+import { pickable, withPending } from './playOrder';
+import { playStore } from './playStore';
+import { ratingStore, useRatings } from './ratingStore';
+import { session } from './sessionStore';
+import { Tap } from './Tap';
+import { C, coveredBelow, R, S, T } from './theme';
+import { useVersions, type LibSong } from './versionStore';
+
+const DAY_MS = 24 * 3600 * 1000;
+/** "3 months ago", in the plainest words. */
+export const ago = (last: number, now: number) => {
+  const days = Math.floor((now - last) / DAY_MS);
+  if (days < 1) return 'Today';
+  if (days < 2) return 'Yesterday';
+  if (days < A_WHILE_DAYS) return `${days} days ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return months === 1 ? '1 month ago' : `${months} months ago`;
+  const years = Math.floor(days / 365);
+  return years <= 1 ? '1 year ago' : `${years} years ago`;
+};
+const year = (song: LibSong) => (song.date ? song.date.slice(0, 4) : '');
+
+function Card({ song, note, onPress }: { song: LibSong; note: string; onPress: () => void }) {
+  return (
+    <Pressable style={s.card} onPress={onPress} accessibilityLabel={`Play ${song.title}`}>
+      <Tile title={song.title} date={song.date} size={S.cardTile} radius={R.cardTile} />
+      <Text style={s.cardTitle} numberOfLines={1}>{song.title}</Text>
+      <Text style={s.cardNote} numberOfLines={1}>{note || ' '}</Text>
+    </Pressable>
+  );
+}
+
+function Row({ title, songs, note, onPlay }: { title: string; songs: LibSong[]; note: (song: LibSong) => string; onPlay: (song: LibSong) => void }) {
+  if (!songs.length) return null;
+  return (
+    <>
+      <Text style={s.heading}>{title}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.rowScroll} contentContainerStyle={s.rowCards}>
+        {songs.map((song) => <Card key={song.id} song={song} note={note(song)} onPress={() => onPlay(song)} />)}
+      </ScrollView>
+    </>
+  );
+}
+
+type Props = {
+  /** The laptop's address as a link, or '' before it has been typed. */
+  url: string;
+  /** First open, no address yet: the box to type it in. Shown in place of everything playable. */
+  setup: ReactNode;
+  /** Under More: the laptop's line, Change laptop address, the build line. */
+  about: ReactNode;
+  /** Home is the screen in front (its tab, and Sort not over it). */
+  showing: boolean;
+};
+
+export default function Home({ url, setup, about, showing }: Props) {
+  const { songs: fresh, families } = useVersions();
+  // until the laptop answers (10 s if it's off): the list saved on the phone, so Home is never empty while it waits
+  const [saved] = useState(() => loadSongList<LibSong>()?.songs ?? null);
+  const listed = fresh ?? saved;
+  const { pending: waitingAll } = useOutbox();
+  // my choices only (a play joining the outbox isn't one): Home's lists are rebuilt only when a choice changes
+  const choiceKey = waitingAll.filter((change) => change.kind !== 'play_add').map((change) => change.id).join();
+  const all = useMemo(() => (listed ? withPending(listed, waitingAll.filter((change) => change.kind !== 'play_add')) : []), [listed, choiceKey]);
+  const ratings = useRatings();
+  const { reachable, stored } = useOffline();
+  const { song: playing, sheet } = usePlayerPick('song', 'sheet');
+  // The rows never change under my thumb: a song reaching 0:30 while I look at Home moves nothing. They catch up
+  // each time Home comes back into view (a tab tap, the player closing, the song list arriving).
+  const inView = showing && sheet === 'none';
+  const [plays, setPlays] = useState(playStore.all);
+  useEffect(() => {
+    if (inView) setPlays(playStore.all());
+  }, [inView, fresh]);
+  const laptopOff = reachable === false;
+  const canPlay = (song: LibSong) => offline.has(song.id) || (!laptopOff && song.where === 'laptop');
+
+  // one row per family (its Main), like Library
+  const mains = useMemo(() => all.filter((song) => (families.get(song.id) ?? (fresh ? null : song.main) ?? song.id) === song.id), [all, families, fresh]);
+  const playable = useMemo(() => mains.filter(canPlay), [mains, laptopOff, stored]);
+  const mine = useMemo(() => playable.filter((song) => song.mine === 'mine'), [playable]);
+  const day = dayOf(Date.now());
+  // one card per family, like every other list: a played version shows as its Main
+  const recent = useMemo(() => {
+    const byId = new Map(all.map((song) => [song.id, song]));
+    const seen = new Set<string>();
+    return recentlyPlayed(all, plays, 40)
+      .map((song) => byId.get(families.get(song.id) ?? (fresh ? null : song.main) ?? song.id) ?? song)
+      .filter((song) => !seen.has(song.id) && seen.add(song.id))
+      .slice(0, ROW_SONGS);
+  }, [all, plays, families, fresh]);
+  // Mine, not Archived, playable now: never a song I'd have to wait for
+  const forgotten = useMemo(() => notPlayedInAWhile(mine.filter((song) => ratings.get(song.id) !== 'shelved'), plays, Date.now()), [mine, ratings, plays, day]);
+
+  /** A card: that song now, the rest of its row after it. Like a Library row: it plays whatever else is going on;
+   * only the 0:30 start is dropped while Compare or Sort has the sound (as a search result's start is). */
+  const play = (row: LibSong[], song: LibSong, at?: number) => {
+    if (!canPlay(song)) return player.showMessage(NOT_HERE);
+    const now = player.now();
+    player.playList(url, row.filter(canPlay), song.id, false, song.mine === 'mine' ? 'mine' : 'unsorted', now.comparing || now.sorting ? undefined : at);
+    player.open('player');
+  };
+  /** Shuffle: a Mine song starts, the mini player shows it, and every Mine song is up next. Never starts on an
+   * Archived song. `only`: just these (Favorites). */
+  const shuffle = (only?: LibSong[]) => {
+    const list = only ?? mine;
+    const from = pickable(list, ratingStore.isShelved);
+    const start = (from.length ? from : list)[Math.floor(Math.random() * (from.length || list.length))];
+    if (!start) return player.showMessage(only ? 'No Favorites yet: tap Favorite in the player' : listed ? 'No Mine songs can play right now.' : 'Songs are still loading.');
+    player.playList(url, only ? list : playable, start.id, true, 'mine');
+  };
+  const favorites = () => shuffle(mine.filter((song) => ratings.get(song.id) === 'fire'));
+
+  const now = Date.now();
+  const lastPlayed = (map: PlayMap) => (song: LibSong) => {
+    const last = map.get(song.id)?.last ?? 0;
+    return last ? ago(last, now) : year(song);
+  };
+  return (
+    <ScrollView style={s.page} contentContainerStyle={[s.content, { paddingBottom: coveredBelow(true, !!playing) + 24 }]} keyboardShouldPersistTaps="handled">
+      <Text style={s.title}>The Vault</Text>
+      <RestoreNotice />
+      <WaitingLine />
+      <LaptopLine />
+      {!url ? setup : (
+        <>
+          <Pressable style={s.search} onPress={() => openSearch('')} accessibilityRole="search" accessibilityLabel="Search">
+            <Icon name="search" size={20} color={C.dim} />
+            <Text style={s.searchWord}>Search</Text>
+          </Pressable>
+          <View style={s.pair}>
+            <Tap filled style={[s.big, s.shuffle]} radius={24} onPress={() => shuffle()} accessibilityLabel="Shuffle my songs">
+              <Icon name="shuffle" size={20} color={C.onAccent} />
+              <Text style={s.shuffleWord}>Shuffle</Text>
+            </Tap>
+            <Tap style={[s.big, s.favorites]} radius={24} onPress={favorites} accessibilityLabel="Shuffle my Favorites">
+              <Icon name="favoriteOn" size={18} color={C.text} />
+              <Text style={s.favoritesWord}>Favorites</Text>
+            </Tap>
+          </View>
+          <Row title="Recently played" songs={recent} note={lastPlayed(plays)} onPlay={(song) => play(recent, song)} />
+          <Row
+            title="Not played in a while"
+            songs={forgotten}
+            note={(song) => [year(song), plays.get(song.id)?.last ? ago(plays.get(song.id)!.last, now) : ''].filter(Boolean).join(' · ')}
+            onPlay={(song) => play(forgotten, song, rediscoverStart(song.length))}
+          />
+          <Text style={s.heading}>More</Text>
+          <Tap style={s.more} onPress={openSort} accessibilityLabel="Sort songs">
+            <Text style={s.moreWord}>Sort songs</Text>
+            <Text style={s.moreNote}>Mine or not mine, one card at a time</Text>
+          </Tap>
+          <Tap style={s.more} onPress={() => session.start(url)} accessibilityLabel="Tag songs">
+            <Text style={s.moreWord}>Tag songs</Text>
+            <Text style={s.moreNote}>My songs one by one, to mark their lines</Text>
+          </Tap>
+        </>
+      )}
+      {about}
+    </ScrollView>
+  );
+}
+
+const s = StyleSheet.create({
+  page: { flex: 1, backgroundColor: C.bg },
+  content: { paddingTop: 64, paddingHorizontal: S.side },
+  title: { ...T.title, marginBottom: 16 },
+  search: { height: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, borderRadius: R.field, backgroundColor: C.raised },
+  searchWord: { color: C.dim, fontSize: 17 },
+  pair: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  big: { flex: 1, height: 48, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, overflow: 'hidden' },
+  shuffle: { backgroundColor: C.accent },
+  shuffleWord: { color: C.onAccent, fontSize: 17, fontWeight: '700' },
+  favorites: { backgroundColor: C.raised },
+  favoritesWord: { color: C.text, fontSize: 17, fontWeight: '600' },
+  heading: { ...T.heading, marginTop: 28, marginBottom: 10 },
+  // the row runs to both screen edges, its first card in line with everything else
+  rowScroll: { marginHorizontal: -S.side, flexGrow: 0 },
+  rowCards: { paddingHorizontal: S.side, gap: 12 },
+  card: { width: S.cardTile },
+  cardTitle: { color: C.text, fontSize: 14, marginTop: 6 },
+  cardNote: { ...T.meta, marginTop: 1 },
+  more: { minHeight: S.row, justifyContent: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
+  moreWord: { ...T.row },
+  moreNote: { ...T.meta, marginTop: 2 },
+});

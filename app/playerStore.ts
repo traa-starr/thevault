@@ -8,6 +8,7 @@ import { createEngine, type Engine, type Sound } from './engine';
 import type { FamilyEdit } from './family';
 import { offline } from './offline';
 import { addChange, addChanges } from './outbox';
+import { plays } from './playStore';
 import { note } from './pressLog';
 import { onRated, ratingStore } from './ratingStore';
 import { meter } from './meter';
@@ -224,9 +225,10 @@ function onSound(sound: Sound) {
     note(`Queue player: ${sound.playing ? 'playing' : 'paused'}${state.comparing ? ' (in Compare)' : ''}`);
     engine?.refreshLockScreen();
   }
-  if (state.comparing) return; // paused and waiting: nothing it says counts
+  if (state.comparing) return plays.hold(); // paused and waiting: nothing it says counts, as sound or as listening
   if (sound.loaded) everLoaded = true;
   if (sound.duration > 0) phoneLength = sound.duration;
+  plays.report(sound.playing, sound.time, phoneLength); // 30 s really heard is a play (playLog.ts); never before the sound
   if (appOpen && timing.ready()) timing.send(url); // never from the lock screen: it goes when the app comes back
   // the song the player really holds (it may have moved on before saying so)
   const holding = engine?.windowed ? track[engine.index()]?.id : state.song?.id;
@@ -265,6 +267,8 @@ function finished() {
     return;
   }
   update({ note: 'Played every song in this list', wanted: false });
+  // that play is over; Play on the same song again is a new one (nothing else would start its count)
+  plays.start(state.sorting ? null : state.song?.id ?? null);
   engine?.pause();
   engine?.seek(0).catch(() => {});
 }
@@ -294,6 +298,7 @@ function onTrack(index: number) {
   if (startPoint > 0 && !own && index !== 0) engine?.startHere(startPoint);
   else if (startPoint <= 0 && !own) engine?.startHere(0);
   newTrackStarted();
+  plays.start(state.sorting ? null : entry.id); // a Sort card is judging, not listening
   settleUntil = Date.now() + SETTLE_MS;
   // the start spot shows at once, never 0:00 first (the player is finding it)
   update({ order, song: songNow(order), time: startPoint, duration: storedLength(entry.id), note: '', trouble: '' });
@@ -411,6 +416,7 @@ function loadOrder(order: Order, asked: number | undefined, play: boolean) {
   // redraws, so no title, length or tag list sits in front of it
   if (modeReady) toSound(false);
   hang.mark();
+  plays.start(state.sorting ? null : id);
   update({ order, song: songNow(order), time: at, duration: storedLength(id), wanted: play, note: '', trouble: '' });
   if (!state.sorting) heard(id);
   saveSpot(true);
@@ -931,6 +937,7 @@ export const player = {
    * brings its song back paused, the way leaving Sort does. Either way the queue's buttons do nothing meanwhile. */
   startCompare(fromLibrary: boolean): { at: number; play: boolean; voice: Voice | null } {
     settleHandOff();
+    plays.hold();
     const out = { at: state.time, play: state.wanted };
     if (fromLibrary || !engine) {
       engine?.pause();

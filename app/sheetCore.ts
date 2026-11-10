@@ -29,6 +29,21 @@ export const layers = (now: Nav): { base: 'player' | 'queue' | null; queueOver: 
     ? { base: 'queue', queueOver: false }
     : { base: 'player', queueOver: now.sheet === 'queue' };
 
+// ---------- where I am (overhaul wave 1): two tabs, with Sort opened over them -----------------------------------------
+export type Tab = 'home' | 'library';
+/** `sort`: Sort is open over the tabs (it hides the tab bar; Back returns to the tab under it). */
+export type Place = { tab: Tab; sort: boolean };
+/** A tab tapped. Leaves Sort if it was open. It says nothing about the player: a tab can't move, reload or stall it. */
+export const tabTapped = (_now: Place, tab: Tab): Place => ({ tab, sort: false });
+export const sortOpened = (_now: Place): Place => ({ tab: 'home', sort: true });
+export const sortClosed = (now: Place): Place => ({ ...now, sort: false });
+/** What a finger can reach. The open sheet covers the whole screen and takes every touch; closed (even while it is
+ * still sliding away) it takes none, so the tabs and the mini player answer at once. */
+export const reachable = (nav: Nav, place: Place, hasSong: boolean) => {
+  const sheet = nav.sheet !== 'none';
+  return { sheet, tabs: !sheet && !place.sort, mini: !sheet && hasSong };
+};
+
 export const CLOSE_PULL = 120;
 export const CLOSE_SPEED = 0.8;
 /** A pull let go: far or fast enough closes, anything less springs back. */

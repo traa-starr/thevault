@@ -119,6 +119,8 @@ export function walkBack(order: Order, count: number): Order[] {
   return out;
 }
 
+import type { PlayChange } from './playLog';
+
 export type MineChange = { id: string; kind: 'mine_set' | 'mine_restore'; data: { song_id: string; value?: 'mine' | 'not mine' } };
 export type FamilyChange = {
   id: string;
@@ -144,7 +146,7 @@ export type TagChange =
 /** My rating (2.8). No rating: unrated. Shelved: mine but off-direction, out of anything the app picks for me. */
 export type Rating = 'fire' | 'shelved';
 export type RatingChange = { id: string; kind: 'rating_set'; data: { song_id: string; value: Rating | 'none' } };
-export type Change = MineChange | FamilyChange | TagChange | RatingChange;
+export type Change = MineChange | FamilyChange | TagChange | RatingChange | PlayChange;
 
 /** The ratings a song list carries. */
 export const ratingsFrom = (songs: readonly { id: string; rating?: string | null }[]) =>

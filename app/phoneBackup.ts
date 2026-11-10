@@ -15,7 +15,7 @@ const EVERY_MS = 5 * 60 * 1000;
 const LAST_PLAY = 'last-play.json';
 const PLAYER_FILES = [LAST_PLAY, 'time-left.txt', 'buttons-hidden.txt'];
 // The laptop server's code this app needs (server.py SERVER_LEVEL). Raise both together.
-export const NEEDS_SERVER = 4;
+export const NEEDS_SERVER = 5;
 
 type Backup = {
   stamp: string;
@@ -63,6 +63,7 @@ let lastSent = '';
 let soon: ReturnType<typeof setTimeout> | undefined;
 let every: ReturnType<typeof setInterval> | undefined;
 let busy = false;
+let away = false; // the app is in the background
 const listeners = new Set<() => void>();
 
 const update = (changes: Partial<State>) => {
@@ -175,6 +176,7 @@ export const phoneBackup = {
   /** On open and each time the app comes back to the front. */
   start(serverUrl: string) {
     url = serverUrl;
+    away = false;
     clearInterval(every);
     every = setInterval(send, EVERY_MS);
     send();
@@ -184,11 +186,14 @@ export const phoneBackup = {
   pause() {
     clearInterval(every);
     every = undefined;
+    clearTimeout(soon);
+    away = true;
     send();
   },
 
   /** Something phone-only changed: a copy goes in a few seconds. */
   soon() {
+    if (away) return; // locked: a play counted mid-listen waits for the next open (no network while locked)
     clearTimeout(soon);
     soon = setTimeout(send, SOON_MS);
   },

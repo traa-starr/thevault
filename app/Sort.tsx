@@ -185,7 +185,7 @@ function Header({ onBack }: { onBack: () => void }) {
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: '#111', paddingTop: 60, paddingHorizontal: 16 },
+  page: { flex: 1, backgroundColor: '#000', paddingTop: 60, paddingHorizontal: 16 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   title: { color: '#fff', fontSize: 26, fontWeight: '700' },
   link: { color: '#8ab4f8', fontSize: 15, padding: 8 },

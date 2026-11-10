@@ -3,6 +3,7 @@ import { File, Paths } from 'expo-file-system';
 import { useSyncExternalStore } from 'react';
 import type { FamilyEdit } from './family';
 import { retryAfterMs } from './energy';
+import type { PlayChange, PlayLine } from './playLog';
 import type { Change, MineChange, Rating, RatingChange, TagChange, TagLine } from './playOrder';
 
 const TIMEOUT_MS = 10000;
@@ -178,6 +179,17 @@ export function addRatingChange(songId: string, value: Rating | 'none'): RatingC
   save(pending);
   update({ ...state, pending });
   flush();
+  return made;
+}
+
+/** A play (30 s heard), or its full length once the song is left. Saved on the phone at once. Sent at once only while
+ * the app is in front: locked, it waits for the next open, so a long locked listen makes no network calls for it. */
+export function addPlayChange(data: PlayLine): PlayChange {
+  const made: PlayChange = { id: newId(), kind: 'play_add', data };
+  const pending = [...state.pending, made];
+  save(pending);
+  update({ ...state, pending });
+  if (!paused) flush();
   return made;
 }
 

@@ -93,6 +93,17 @@ CREATE TABLE IF NOT EXISTS song_ratings (
     value TEXT NOT NULL CHECK (value IN ('fire', 'shelved')),
     ts TEXT NOT NULL
 );
+-- Every play of a song (overhaul wave 1): the log that play count and last heard are worked out from. One row per play;
+-- a later line for the same play only makes it longer. Its own table, so no schema bump.
+CREATE TABLE IF NOT EXISTS plays (
+    play_id TEXT PRIMARY KEY,
+    song_id TEXT NOT NULL REFERENCES songs(id),
+    started_at TEXT NOT NULL,
+    seconds REAL NOT NULL,
+    source TEXT NOT NULL,
+    ts TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS plays_by_song ON plays (song_id);
 CREATE TABLE IF NOT EXISTS tags (
     id TEXT PRIMARY KEY,
     song_id TEXT NOT NULL REFERENCES songs(id),
@@ -151,7 +162,7 @@ CREATE TABLE IF NOT EXISTS imported (
 """
 
 MINE_TABLES = ("songs", "versions", "song_places", "song_fields", "tags", "groups", "group_members", "verdicts", "links", "song_family",
-               "family_pick", "imported", "song_ratings")
+               "family_pick", "imported", "song_ratings", "plays")
 
 # kind -> keys its data must have
 REQUIRED = {
@@ -165,6 +176,9 @@ REQUIRED = {
     "song_place": ("path", "song_id", "state", "why"),
     "song_merge": ("from_id", "into_id"),
     "song_rating": ("song_id", "value"),  # fire, shelved or none (unrated); the latest line wins
+    # one play: when it started (the phone's clock, never later than the line's own time), seconds heard, where it
+    # was heard ("phone" today). A second line with the same play_id keeps the longer one
+    "song_play": ("play_id", "song_id", "started_at", "seconds", "source"),
     "version_key": ("version_id", "file_key"),
     "song_field": ("song_id", "field", "value", "origin"),
     "song_field_restore": ("song_id", "field", "value"),
@@ -358,7 +372,10 @@ class Store:
             if data[field] not in allowed:
                 raise ValueError(f"{kind} {field} must be one of {allowed}")
         c = self.conn
-        if kind in ("tag_add", "song_rating"):
+        if kind == "song_play":
+            if not c.execute("SELECT 1 FROM songs WHERE id=?", (data["song_id"],)).fetchone():
+                raise ValueError("Play is for a song that doesn't exist.")
+        elif kind in ("tag_add", "song_rating"):
             if not c.execute("SELECT 1 FROM songs WHERE id=?", (data["song_id"],)).fetchone():
                 raise ValueError("Tag is for a song that doesn't exist.")
             vid = data.get("version_id")
@@ -407,6 +424,7 @@ class Store:
         # rating: the song that stays keeps its own; unrated, it takes the joining song's
         c.execute("INSERT OR IGNORE INTO song_ratings SELECT ?, value, ts FROM song_ratings WHERE song_id=?", (into, old))
         c.execute("DELETE FROM song_ratings WHERE song_id=?", (old,))
+        c.execute("UPDATE plays SET song_id=? WHERE song_id=?", (into, old))  # its plays are the survivor's now
         c.execute("UPDATE song_family SET main_id=? WHERE main_id=?", (into, old))
         c.execute("UPDATE OR IGNORE song_family SET song_id=? WHERE song_id=?", (into, old))
         c.execute("DELETE FROM song_family WHERE song_id=?", (old,))
@@ -452,6 +470,10 @@ class Store:
                 c.execute("DELETE FROM song_ratings WHERE song_id=?", (d["song_id"],))
             else:
                 c.execute("INSERT OR REPLACE INTO song_ratings VALUES (?,?,?)", (d["song_id"], d["value"], ts))
+        elif kind == "song_play":
+            c.execute("""INSERT INTO plays VALUES (?,?,?,?,?,?)
+                         ON CONFLICT(play_id) DO UPDATE SET seconds=MAX(seconds, excluded.seconds)""",
+                      (d["play_id"], d["song_id"], d["started_at"], d["seconds"], d["source"], ts))
         elif kind == "tag_add":
             c.execute("INSERT OR REPLACE INTO tags VALUES (?,?,?,?,?,?)",
                       (d["tag_id"], d["song_id"], d.get("version_id"), d["text"], d.get("at_sec"), d.get("made_at") or ts))

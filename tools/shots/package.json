@@ -3,7 +3,8 @@
   "private": true,
   "description": "Laptop-only: renders the app's screens at iPhone size with fake data and saves screenshots. Never ships to the phone.",
   "scripts": {
-    "shots": "node shoot.mjs"
+    "shots": "node shoot.mjs",
+    "side": "node side.mjs"
   },
   "dependencies": {
     "esbuild": "0.28.2",

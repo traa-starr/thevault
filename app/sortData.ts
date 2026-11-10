@@ -46,7 +46,7 @@ export function useSortData(url: string) {
     for (const change of pending) {
       if (seen.current.has(change.id)) continue;
       seen.current.add(change.id);
-      if (change.kind === 'tag_add' || change.kind === 'tag_remove') continue;
+      if (change.kind === 'tag_add' || change.kind === 'tag_remove' || change.kind === 'play_add') continue;
       // a versions change opens or closes a song in Sort only through the Mine marks it carries
       const marks =
         change.kind === 'family_set'
