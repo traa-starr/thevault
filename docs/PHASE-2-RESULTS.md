@@ -77,3 +77,15 @@ My phone results, one line each (written by chat). Measured results stay in REPO
 3. Player from Library, Sort card, session: length at once, no jump, short song from 0:00, Hidden count shown: **pass**
 4. Used a while, app to background (timings sent): **done**; PASS/FAIL per path judged by Code in the next REPORT
 - Result: 4 of 4 pass, 5 owner notes (battery/heat, eye reset per song, press look waits on load, Next slower than Previous, tag search needs whole word). Sort finished (owner). Rating shape chosen (DECISIONS).
+
+## Cool, quick and rated (2026-11-09, real app, OTA publish 20261109-195617)
+1. Session/Library shuffle: 15 Nexts, 2 Previous, eye once; one quick flash per tap, Next as quick as Previous, eye stays put: **pass**
+2. Fire 3, Shelve 3, shuffle Mine 15, search a Shelved tag; no Shelved plays, search finds it marked, Fire filter shows 3: **pass**
+- Owner note: 2 app freezes (screen stuck, force quit once) in Library with a song playing: once opening the mini player, once tapping pause on an already-open mini player. Not every time; pause/Next spam worked before each.
+- Freeze detail: music kept playing (sound is native), screen never came back; force quit both times. Points at the app screen code, not the player.
+3. Tag word typed a few letters at a time; song shows before the word is finished: **pass**
+4. Library top line "N of N Mine songs on this phone"; airplane mode, 5 Mine songs play: **pass**
+6. (board) Airplane: Fire one, Shelve another, Undo; back online, `ratings` lists only the Fire: **pass**
+- Owner note (queue gesture): Queue opened from the full player, closed with a swipe down, drops to Library first, then the player slides back up. Back button is fine. Want: swipe down returns straight to the player, like Back. Queue opened from the mini player (swipe up) already returns to whatever screen was under it: keep that.
+5. Locked listen from a good charge: 1% in 30 min, no heat (was hot within 15-20 min before); stopped at 30 min, app opened to send energy: **pass**
+- Result: 6 of 6 pass, 2 owner notes (screen freeze from the mini player in Library; Queue swipe-down from the player goes via Library). Rating kept as built (owner).

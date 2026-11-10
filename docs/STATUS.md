@@ -1,12 +1,13 @@
 # Status
 
-**Phase 2 (tagging): last item is mine (2.7); Phase 3 (search, on the phone) builds alongside.** Updated 2026-11-09 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 2 (tagging): last item is mine (2.7); Phase 3 (search, on the phone) builds alongside.** Updated 2026-11-09 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 **Ship line:** 2.7 passed (50 songs tagged in real sessions + wipe check) by 2026-11-15. No new phase before it (VISION).
 **In progress:** nothing.
-**Next up:** me: commit and push, close and reopen the app, then `Review.` in chat. Alongside: real tagging sessions + wipe check (2.7).
-**Current task:** Cool, quick and rated: battery, instant taps, rating, every Mine song on the phone (`NEXT.md`).
+**Next up:** me: commit and push, then new Code session, `/next`. Alongside: real tagging sessions + wipe check (2.7).
+**Current task:** Steady screen, straight-back Queue, and the overhaul teardown + mockups (`NEXT.md`).
 
 ## Done
+- Cool, quick and rated reviewed 2026-11-09: checks 6 of 6 pass, 2 notes (freeze from the mini player; Queue swipe-down via Library). Battery: 1% in 30 min locked, no heat. Rating kept as built; 2.8 phone-verified. Results `PHASE-2-RESULTS.md`.
 - Cool, quick and rated built 2026-11-09: native press flash, eye keeps my choice, five battery causes fixed with energy counts in `timings`, rating (Fire / Shelved, 2.8), search as I type, Mine count in `/status`; lessons now tied to their tests. Board `board/rated-and-quick.md`. Details REPORT.
 - Play first reviewed 2026-11-09: checks 4 of 4 pass, 5 owner notes (all in the new NEXT); rating shape chosen (2.8). Results `PHASE-2-RESULTS.md`.
 - Sort finished 2026-11-09 (owner): whole catalogue sorted from the phone. Verdicts may still change as I go through it.
@@ -18,16 +19,16 @@
 - Phase 0 closed (`archive/SPIKE-RESULTS.md`). Design ideas in `DESIGN-NOTES.md`.
 
 ## Queue
-1. Now: Code: battery, instant taps, eye, rating, search as I type, Mine on the phone (`NEXT.md`). Me: real tagging sessions + wipe check (2.7).
+1. Now: Code: freeze fix, Queue swipe, energy read-back, overhaul teardown + mockups, rebuild list (`NEXT.md`). Me: real tagging sessions + wipe check (2.7).
 2. Then: my 20 acceptance searches (3.7) at ~50 tags, and revisit E (3.4, 3.5); Phase 2 closes when I pass 2.7, and chat folds its DECISIONS rows into `decisions/phase-2.md` (short summary left in DECISIONS).
-3. Owner pitch 2026-11-09: **design overhaul** (real UI + UX at the quality bar of Spotify / Apple Music / YouTube / Instagram, while the Fable promo lasts). Owner's bar in `DESIGN-NOTES.md`. Owner chose (DECISIONS 2026-11-09): teardown + mockups start now alongside 2.7, no app code until 2.7 passes; Expo + native pieces, one full rebuild. Goes into the NEXT written at this Review.
-4. Parked: Keychain note so a reinstall keeps the laptop address (native); lock-screen search Shortcut (needs a URL scheme, full rebuild). Stretch: A-Z strip, split the 638 set. MP3 phone copies (523): fix next step if the timings blame them.
+3. Design overhaul (ROADMAP O.1-O.5): teardown, mockups, native pieces in this NEXT; the build after 2.7 passes (full rebuilds fine when they buy quality), from the mockup I pick.
+4. Parked: Stretch: A-Z strip, split the 638 set. MP3 phone copies (523): fix next step if the timings blame them.
 
 ## Open questions
-- Goal-format trial: task 3 of 3 is this NEXT. At its review, ask me: keep, adjust, or go back.
-- Harness score: fails per review. Fix-up 1 of 6, polish 0 of 4 (+2 notes), code-complete 0 of 4 (+1), session polish 0 of 3 (+2), fast Next 0 of 4 (+1), play first 0 of 4 (+5 owner notes). Improving; notes now get LESSONS lines too.
+- Fable promo ends 2026-11-16 (owner). Ship line is 11-15, so overhaul app code (O.4) gets at most ~1 Fable day. Owner to choose: pass 2.7 early, or build O.4 after the promo.
+- Harness score: fails per review. Fix-up 1 of 6, polish 0 of 4 (+2 notes), code-complete 0 of 4 (+1), session polish 0 of 3 (+2), fast Next 0 of 4 (+1), play first 0 of 4 (+5 owner notes), rated 0 of 6 (+2). Improving; notes now get LESSONS lines too.
 - Does BandLab export keep the title, and what formats? (ROADMAP 5.1)
 - `SAVE ME` (mine?), 26 date-only names, `Untitled...` files: display names wait for the release system (ROADMAP 6.1).
 
 ## Checks pending
-- 6 phone checks in REPORT (5 from NEXT, 1 from the board). The hour-long locked listen gives the energy numbers.
+- None. Next review: 4 checks from `NEXT.md` (freeze, Queue swipe, rebuild install, mockups).
