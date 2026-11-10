@@ -10,7 +10,7 @@ Read: `docs/LESSONS.md`, `docs/DESIGN-NOTES.md` (the bar), `docs/board/overhaul-
 A. **Play data (stretch 2 from last step).** Play count and "last heard" per song, stored on the phone, synced to the laptop and restored after a wipe like ratings. Makes "Recently played" and "Rediscover" real.
 B. **The new frame (O.4 wave 1).** Wall's floating tab bar (Home, Library) with the round search button, and the mini player that sits above the tabs and grows into the full player. Today's other screens (Sort, sessions, Library list, search) keep working inside it, unrestyled.
 C. **The player from Deal.** Background tinted from the song's art colour, transport (previous, play, next) in a pill, Favorite / Archive / Tag / Lines / Queue row under it, tag dots on the seek bar (from Wall). Everything the player does today still works the same.
-D. **Wall's Home.** Search box ("Search") opening search, Shuffle + Favorites, Recently played and "Not played in a while" rows from A's data (Not played in a while: Mine, not Shelved, longest not heard; plays from 0:30). Sort and sessions reachable from Home, tucked away.
+D. **Wall's Home.** Search box ("Search") opening search, Shuffle + Favorites, Recently played and "Not played in a while" rows from A's data (Not played in a while: Mine, not Archived, longest not heard; plays from 0:30). Sort and sessions reachable from Home, tucked away.
 E. **Native pieces with the shell (O.5, low risk).** SF Symbols for icons, native tab bar if it can host B without reloading the player, Liquid Glass on tab bar and mini player with a solid fallback below iOS 26. One full rebuild, steps added to `REBUILD.md`. Everything must still run by publish on today's build (check each piece before use).
 
 ## The bar
@@ -36,7 +36,7 @@ I prove (after publish, and again after the rebuild):
 4. After the rebuild: Apple icons and glass on the tab bar and mini player; Sort and a tagging session still open and work.
 
 ## Stretch (only if every goal is met and budget is left)
-1. Wave 2 start: Library list in Wall's style (art tiles, Fire / Shelved labels, filter chips).
+1. Wave 2 start: Library list in Wall's style (art tiles, Favorite / Archived labels, filter chips).
 2. Last `timings` PASS/FAIL on the phone (long-press the bottom line).
 
 ## Limits
