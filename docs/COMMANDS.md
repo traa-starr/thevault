@@ -32,6 +32,12 @@ None of these change, move or delete my music. Chat keeps this file up to date w
 | **Check the mockups** (Code's eyes: every direction opens, survives 150 taps, no control under 44 pt) | `node spike\mockups\check.mjs` | `ok   wall`, `ok   line`, `ok   deal`; PNGs in `spike\output\mockups\`. Laptop only |
 | **Full rebuild** (native pieces: GitHub build + SideStore) | Steps in `docs\overhaul\REBUILD.md` | GitHub > Actions > "Build iOS (unsigned)" > Run workflow; the `.ipa` goes on the phone with SideStore |
 
+## In Claude Code (type these in the Code chat, not PowerShell)
+| What I want | Type this | What I should see |
+|---|---|---|
+| **Set how hard Fable thinks**, before `/next` (NEXT's `Effort:` line says which) | `/effort high` (or `medium`, `xhigh`) | A line confirming the level. low, medium, high and xhigh stick until changed; `max` lasts one session |
+| **Check the level** | `/effort` | The picker, showing the current level |
+
 ## Checkpoints (backups that never get auto-deleted)
 Nightly backups keep only 14. To keep one forever, make a backup, then copy it to a named folder:
 ```

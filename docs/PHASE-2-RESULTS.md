@@ -99,3 +99,13 @@ My phone results, one line each (written by chat). Measured results stay in REPO
 2. Queue swipe-down (from player, mini on Library, mini on Sort): **pass**.
 3. Mockups (Wall, Line, Deal) open and move on the phone: **pass**. Pick: Wall base, Deal's player, Deal's swipe card for Sort (tucked away), Line no go.
 - Result: 3 of 3 pass, 0 notes. Rebuild installed (Keychain address restored on 2nd reinstall). Locked wake-ups to confirm in `timings` after a 10 min locked listen.
+
+## Overhaul wave 1 review, 2026-11-10 (after the rebuild)
+- Check 1 Home (Recently played after a 30 s play, Shuffle, Favorites, plain labels): pass.
+- Check 2 Player (tint, pill, dots, five actions, swipe down, grow back): pass.
+- Check 3 Tabs + freeze test: pass. Note: the Home search bar and the round search button both just open Library (search as its own screen is wave 2).
+- Check 4 After the rebuild (SF Symbols, glass on tab bar + mini player, Sort and a tagging session work): pass.
+- Check 5 Play counting (30 s+ song in Recently played, 10 s skip not): pass.
+- Check 6 Tag field stays above the keyboard: pass.
+- Check 7 Lines take the art's place, nothing moves: pass.
+- Result: 7 of 7 pass (4 NEXT + 3 extras), 1 note (search bar and round button open Library until wave 2, expected).

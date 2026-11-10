@@ -93,10 +93,11 @@ changes, anything near my music folders, and first-time setup screens for me.
 # NEXT: <step name>
 Format: goal
 Written by chat, <date>.
+Effort: <high for build sessions; medium for small fix-ups or doc-only steps; xhigh only for a hard bug or a hard-to-undo design. I type `/effort <level>` before `/next`>
 Log: <my answers and your calls, one line each. Mark yours chat-default> (logged by chat)
 Size: <what Code can do before I must test or decide, and why this NEXT is that big>
 Queue after this: <the next one or two steps; add "fast-lane OK" if a step holds no call of mine>
-Read: <only the docs and sections this step needs>
+Read: <only the docs and sections this step needs: name sections, not whole files; DECISIONS as "last N rows"; LESSONS always>
 ## Goal
 <what changes for me, in 2-4 plain lines; cite ROADMAP IDs>
 ## Done when
@@ -118,7 +119,8 @@ before it blocks. Take all of it that fits one Code session (about 150k context)
 (real sessions, a wipe test), Code's session runs alongside it, it doesn't wait. Aim for 4-6 lettered goals; fewer
 needs a reason on the `Size:` line. Order goals by what matters most for my next phone use, so a session cut short
 still ships the important part. Groundwork for the next phase is spike and memo only: no app code until I choose.
-**Every goal NEXT carries `## The bar`** (between Goal and Done when): board first if the test says so; failure modes listed before building and turned into tests or screenshot checks; tests first; control rules (instant press, 44 pt, no swallowed tap, no layout shift); screenshots of every changed screen with the screenshot command; a hostile self-review of the whole diff before `/wrap`; one REPORT line "Odd in how we work:" naming anything wasteful in the setup or loop Code noticed, even outside the task; two failed fixes on a goal = write it up and move on, don't stop the session; for milestones with new screens or risky logic, one fresh-eyes review (a subagent with only NEXT, LESSONS, the diff and screenshots) after the self-review, its catches listed in REPORT. Drop it if REPORT shows it catching nothing twice in a row.
+**Every goal NEXT carries `## The bar`** (between Goal and Done when), short, because Fable follows one plain line as well as a list (Fable trim, 2026-11-10). Outcomes and limits, never how. Keep to these lines and add one only for a lesson this step can repeat: board first if the `BOARD.md` test says so; list how it could break and turn each into a test or screenshot before building (LESSONS included); controls: instant press, 44 pt, no swallowed tap, nothing shifts; screenshots only of changed screens, checked by a subagent so images stay out of Code's context; one fresh-eyes review (a subagent with only NEXT, LESSONS, the diff and the shots) for new screens or risky logic, catches written down before any fix (drop it if it catches nothing twice running); two failed fixes on a goal = write it up and move on; REPORT under 40 lines with "Odd in how we work:". No separate self-review: the fresh-eyes review does that job better.
+**Fable budget:** Size by what fits one Code session (about 150k context, one 5-hour window), most important goal first. Don't make Code re-read what NEXT can say in one line: quote the 1-3 rules it needs instead of pointing at a whole doc. No new mockups or re-designs unless the goal is design.
 Recipe format keeps the old shape: `## Parts` a, b, c, a **Stop line**, then `## Phone check`.
 Code's `/wrap` doesn't print phone checks; it states the phone update (none / publish / full rebuild) and marks each
 Done when line pass / fail / not run. You walk the checks at `Review.`

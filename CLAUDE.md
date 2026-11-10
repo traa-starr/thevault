@@ -9,7 +9,10 @@ App code goes in `app/` (phone) and `server/` (laptop), following `docs/ROADMAP.
 
 ## Who I am
 Audio engineer and rapper, not a developer. Explain plainly, one line per jargon term. Keep me in the loop on decisions.
-Pro plan with caps: short replies, no recaps, read the minimum, no subagents unless asked (a design board meeting in NEXT.md counts as asked; see `docs/BOARD.md`).
+Pro plan with 5-hour caps, and Fable is costly: spend tokens on the work, not on getting ready for it.
+- Short replies, no recaps. Read what NEXT's `Read:` line names and the files you touch; don't re-read a file you already have this session. When you have enough to act, act.
+- Subagents when they keep bulk out of your context or run work side by side: wide searches, checking screenshots, the board, the fresh-eyes review. Give each only what it needs; Sonnet is enough for reading and checking.
+- Don't add features, refactors or abstractions NEXT didn't ask for. Before reporting progress, check each claim against something you ran this session.
 
 ## Hard rules
 1. **My music is read-only.** Never rename, move, delete or write inside iCloud Drive or FL Studio Projects. Enforced by
