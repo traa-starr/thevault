@@ -56,10 +56,10 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 - [x] 2.4 Tap a tag to jump to that moment; edit and delete tags *(phone-verified 2026-11-08, `PHASE-2-RESULTS.md`)*
 - [x] 2.5 "Not mine" stays one tap on the tagging card and the Mine filter works everywhere; the main sorting is done in 1.21 *(phone-verified 2026-11-08, `PHASE-2-RESULTS.md`)*
 - [x] 2.6 Tags save on the phone first, sync to the laptop when reachable, show sync state *(phone-verified 2026-11-08, `PHASE-2-RESULTS.md`)*
-- [ ] 2.7 Restore test: wipe the phone's copy, get all tags back from the laptop *(test + `tags` command built, offline sync phone-verified 2026-11-08; my real wipe check pending)*
+- [x] 2.7 Restore test: wipe the phone's copy, get all tags back from the laptop *(phone-verified 2026-11-10: real delete + reinstall, tags, jumps and ratings back, `PHASE-2-RESULTS.md`)*
 - [x] 2.8 Rating: Fire (potential drop) / Unrated / Shelved (mine, off-direction: out of shuffle, still searchable), one tap, saved and restored like tags. Promoted from Parked 2026-11-09 (DECISIONS); *(phone-verified 2026-11-09, `PHASE-2-RESULTS.md`)*; not part of Phase 2's Done when
 
-**Done when:** I've done real sessions, and a restore test loses nothing.
+**Done when:** I've done real sessions, and a restore test loses nothing. **Closed 2026-11-10.**
 
 ## Phase 3: Search (Checkpoint 3). "Rap a line, find the song"
 - [x] 3.1 Ranking ladder: exact phrase > words in order with gaps > all words > some words by rarity; never excludes
@@ -113,13 +113,13 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 **Done when:** one real song goes through the sprint and gets released.
 
 ## Design overhaul (DECISIONS 2026-11-09). "Nobody used to Spotify feels a step down"
-Runs alongside Phases 2-3. Design work now; overhaul app code only after 2.7 passes. Owner's bar: `DESIGN-NOTES.md`.
+Runs alongside Phase 3. 2.7 passed 2026-11-10: overhaul app code may start. Owner's bar: `DESIGN-NOTES.md`.
 - [x] O.1 Teardown: every screen scored against the owner's bar (`docs/overhaul/TEARDOWN.md`)
-- [ ] O.2 Clickable mockups, 2-3 directions with a design system sketch; I tap through on the phone and pick one
-- [ ] O.3 Native pieces that don't touch overhaul screens, one full rebuild: fewer locked iOS reports, search URL scheme
-  (lock-screen Shortcut), laptop address in the Keychain, haptics
-- [ ] O.4 Overhaul build from the picked mockup, in waves (chat's proposed order, confirm at O.2): shell (tabs + mini
-  player that grows into Now Playing), then Library, then tagging and Sort
+- [x] O.2 Clickable mockups, 2-3 directions with a design system sketch; I tap through on the phone and pick one *(picked 2026-11-10: Wall base, Deal's player, Deal's swipe card for Sort; DECISIONS)*
+- [x] O.3 Native pieces that don't touch overhaul screens, one full rebuild: fewer locked iOS reports, search URL scheme
+  (lock-screen Shortcut), laptop address in the Keychain, haptics *(rebuild installed 2026-11-10; address restored on 2nd reinstall; locked wake-ups to confirm in `timings`)*
+- [ ] O.4 Overhaul build from the picked mockup, in waves (confirmed 2026-11-10): 1 frame (tabs + mini player that grows
+  into the player) + Home + player; 2 Library + search; 3 Sort as swipe cards (tucked away) + tagging; 4 the rest
 - [ ] O.5 Overhaul native pieces (glass, native tabs, SF Symbols, Live Activity) in their own full rebuild, list in
   `docs/overhaul/REBUILD.md`
 

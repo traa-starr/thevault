@@ -89,3 +89,13 @@ My phone results, one line each (written by chat). Measured results stay in REPO
 - Owner note (queue gesture): Queue opened from the full player, closed with a swipe down, drops to Library first, then the player slides back up. Back button is fine. Want: swipe down returns straight to the player, like Back. Queue opened from the mini player (swipe up) already returns to whatever screen was under it: keep that.
 5. Locked listen from a good charge: 1% in 30 min, no heat (was hot within 15-20 min before); stopped at 30 min, app opened to send energy: **pass**
 - Result: 6 of 6 pass, 2 owner notes (screen freeze from the mini player in Library; Queue swipe-down from the player goes via Library). Rating kept as built (owner).
+
+## Wipe check (2.7), 2026-11-10
+- Before: laptop 23 tags on 10 songs, 6 Fire, 1 Shelved. Spot check after: a 4-tag song, last tag at 0:52.4.
+- After (new build, app deleted + reinstalled twice): "welcome back, everything restored"; the 4-tag song has all 4, last jumps to 0:52; a Fire song still Fire. Address: typed after wipe 1, remembered after wipe 2. **Pass. 2.7 phone-verified, Phase 2 closed.**
+
+## Steady screen review, 2026-11-10
+1. Freeze test (mini player, pause/play x10, close/reopen, Next x5, 3 rounds): **pass**.
+2. Queue swipe-down (from player, mini on Library, mini on Sort): **pass**.
+3. Mockups (Wall, Line, Deal) open and move on the phone: **pass**. Pick: Wall base, Deal's player, Deal's swipe card for Sort (tucked away), Line no go.
+- Result: 3 of 3 pass, 0 notes. Rebuild installed (Keychain address restored on 2nd reinstall). Locked wake-ups to confirm in `timings` after a 10 min locked listen.

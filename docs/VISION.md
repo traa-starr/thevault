@@ -2,7 +2,7 @@
 
 One place where all my songs from two DAWs on two devices end up, and where finality happens.
 
-**Ship line:** Phase 2 closes when I have tagged 50 songs in real sessions and passed the wipe check (2.7), by 2026-11-15. No new phase starts before that.
+**Ship line:** Phase 2 closes when I have done real tagging sessions and passed the wipe check (2.7), by 2026-11-15. No new phase starts before that.
 
 ## Sources (last ~4 years, gigabytes not terabytes)
 - **FL Studio on the laptop:** bounces (wav/mp3/m4a) in iCloud Drive; `.flp` projects on the laptop only.
