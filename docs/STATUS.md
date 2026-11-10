@@ -2,7 +2,13 @@
 
 **Phase 2 closed 2026-11-10 (2.7 wipe check passed). Phase 3 (search) and the design overhaul (O.4) are open.** Updated 2026-11-10 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 **Ship line:** 2.7 passed (real sessions done: 10 songs, 23 tags + wipe check) by 2026-11-15 (DECISIONS 2026-11-10). No new phase before it (VISION).
-**In progress:** none.
+**In progress:** Overhaul wave 2: Library, search screen, fuller Home, server that stays up, plan:
+1. [x] Board meets (`board/wave2.md`), break list for A-C
+2. [x] A: search screen (third place, shared search code, recents) + test it matches today's search
+3. [x] B: Library in Wall's style (tiles, marks, chips, Most played order) + 1,395-row test
+4. [x] C: Home's five new rows with See all + rules test
+5. [x] D: server that stays up (on / off scripts, doctor line, COMMANDS) + kill proof
+6. [ ] Shots checked, fresh-eyes review (`board/wave2-review.md`), E if under an hour, `/verify`, publish
 **Next up:** me: commit and push, then new Code session, `/effort high`, `/next`. Any time: a 10 min locked listen, then `timings` (wake-ups should read ~30).
 **Current task:** Overhaul wave 2: search screen, Library in Wall's style, fuller Home, server that stays up (`NEXT.md`).
 

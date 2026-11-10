@@ -26,6 +26,8 @@ From the interview and read-only scans, 2026-10-31. No Tailscale hostnames or IP
 | Untethered (other project) | `C:\Users\illus\Desktop\untethered\Untethered` | Read-only reference |
 | Vault library + database | `E:\VaultLibrary` (created 2026-10-31) | One folder, database and audio together; marker `VAULT-LIBRARY-MARKER.json`, `audio/`, `phone/`, `vault.db`, `journal.jsonl`, `write.lock`, my sorting file, `phone-backup.json` (the phone's own bits, outside the journal, 2026-11-06). Found by a marker file, not the drive letter. E: is an external USB drive |
 | Phone copies on the phone | The app's own Documents folder: `phone-copies/`, `phone-copies.json`, `song-list.json` (2026-11-06) | Mine songs for laptop-off play. Rebuilt by downloading again; a wipe loses them (6.2) |
+| Server that stays up | Windows job `Vault server` (made by `server\server_on.ps1`, removed by `server\server_off.ps1`); log `E:\VaultLibrary\server-log.txt` (+ `server-log.old.txt`, about 2 MB at most) | Starts the server at log-in with no window and again if it stops (`server/keep_serving.py`, `vault_server/keepalive.py`). Added 2026-11-10 |
+| Recent searches (phone) | The app's own Documents folder: `recent-searches.json` | The last 8 searches that led to a tap. Phone only: not in the backup, a wipe starts empty. Added 2026-11-10 |
 | Nightly database backup | `C:\VaultBackup\<date-time>\` (vault.db + journal.jsonl + phone-backup.json), 14 kept | Built 2026-11-01 (ROADMAP 1.9). Task: `server\schedule_backup.ps1`. Skipped with a warning while E: is unplugged |
 
 Installed: Python 3.13, SQLite 3.50 (FTS5 works), Node, ffmpeg (includes Chromaprint), Microsoft Store iCloud, Tailscale (not on PATH), iTunes (Apple's installer), iloader. Missing: gh.

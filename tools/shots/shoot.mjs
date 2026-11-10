@@ -26,6 +26,7 @@ for (const name of ['expo', 'expo-symbols', 'expo-glass-effect', 'expo-audio', '
 const LOCAL = {
   playerStore: fake('playerStore.ts'),
   outbox: fake('outbox.ts'),
+  keyboard: fake('keyboard.ts'),
   ...Object.fromEntries(['compareStore', 'Compare', 'Versions', 'Hidden', 'versionStore', 'offline', 'phoneBackup'].map((n) => [n, fake('others.tsx')])),
 };
 
@@ -89,6 +90,12 @@ for (const f of chosen) {
     await page.mouse.down();
     await page.mouse.move(x, to, { steps: 8 });
     await page.waitForTimeout(80);
+  }
+  // `check`: something only a real draw can prove (a flick through the whole list). It returns what went wrong
+  if (f.check) {
+    const found = await page.evaluate(f.check);
+    if (found.note) console.log(`     ${found.note}`);
+    errors.push(...found.problems);
   }
   const file = join(out, `${f.name}.png`);
   await page.screenshot({ path: file });

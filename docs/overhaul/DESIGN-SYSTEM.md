@@ -31,6 +31,15 @@ tab bar 56 high, round search button 56 beside it · Play 64 round · transport 
 equal slots, symbol 22 over a 12 pt word · seek bar 44 high to touch, 4 pt track · a list's last row scrolls clear of
 the tab bar and mini player.
 
+## Lists and chips (wave 2)
+A list row is always 60 high: tile 44, title on one line (cut with …), one quiet second line, then my mark. Only
+the words give way. Favorite is a small grey heart, Archived the word in grey: never amber, or a list of Favorites
+would shout. The playing row's title is amber. A row that can't play now is at 40%.
+Chips are 36 pills in a 44 touch; the one that's on is white with black text (not amber), and is scrolled into view.
+Home's five lower rows use a 104 card; the first two keep 132. "See all" is grey, right of the heading, 44 high.
+The search field is 48 high, `raised`, corner 12, with a grey Cancel beside it; matched words in a tagged line are
+white and bold on a grey line.
+
 ## Corners
 Row tile 8 · card tile 14 · player tile 22 · sheet 22 · tab bar 28 · mini player 18 · transport pill 38 · chips and
 buttons fully round · fields and toasts 12.

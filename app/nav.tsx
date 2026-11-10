@@ -1,9 +1,10 @@
-// Where I am in the app (overhaul wave 1): the two tabs, and Sort opened over Home. Kept here, outside the screens, so
+// Where I am in the app (overhaul wave 1): the two tabs, the search screen (wave 2), and Sort opened over Home. Kept here, outside the screens, so
 // anything can move me (a tab, a link from the lock screen, the player's "+ Version") and nothing a tab does can touch
 // the player: the player's own state lives in playerStore.
 import { useSyncExternalStore } from 'react';
 import { player } from './playerStore';
-import { sortClosed, sortOpened, tabTapped, type Place, type Tab } from './sheetCore';
+import type { Chip, SortBy } from './libraryCore';
+import { searchLeft, searchOpened, sortClosed, sortOpened, tabTapped, type Place, type Tab } from './sheetCore';
 
 export type { Place, Tab };
 let place: Place = { tab: 'home', sort: false };
@@ -31,19 +32,24 @@ export const closeSort = () => setPlace(sortClosed(place));
 const goHomeNow = () => goTab('home');
 const goLibraryNow = () => goTab('library');
 
-// Search asked for from outside the app (a lock-screen Shortcut's link): Library opens with the box ready to type in.
+// Search asked for (the round button, Home's box, a lock-screen Shortcut's link): the search screen with the box
+// ready to type in. `q`: words to fill the box with (a link may bring some).
 let asked: { q: string } | null = null;
+let cameFrom: Place | null = null;
 const askListeners = new Set<() => void>();
 const setAsked = (ask: { q: string } | null) => {
   asked = ask;
   askListeners.forEach((listener) => listener());
 };
-/** Straight to search: Library, the player sheet out of the way, the keyboard up. */
+/** Straight to search: its own screen, the player sheet out of the way, the keyboard up. */
 export const openSearch = (q: string) => {
   player.open('none');
+  if (place.tab !== 'search') cameFrom = place;
   setAsked({ q });
-  goLibraryNow();
+  setPlace(searchOpened(place));
 };
+/** Search's Cancel: back to the tab I was on. */
+export const closeSearch = () => setPlace(searchLeft(cameFrom));
 export const takeSearchAsk = () => {
   const ask = asked;
   if (ask) setAsked(null);
@@ -58,6 +64,35 @@ export const useSearchAsk = () =>
       };
     },
     () => asked,
+  );
+
+// The chip and order Library should show: set by a "See all" on Home, held until Library takes it.
+export type LibraryAsk = { chip: Chip; sort: SortBy };
+let libraryAsk: LibraryAsk | null = null;
+const libraryAskListeners = new Set<() => void>();
+const setLibraryAsk = (ask: LibraryAsk | null) => {
+  libraryAsk = ask;
+  libraryAskListeners.forEach((listener) => listener());
+};
+/** Library on this chip, in this order. */
+export const openLibrary = (ask: LibraryAsk) => {
+  setLibraryAsk(ask);
+  goLibraryNow();
+};
+export const takeLibraryAsk = () => {
+  const ask = libraryAsk;
+  if (ask) setLibraryAsk(null);
+  return ask;
+};
+export const useLibraryAsk = () =>
+  useSyncExternalStore(
+    (listener) => {
+      libraryAskListeners.add(listener);
+      return () => {
+        libraryAskListeners.delete(listener);
+      };
+    },
+    () => libraryAsk,
   );
 
 // The song Library should open select mode with, ticked: set by the full player's "+ Version".

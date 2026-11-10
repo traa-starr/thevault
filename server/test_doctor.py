@@ -42,6 +42,7 @@ def run(root, **kw):
     kw.setdefault("tailscale", lambda: (server.LOOPBACK, []))
     kw.setdefault("runner", fake_run(0))
     kw.setdefault("backup_dir", Path(root).parent / "backups")
+    kw.setdefault("task", lambda: None)  # the stays-up line has its own test (test_keepalive.py)
     code = doctor.run_doctor(root, say=out.append, **kw)
     return code, out
 

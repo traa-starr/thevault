@@ -74,13 +74,13 @@ function makeMainWithToast(id: string) {
 }
 
 /** "Versions · 3", only when a song has versions. */
-export function VersionsChip({ id, style, onPress }: { id: string; style?: object; onPress?: () => void }) {
+export function VersionsChip({ id, style, textStyle, onPress }: { id: string; style?: object; textStyle?: object; onPress?: () => void }) {
   const { families } = useVersions();
   const count = families.has(id) ? versions.members(id).length : 1;
   if (count < 2) return null;
   return (
     <Pressable onPress={onPress ?? (() => versions.openVersions(id))} hitSlop={8} style={style}>
-      <Text style={s.chip}>Versions · {count}</Text>
+      <Text style={textStyle ?? s.chip}>Versions · {count}</Text>
     </Pressable>
   );
 }

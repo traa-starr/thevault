@@ -1,11 +1,16 @@
-// The song list from the laptop: scroll, sort, search titles and tags, tap to play. Songs on the phone play from there; with the
-// laptop off, the last list shows and only those play.
+// The song list from the laptop (overhaul wave 2, Wall's look): a tile on every row, my Favorite / Archived marks,
+// chips to narrow it (All, Mine, Favorites, Archived, Needs tags, Versions), three orders (Newest, A to Z, Most
+// played). Tap a row to play. Songs on the phone play from there; with the laptop off, the last list shows and only
+// those play. Search has its own screen now (SearchScreen.tsx).
 // Choices the laptop hasn't confirmed yet already show here. Hold a row for select mode: tick songs, then group them as
 // versions, or call them Mine or Not mine, all at once with one Undo.
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+// What a chip keeps and how a list is ordered: libraryCore.ts (plain code, tested).
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Hidden from './Hidden';
-import { HomeButton, takeSearchAsk, takeSeed, useSearchAsk, useSeed } from './nav';
+import { Icon } from './Icon';
+import { CHIPS, chipSongs, keepIfSame, linesByRow, nextSort, rowLayout, sortSongs, type Chip, type SortBy } from './libraryCore';
+import { takeLibraryAsk, takeSeed, useLibraryAsk, useSeed } from './nav';
 import { loadSongList, offline, saveSongList, useOffline } from './offline';
 import { flush, useOutbox } from './outbox';
 import { LaptopLine, RestoreNotice, WaitingLine } from './Notices';
@@ -13,34 +18,34 @@ import { NOT_HERE, player, usePlayerWith, type Pool } from './playerStore';
 import { playStore } from './playStore';
 import { ratingStore, useRatings } from './ratingStore';
 import { session } from './sessionStore';
-import { indexFor, pieces, queryStems, searchSongs, stems, typedWord, type SongHit } from './search';
-import { clock, useAllTags } from './tagStore';
+import { SongRow } from './SongRow';
+import { useAllTags } from './tagStore';
 import { tint } from './Tagging';
-import { timing } from './timings';
-import { libraryShuffleTap, pickable, shuffleWords, withPending, type ShownTag } from './playOrder';
+import { Tap } from './Tap';
+import { C, S, T } from './theme';
+import { libraryShuffleTap, pickable, shuffleWords, withPending } from './playOrder';
 import { setLibrary, useVersions, type LibSong } from './versionStore';
-import { VersionsChip } from './Versions';
 import * as versions from './versionStore';
 
 type Song = LibSong;
-type Sort = 'title' | 'date';
-/** One filter at a time; tap it again for all songs. Unsorted: not called Mine and not judged yet. */
-type Filter = 'all' | 'mine' | 'fire' | 'unsorted' | 'grouped';
-const FILTER_WORD: Record<Filter, string> = { all: 'songs', mine: 'Mine', fire: 'Favorites', unsorted: 'unsorted', grouped: 'version groups' };
-const FILTER_EMPTY: Record<Filter, string> = {
+const CHIP_WORD: Record<Chip, string> = { all: 'All', mine: 'Mine', fire: 'Favorites', shelved: 'Archived', untagged: 'Needs tags', grouped: 'Versions', unsorted: 'Unsorted' };
+/** After the count: "671 Mine", "12 to tag". */
+const COUNT_WORD: Record<Chip, string> = { all: 'songs', mine: 'Mine', fire: 'Favorites', shelved: 'Archived', untagged: 'to tag', grouped: 'version groups', unsorted: 'unsorted' };
+const CHIP_EMPTY: Record<Chip, string> = {
   all: 'No songs yet',
   mine: 'No Mine songs yet',
   fire: 'No Favorites yet: tap Favorite in the player',
-  unsorted: 'Nothing left unsorted',
+  shelved: 'Nothing archived',
+  untagged: 'Every Mine song has a line tagged',
   grouped: 'No version groups yet',
+  unsorted: 'Nothing left unsorted',
 };
+const SORT_WORD: Record<SortBy, string> = { date: 'Newest', title: 'A to Z', plays: 'Most played' };
 
 const TIMEOUT_MS = 10000;
-const ROW_HEIGHT = 60;
 const WHERE: Record<string, string> = { laptop: 'On the laptop', cloud: 'Cloud only', gone: 'File missing' };
 
 const number = (n: number) => n.toLocaleString('en-US');
-const detail = (song: Song) => [song.date, offline.has(song.id) ? 'On this phone' : WHERE[song.where]].filter(Boolean).join(' · ');
 const size = (bytes: number) => (bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(1)} GB` : `${Math.round(bytes / 1024 ** 2)} MB`);
 
 /** One quiet line: downloads running, done, or stopped at the limit. */
@@ -56,18 +61,6 @@ function SavedLine() {
   return <Text style={s.saved}>{text}</Text>;
 }
 
-/** A search result's second line: the matched tag, its matching words bold, and how many more of its tags match. */
-function HitLine({ hit, stems, typed }: { hit: SongHit<ShownTag>; stems: string[]; typed: string }) {
-  return (
-    <Text style={s.rowDetail} numberOfLines={1}>
-      {pieces(hit.tag.text, stems, typed).map((piece, i) => (
-        <Text key={i} style={piece.hit ? s.hitWord : undefined}>{piece.text}</Text>
-      ))}
-      {hit.more ? <Text>{`  +${hit.more}`}</Text> : null}
-    </Text>
-  );
-}
-
 export default function Library({ url }: { url: string }) {
   const [fetched, setFetched] = useState<Song[] | null>(null);
   const { pending: waitingAll, refused } = useOutbox();
@@ -76,20 +69,25 @@ export default function Library({ url }: { url: string }) {
   const pending = useMemo(() => waitingAll.filter((change) => change.kind !== 'play_add'), [choiceKey]);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const [sort, setSort] = useState<Sort>('date'); // Newest every time the app opens
-  const [filter, setFilter] = useState('');
+  const [sort, setSort] = useState<SortBy>('date'); // Newest every time the app opens
   const [showHidden, setShowHidden] = useState(false);
   const [hiddenOnLaptop, setHiddenOnLaptop] = useState<number | null>(null); // null: an older laptop, or not asked yet
-  const [only, setOnly] = useState<Filter>('all');
+  const [only, setOnly] = useState<Chip>('all');
   const mineOnly = only === 'mine';
-  const toggle = (one: Filter) => setOnly(only === one ? 'all' : one);
+  // a chip tapped again goes back to All
+  const toggle = (one: Chip) => setOnly(only === one ? 'all' : one);
+  // Most played uses the counts as they were when I chose it: a song reaching 0:30 never moves a row under my thumb
+  const [plays, setPlays] = useState(playStore.all);
+  const changeSort = () => {
+    setPlays(playStore.all());
+    setSort(nextSort(sort));
+  };
   // select mode: the ticked rows, first held first (that one becomes Main)
   const [selecting, setSelecting] = useState(false);
   const [ticked, setTicked] = useState<string[]>([]);
   const rows = useRef<FlatList<Song>>(null);
   const seed = useSeed();
-  const searchAsk = useSearchAsk();
-  const searchBox = useRef<React.ComponentRef<typeof TextInput>>(null);
+  const ask = useLibraryAsk();
 
   useEffect(() => {
     const abort = new AbortController();
@@ -148,12 +146,7 @@ export default function Library({ url }: { url: string }) {
     [fetched, pending, families],
   );
 
-  const sorted = useMemo(() => {
-    const byTitle = [...(songs ?? [])].sort((a, b) => a.title.localeCompare(b.title));
-    if (sort === 'title') return byTitle;
-    // Newest first, no date last. A year-only date sorts just after the full dates of that year.
-    return byTitle.sort((a, b) => ((a.date ?? '') < (b.date ?? '') ? 1 : (a.date ?? '') > (b.date ?? '') ? -1 : 0));
-  }, [songs, sort]);
+  const sorted = useMemo(() => sortSongs(songs ?? [], sort, plays), [songs, sort, plays]);
 
   // the laptop's count plus my Not mine taps still on their way (they're already out of the list)
   const hiddenCount = useMemo(
@@ -162,82 +155,36 @@ export default function Library({ url }: { url: string }) {
   );
   const byId = useMemo(() => new Map((songs ?? []).map((song) => [song.id, song])), [songs]);
   const ratings = useRatings();
-  const base = useMemo(() => {
-    if (only === 'mine') return sorted.filter((song) => song.mine === 'mine');
-    if (only === 'fire') return sorted.filter((song) => ratings.get(song.id) === 'fire');
-    if (only === 'unsorted') return sorted.filter((song) => song.mine !== 'mine' && !song.sorted);
-    if (only === 'grouped') return sorted.filter((song) => families.has(song.id));
-    return sorted;
-  }, [sorted, only, families, ratings]);
-
-  // Search (Phase 3, on the phone): titles that hold the words first, as before, then every song with a tag sharing a
-  // word, best tag first (search.ts). Never hides a song that shares a word; the chips (Mine, Unsorted...) still narrow.
-  // The latest keystroke wins: typing never waits for a search. The index is the phone's tag copy, so it works offline.
+  // how many lines each row has tagged (its versions' lines count for it). The same Map until a count changes, so a
+  // play or a rating joining the outbox redraws nothing here
   const allTags = useAllTags();
-  const query = useDeferredValue(filter);
-  const searching = query.trim().length > 0;
-  const found = useMemo(() => {
-    if (!searching) return null;
-    const started = performance.now();
-    const asked = queryStems(query);
-    const words = new Set(asked);
-    const inBase = new Set(base.map((song) => song.id));
-    const index = indexFor(allTags);
-    const { rows: hits, total } = searchSongs(index, query, undefined, (id) => inBase.has(id), (id) => families.get(id) ?? id);
-    const hitOf = new Map(hits.map((hit) => [hit.songId, hit]));
-    // titles by word, the same stems as tags: every word in the title (or the text as typed) first, then tag matches,
-    // then titles sharing only some words, so a song sharing a word is never hidden
-    const wanted = query.trim().toLowerCase();
-    const titleWords = (song: Song) => new Set(stems(song.title));
-    const share = base.map((song) => {
-      const own = titleWords(song);
-      const hit = asked.filter((w) => own.has(w)).length;
-      return { song, all: song.title.toLowerCase().includes(wanted) || (asked.length > 0 && words.size > 0 && [...words].every((w) => own.has(w))), some: hit > 0 };
-    });
-    const byTitle = share.filter((one) => one.all).map((one) => one.song);
-    const listed = new Set(byTitle.map((song) => song.id));
-    const byTag = hits.filter((hit) => !listed.has(hit.songId)).map((hit) => byId.get(hit.songId)!).filter(Boolean);
-    byTag.forEach((song) => listed.add(song.id));
-    const someTitle = share.filter((one) => one.some && !listed.has(one.song.id)).map((one) => one.song);
-    const list = [...byTitle, ...byTag, ...someTitle];
-    return { list, hitOf, more: Math.max(0, total - hits.length), stems: asked, typed: typedWord(query), ms: performance.now() - started, tags: allTags.length };
-  }, [searching, query, base, allTags, families]);
-  // the phone's own search time, sent to the laptop with the other timings (numbers only)
+  const linesWas = useRef<Map<string, number> | null>(null);
+  const lines = useMemo(() => (linesWas.current = keepIfSame(linesWas.current, linesByRow(allTags, (id) => families.get(id) ?? id))), [allTags, families]);
+  const base = useMemo(
+    () => chipSongs(sorted, only, { rating: (id) => ratings.get(id), grouped: (id) => families.has(id), tagged: (id) => lines.has(id) }),
+    [sorted, only, families, ratings, lines],
+  );
+  // Unsorted is a chip only while something is still unsorted (sorting is done; it comes back if new songs arrive)
+  const anyUnsorted = useMemo(() => (songs ?? []).some((song) => song.mine !== 'mine' && !song.sorted), [songs]);
+  const chips = anyUnsorted || only === 'unsorted' ? [...CHIPS, 'unsorted' as const] : CHIPS;
+  // the chips don't all fit across the screen: the one that's on is always brought into view (a "See all" on Home
+  // may pick one that was off the right edge)
+  const chipRow = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const chipAt = useRef<Partial<Record<Chip, number>>>({});
   useEffect(() => {
-    if (found) timing.search(found.ms, found.tags);
-  }, [found]);
-  const shown = found ? found.list : base;
-  // what a row draws besides its song: one steady value, so rows redraw only when a search or a rating changes
-  const rowsDependOn = useMemo(() => [found, ratings], [found, ratings]);
+    const x = chipAt.current[only];
+    if (x !== undefined) chipRow.current?.scrollTo({ x: Math.max(0, x - 56), animated: false });
+  }, [only, !!songs]);
 
   const { reachable, stored } = useOffline();
   const laptopOff = reachable === false;
   const canPlay = (song: Song) => offline.has(song.id) || (!laptopOff && song.where === 'laptop');
-  // what plays: the Library list as it stands (chips and sort), never the search results, which change as I type
+  // what plays: the Library list as it stands (chips and sort)
   const playable = useMemo(() => base.filter(canPlay), [base, laptopOff, stored]);
 
-  /** `at`: a search result's tag second, so it plays from that moment. */
-  const open = (start: Song, shuffle: boolean, pool: Pool = mineOnly ? 'mine' : 'unsorted', at?: number) => {
-    Keyboard.dismiss();
+  const open = (start: Song, shuffle: boolean, pool: Pool = mineOnly ? 'mine' : 'unsorted') => {
     if (!canPlay(start)) return player.showMessage(NOT_HERE);
-    const now = player.now();
-    if (at !== undefined && (now.comparing || now.sorting)) return; // Compare or Sort has the sound
-    player.playList(url, playable, start.id, shuffle, pool, at);
-    player.open('player');
-  };
-
-  /** A search result: the song its tag is on, from the tag's second. A version's tag plays that version (its row is
-   * the family's Main), in the Library list's place of its Main. */
-  const openHit = (row: Song, hit: SongHit<ShownTag>) => {
-    const id = hit.tag.song_id;
-    if (id === row.id) return open(row, false, undefined, hit.tag.at_sec);
-    Keyboard.dismiss();
-    const now = player.now();
-    if (now.comparing || now.sorting) return;
-    if (!offline.has(id) && laptopOff) return player.showMessage(NOT_HERE);
-    const version = { id, title: versions.songTitle(id), mine: 'mine', sorted: true };
-    const list = playable.flatMap((song) => (song.id === row.id ? [version] : [song]));
-    player.playList(url, list.some((song) => song.id === id) ? list : [...list, version], id, false, mineOnly ? 'mine' : 'unsorted', hit.tag.at_sec, 'search');
+    player.playList(url, playable, start.id, shuffle, pool);
     player.open('player');
   };
 
@@ -246,11 +193,12 @@ export default function Library({ url }: { url: string }) {
   // not yet called mine, Mine only on Mine; tapping any song still plays it
   // only what Library shows: the player's every tick (time) would redraw the whole list
   // Low priority too (useDeferredValue): a Next redraws Library after the sound has started, never in front of it
-  const [playing, playingPool] = useDeferredValue(usePlayerWith((now) => [now.order, now.pool, now.song, now.marks] as const));
+  const [playing, playingPool, playingSong] = useDeferredValue(usePlayerWith((now) => [now.order, now.pool, now.song, now.marks] as const));
+  // the row that is playing (a version shows as its family's row)
+  const playingRow = playingSong ? families.get(playingSong.id) ?? playingSong.id : null;
   const shuffleOn = !!playing?.shuffle;
   const poolOf = (pool: Pool) => playable.filter((song) => (song.mine === 'mine') === (pool === 'mine'));
   const tapShuffle = () => {
-    Keyboard.dismiss();
     // the player as it is right now (what's drawn may be a moment behind)
     const { order: playing, pool: playingPool, song: playingSong } = player.now();
     const pick = libraryShuffleTap({ on: !!playing?.shuffle, pool: playingPool }, poolOf('mine').length > 0, poolOf('unsorted').length > 0);
@@ -278,28 +226,30 @@ export default function Library({ url }: { url: string }) {
 
   // hold a row: select mode, that row ticked first
   const hold = (song: Song) => {
-    Keyboard.dismiss();
     if (selecting) return tick(song);
     setSelecting(true);
     setTicked([song.id]);
   };
 
-  // a Shortcut's search link: the box in focus with the keyboard up, filled if the link brought words
+  // a "See all" on Home: this chip, in this order, from the top. Select mode and Hidden step aside first
   useEffect(() => {
-    if (!searchAsk || !songs) return;
-    takeSearchAsk();
+    if (!ask) return;
+    takeLibraryAsk();
     setSelecting(false);
-    setFilter(searchAsk.q);
-    const timer = setTimeout(() => searchBox.current?.focus(), 50); // the box is drawn once the songs are in
+    setTicked([]);
+    setShowHidden(false);
+    setPlays(playStore.all());
+    setOnly(ask.chip);
+    setSort(ask.sort);
+    const timer = setTimeout(() => rows.current?.scrollToOffset({ offset: 0, animated: false }), 0);
     return () => clearTimeout(timer);
-  }, [searchAsk, songs]);
+  }, [ask]);
 
   // the full player's "+ Version": select mode with the playing song (its family's row) ticked, scrolled to
   useEffect(() => {
     if (!seed || !songs) return;
     const id = families.get(seed) ?? seed;
     takeSeed();
-    setFilter('');
     setSelecting(true);
     setTicked([id]);
     const at = base.findIndex((song) => song.id === id);
@@ -349,27 +299,53 @@ export default function Library({ url }: { url: string }) {
     setAttempt(attempt + 1); // a restored song is back in the list, and the count with it
   };
 
+  // a row's taps, the same two functions for every row and every draw, so a row redraws only when what it shows changes
+  const taps = useRef({ tap: (_: Song) => {}, hold });
+  taps.current = { tap: (song) => (selecting ? tick(song) : open(song, false)), hold };
+  const tapRow = useCallback((song: Song) => taps.current.tap(song), []);
+  const holdRow = useCallback((song: Song) => taps.current.hold(song), []);
+  /** A row's second line: its date, how much is tagged, and where the file is. */
+  const metaOf = (song: Song) => {
+    const tagged = lines.get(song.id) ?? 0;
+    const played = sort === 'plays' ? plays.get(song.id)?.n ?? 0 : 0;
+    return [
+      groupMain === song.id ? 'Main' : '',
+      song.date,
+      played ? (played === 1 ? '1 play' : `${number(played)} plays`) : '',
+      tagged ? (tagged === 1 ? '1 line' : `${number(tagged)} lines`) : '',
+      offline.has(song.id) ? 'On this phone' : WHERE[song.where],
+    ].filter(Boolean).join(' · ');
+  };
+  // everything a row draws besides its song: rows redraw when one of these changes, and only then
+  const rowsDependOn = useMemo(() => [ratings, lines, playingRow, selecting, ticked, groupMain, laptopOff, stored, sort === 'plays' ? plays : null], [ratings, lines, playingRow, selecting, ticked, groupMain, laptopOff, stored, sort, plays]);
+
   return (
     <View style={s.fill}>
     {showHidden ? <Hidden url={url} onBack={closeHidden} /> : null}
     <View style={[s.page, showHidden && s.hidden]}>
       <View style={s.header}>
-        {/* a tab now, so no Back: only select mode's Cancel */}
+        {/* a tab, so no Back: only select mode's Cancel */}
         {selecting ? (
-          <Pressable onPress={cancelSelect}>
-            <Text style={s.link}>Cancel</Text>
+          <Pressable style={(p) => [s.cancel, tint(p)]} onPress={cancelSelect}>
+            <Text style={s.quiet}>Cancel</Text>
           </Pressable>
         ) : null}
         <Text style={s.title}>{selecting ? `${number(ticked.length)} ticked` : 'Library'}</Text>
-        <View style={s.headerRight}>
-          {/* the tagging session: Mine songs that can play now, one card at a time */}
-          {selecting || !songs ? null : (
-            <Pressable style={(p) => [s.tagSongs, tint(p)]} onPress={() => (Keyboard.dismiss(), session.start(url))}>
-              <Text style={s.link}>Tag songs</Text>
+        {selecting || !songs ? null : (
+          <View style={s.headerRight}>
+            {/* Shuffle grows to the left when it says its pool, so Tag songs never moves */}
+            {playable.length ? (
+              <Tap style={[s.shuffle, shuffleOn && s.shuffleOn]} filled={shuffleOn} radius={18} onPress={tapShuffle} accessibilityLabel={shuffleOn ? `Shuffle on, ${shuffleWords({ on: true, pool: playingPool })}` : 'Shuffle off'}>
+                <Icon name="shuffle" size={16} color={shuffleOn ? C.onAccent : C.text} />
+                <Text style={[s.shuffleWord, shuffleOn && s.shuffleWordOn]}>{shuffleOn ? `Shuffle: ${shuffleWords({ on: true, pool: playingPool })}` : 'Shuffle'}</Text>
+              </Tap>
+            ) : null}
+            {/* the tagging session: Mine songs that can play now, one card at a time */}
+            <Pressable style={(p) => [s.tagSongs, tint(p)]} onPress={() => session.start(url)}>
+              <Text style={s.quiet}>Tag songs</Text>
             </Pressable>
-          )}
-          <HomeButton />
-        </View>
+          </View>
+        )}
       </View>
       {!selecting ? <SavedLine /> : null}
       {!selecting ? <RestoreNotice /> : null}
@@ -384,8 +360,8 @@ export default function Library({ url }: { url: string }) {
       {failed && !songs ? (
         <View style={s.middle}>
           <Text style={s.line}>Laptop not reachable</Text>
-          <Pressable onPress={() => setAttempt(attempt + 1)}>
-            <Text style={s.link}>Try again</Text>
+          <Pressable style={(p) => [s.again, tint(p)]} onPress={() => setAttempt(attempt + 1)}>
+            <Text style={s.againWord}>Try again</Text>
           </Pressable>
         </View>
       ) : !songs ? (
@@ -394,119 +370,72 @@ export default function Library({ url }: { url: string }) {
         </View>
       ) : (
         <>
-          <TextInput
-            ref={searchBox}
-            style={s.input}
-            value={filter}
-            onChangeText={setFilter}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-            maxLength={200}
-            placeholder="Search songs and tags"
-            placeholderTextColor="#888"
-            clearButtonMode="while-editing"
-          />
+          <ScrollView ref={chipRow} horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chips}>
+            {chips.map((one) => (
+              <Pressable
+                key={one}
+                style={s.chipTap}
+                onPress={() => toggle(one)}
+                onLayout={(e) => {
+                  chipAt.current[one] = e.nativeEvent.layout.x;
+                  if (one === only && one !== 'all') chipRow.current?.scrollTo({ x: Math.max(0, e.nativeEvent.layout.x - 56), animated: false });
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: only === one }}
+              >
+                <View style={[s.chip, only === one && s.chipOn]}>
+                  <Text style={[s.chipWord, only === one && s.chipWordOn]}>{CHIP_WORD[one]}</Text>
+                </View>
+              </Pressable>
+            ))}
+            {/* songs I called Not mine: a quiet word at the end, not a chip (it opens its own list) */}
+            <Pressable style={(p) => [s.chipTap, s.hiddenTap, tint(p)]} onPress={() => setShowHidden(true)}>
+              <Text style={s.quiet}>{hiddenCount === null ? 'Hidden' : `Hidden · ${number(hiddenCount)}`}</Text>
+            </Pressable>
+          </ScrollView>
           <View style={s.bar}>
-            <Text style={s.count}>
-              {found ? `${number(shown.length)}${found.more ? '+' : ''} found` : `${number(base.length)} ${FILTER_WORD[only]}`}
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.sortScroll} contentContainerStyle={s.sorts}>
-              {playable.length ? (
-                <Pressable style={tint} onPress={tapShuffle} accessibilityLabel={shuffleOn ? `Shuffle on, ${shuffleWords({ on: true, pool: playingPool })}` : 'Shuffle off'}>
-                  <Text style={[s.sort, shuffleOn && s.sortOn]}>{shuffleOn ? `Shuffle: ${shuffleWords({ on: true, pool: playingPool })}` : 'Shuffle'}</Text>
-                </Pressable>
-              ) : null}
-              <Pressable onPress={() => toggle('mine')}>
-                <Text style={[s.sort, only === 'mine' && s.sortOn]}>Mine</Text>
-              </Pressable>
-              <Pressable onPress={() => toggle('fire')}>
-                <Text style={[s.sort, only === 'fire' && s.sortOn]}>Favorites</Text>
-              </Pressable>
-              <Pressable onPress={() => toggle('unsorted')}>
-                <Text style={[s.sort, only === 'unsorted' && s.sortOn]}>Unsorted</Text>
-              </Pressable>
-              <Pressable onPress={() => toggle('grouped')}>
-                <Text style={[s.sort, only === 'grouped' && s.sortOn]}>Grouped</Text>
-              </Pressable>
-              <Pressable onPress={() => setSort('title')}>
-                <Text style={[s.sort, sort === 'title' && s.sortOn]}>A-Z</Text>
-              </Pressable>
-              <Pressable onPress={() => setSort('date')}>
-                <Text style={[s.sort, sort === 'date' && s.sortOn]}>Newest</Text>
-              </Pressable>
-              <Pressable onPress={() => setShowHidden(true)}>
-                <Text style={s.sort}>{hiddenCount === null ? 'Hidden' : `Hidden · ${number(hiddenCount)}`}</Text>
-              </Pressable>
-            </ScrollView>
+            <Text style={s.count}>{`${number(base.length)} ${COUNT_WORD[only]}`}</Text>
+            <Pressable style={(p) => [s.sort, tint(p)]} onPress={changeSort} accessibilityLabel={`Order: ${SORT_WORD[sort]}`}>
+              <Text style={s.sortWord}>{SORT_WORD[sort]}</Text>
+              <Icon name="down" size={12} color={C.dim} />
+            </Pressable>
           </View>
           <FlatList
             ref={rows}
-            key={sort}
+            key={`${sort}/${only}`}
             onScrollToIndexFailed={() => {}}
-            data={shown}
+            data={base}
             extraData={rowsDependOn}
             keyExtractor={(song) => song.id}
-            getItemLayout={(_, index) => ({ length: ROW_HEIGHT, offset: ROW_HEIGHT * index, index })}
-            keyboardDismissMode="on-drag"
-            keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={
-              <Text style={s.empty}>
-                {!found ? FILTER_EMPTY[only] : found.stems.length ? `No song or tag has “${query.trim().slice(0, 40)}”` : 'Type a word to search'}
-              </Text>
-            }
-            ListFooterComponent={found?.more ? <Text style={s.empty}>{number(found.more)} more songs match: type more words to narrow</Text> : undefined}
+            getItemLayout={(_, index) => rowLayout(index)}
+            initialNumToRender={14}
+            maxToRenderPerBatch={20}
+            windowSize={15}
+            ListEmptyComponent={<Text style={s.empty}>{CHIP_EMPTY[only]}</Text>}
             renderItem={({ item }) => (
-              <Pressable
-                style={[s.row, selecting && s.rowSelecting]}
+              <SongRow
+                song={item}
+                meta={metaOf(item)}
+                rating={ratings.get(item.id)}
+                off={!canPlay(item)}
                 disabled={!selecting && item.where !== 'laptop' && !offline.has(item.id)}
-                onPress={() => {
-                  const hit = found?.hitOf.get(item.id);
-                  if (selecting) tick(item);
-                  else if (hit) openHit(item, hit);
-                  else open(item, false);
-                }}
-                onLongPress={() => hold(item)}
-                delayLongPress={400}
-              >
-                {selecting ? (
-                  <View style={[s.tick, ticked.includes(item.id) && s.tickOn]}>
-                    <Text style={s.tickMark}>{ticked.includes(item.id) ? '✓' : ' '}</Text>
-                  </View>
-                ) : null}
-                <View style={s.rowText}>
-                <View style={s.rowTop}>
-                  <Text style={[s.rowTitle, !canPlay(item) && s.rowOff]} numberOfLines={1}>{item.title}</Text>
-                  <VersionsChip id={item.id} />
-                  {/* my rating, as a word (never colour alone); a search hit shows it too */}
-                  {ratings.get(item.id) ? <Text style={ratings.get(item.id) === 'fire' ? s.fireMark : s.shelvedMark}>{ratings.get(item.id) === 'fire' ? 'Favorite' : 'Archived'}</Text> : null}
-                  {found?.hitOf.get(item.id) ? <Text style={s.hitTime}>{clock(found.hitOf.get(item.id)!.tag.at_sec)}</Text> : null}
-                </View>
-                {found?.hitOf.get(item.id) ? (
-                  <HitLine hit={found.hitOf.get(item.id)!} stems={found.stems} typed={found.typed} />
-                ) : (
-                  <Text style={s.rowDetail} numberOfLines={1}>
-                    {groupMain === item.id ? 'Main · ' : ''}
-                    {detail(item)}
-                  </Text>
-                )}
-                </View>
-              </Pressable>
+                playing={playingRow === item.id}
+                ticked={selecting ? ticked.includes(item.id) : undefined}
+                versions
+                onPress={tapRow}
+                onLongPress={holdRow}
+              />
             )}
           />
           {selecting ? (
             <View style={s.selectBar}>
-              <Pressable
-                style={[s.groupButton, ticked.length < 2 && s.off]}
-                disabled={ticked.length < 2}
-                onPress={groupTicked}
-              >
+              <Pressable style={(p) => [s.groupButton, ticked.length < 2 && s.off, tint(p)]} disabled={ticked.length < 2} onPress={groupTicked}>
                 <Text style={s.groupText}>Group as versions</Text>
               </Pressable>
-              <Pressable style={[s.small, !ticked.length && s.off]} disabled={!ticked.length} onPress={() => judgeTicked('mine')}>
+              <Pressable style={(p) => [s.small, !ticked.length && s.off, tint(p)]} disabled={!ticked.length} onPress={() => judgeTicked('mine')}>
                 <Text style={s.smallText}>Mine</Text>
               </Pressable>
-              <Pressable style={[s.small, !ticked.length && s.off]} disabled={!ticked.length} onPress={() => judgeTicked('not mine')}>
+              <Pressable style={(p) => [s.small, !ticked.length && s.off, tint(p)]} disabled={!ticked.length} onPress={() => judgeTicked('not mine')}>
                 <Text style={s.smallText}>Not mine</Text>
               </Pressable>
             </View>
@@ -519,45 +448,46 @@ export default function Library({ url }: { url: string }) {
 }
 
 const s = StyleSheet.create({
-  fill: { flex: 1, backgroundColor: '#000' },
+  fill: { flex: 1, backgroundColor: C.bg },
   hidden: { display: 'none' },
-  page: { flex: 1, backgroundColor: '#000', paddingTop: 60, paddingHorizontal: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  headerRight: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center' },
-  tagSongs: { minHeight: 44, justifyContent: 'center' },
-  title: { color: '#fff', fontSize: 26, fontWeight: '700' },
-  link: { color: '#8ab4f8', fontSize: 15, padding: 8 },
+  page: { flex: 1, backgroundColor: C.bg, paddingTop: 64, paddingHorizontal: S.side },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: S.tap, marginBottom: 8 },
+  headerRight: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4 },
+  title: { ...T.title },
+  cancel: { height: S.tap, justifyContent: 'center', paddingRight: 8 },
+  quiet: { color: C.dim, fontSize: 15 },
+  tagSongs: { height: S.tap, justifyContent: 'center', paddingLeft: 10 },
+  // a 36 pill inside a 44 touch
+  shuffle: { height: 36, marginVertical: 4, paddingHorizontal: 14, borderRadius: 18, backgroundColor: C.raised, flexDirection: 'row', alignItems: 'center', gap: 6, overflow: 'hidden' },
+  shuffleOn: { backgroundColor: C.accent },
+  shuffleWord: { color: C.text, fontSize: 14, fontWeight: '600' },
+  shuffleWordOn: { color: C.onAccent },
   middle: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  line: { color: '#ddd', fontSize: 18 },
-  input: { color: '#fff', fontSize: 16, borderColor: '#555', borderWidth: 1, borderRadius: 8, padding: 12 },
-  bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
-  count: { flexShrink: 0, color: '#ddd', fontSize: 14, fontVariant: ['tabular-nums'] }, // never wraps: the chips scroll instead
-  refused: { color: '#f28b82', fontSize: 14, paddingBottom: 8 },
-  sortScroll: { flexGrow: 0, flexShrink: 1, marginLeft: 8 },
-  sorts: { flexDirection: 'row', gap: 4 },
-  sort: { color: '#8ab4f8', fontSize: 15, paddingVertical: 8, paddingHorizontal: 10 },
-  sortOn: { color: '#fff', fontWeight: '700' },
-  empty: { color: '#888', fontSize: 15, textAlign: 'center', paddingTop: 32 },
-  row: { height: ROW_HEIGHT, justifyContent: 'center', borderBottomColor: '#2a2a2a', borderBottomWidth: 1 },
-  rowSelecting: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 12 },
-  rowText: { flex: 1, justifyContent: 'center' },
-  tick: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#666', alignItems: 'center', justifyContent: 'center' },
-  tickOn: { backgroundColor: '#8ab4f8', borderColor: '#8ab4f8' },
-  tickMark: { color: '#111', fontSize: 14, fontWeight: '800' },
+  line: { color: C.dim, fontSize: 17 },
+  again: { height: S.tap, paddingHorizontal: 16, justifyContent: 'center' },
+  againWord: { color: C.text, fontSize: 15, fontWeight: '600' },
+  // the chips run to both screen edges, the first in line with everything else
+  chipScroll: { flexGrow: 0, flexShrink: 0, height: S.tap, marginHorizontal: -S.side },
+  chips: { paddingHorizontal: S.side, gap: 8, alignItems: 'center' },
+  chipTap: { height: S.tap, justifyContent: 'center' },
+  chip: { height: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: C.raised, justifyContent: 'center' },
+  // the chip that's on is white, not amber: amber is for what's playing
+  chipOn: { backgroundColor: C.text },
+  chipWord: { ...T.chip, color: C.dim, fontWeight: '600' },
+  chipWordOn: { color: C.bg },
+  hiddenTap: { paddingHorizontal: 8 },
+  bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: S.tap },
+  count: { ...T.meta, fontVariant: ['tabular-nums'] },
+  sort: { height: S.tap, flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 12 },
+  sortWord: { color: C.text, fontSize: 14, fontWeight: '600' },
+  refused: { color: C.danger, fontSize: 14, paddingBottom: 8 },
+  empty: { color: C.dim, fontSize: 15, textAlign: 'center', paddingTop: 32 },
   selectBar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 },
-  groupButton: { flex: 1, backgroundColor: '#1e5b34', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-  groupText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  small: { borderWidth: 1, borderColor: '#555', borderRadius: 10, paddingVertical: 14, paddingHorizontal: 14 },
-  smallText: { color: '#ddd', fontSize: 15 },
+  groupButton: { flex: 1, height: 48, backgroundColor: C.text, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  groupText: { color: C.bg, fontSize: 16, fontWeight: '700' },
+  small: { height: 48, backgroundColor: C.raised, borderRadius: 24, paddingHorizontal: 16, justifyContent: 'center' },
+  smallText: { color: C.text, fontSize: 15, fontWeight: '600' },
   off: { opacity: 0.4 },
-  saved: { color: '#888', fontSize: 13, paddingBottom: 6, fontVariant: ['tabular-nums'] },
-  offline: { color: '#f2c97d', fontSize: 14, paddingBottom: 8 },
-  rowTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  rowTitle: { color: '#fff', fontSize: 16, flexShrink: 1 },
-  fireMark: { color: '#f5b041', fontSize: 12, fontWeight: '700' },
-  shelvedMark: { color: '#8e8e93', fontSize: 12, fontWeight: '600' },
-  rowOff: { color: '#777' },
-  hitTime: { marginLeft: 'auto', color: '#888', fontSize: 13, fontVariant: ['tabular-nums'] },
-  hitWord: { color: '#fff', fontWeight: '700' },
-  rowDetail: { color: '#888', fontSize: 13, marginTop: 2 },
+  saved: { ...T.meta, paddingBottom: 6, fontVariant: ['tabular-nums'] },
+  offline: { color: C.warnText, fontSize: 14, paddingBottom: 8 },
 });

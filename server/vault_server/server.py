@@ -678,6 +678,23 @@ def stop_servers(servers):
         s.server_close()
 
 
+TAILSCALE_LOOK = 15  # seconds between looks for Tailscale while the phone's side isn't listening yet
+
+
+def add_tailscale(servers, root, port, tailscale=tailscale_info, on_mine=None, say=print):
+    """Started before Tailscale was connected (at log-in it can come up a little after the server): once it is, listen
+    there too, so the phone gets through without a restart. Returns the address now listened on, or None."""
+    address, names = tailscale()
+    if not address:
+        return None
+    try:
+        servers.extend(start_servers(root, [address], port, names, on_mine=on_mine))
+    except OSError:
+        return None  # not ready to be listened on yet: the next look tries again
+    say(f"Tailscale is connected now. On the phone: http://{names[0] if names else address}:{port}/", flush=True)
+    return address
+
+
 def run(root, port=PORT):
     """The serve command: runs until Ctrl+C."""
     connect_readonly(root).close()  # stop now, not on the first request, if the library isn't there
@@ -699,9 +716,15 @@ def run(root, port=PORT):
     print("Ctrl+C stops it. Phone copies are made in the background: now, and soon after you mark songs Mine.", flush=True)
     copies.start()
     stop = threading.Event()
+    waited = 0.0
     try:
         while not stop.wait(0.5):  # short waits, or Ctrl+C isn't noticed on Windows
-            pass
+            if address:
+                continue
+            waited += 0.5
+            if waited >= TAILSCALE_LOOK:
+                waited = 0.0
+                address = add_tailscale(servers, root, port, on_mine=copies.poke)
     except KeyboardInterrupt:
         pass
     copies.stop()

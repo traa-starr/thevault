@@ -5,13 +5,14 @@ import { StyleSheet, Text, View } from 'react-native';
 import { tileOf } from './tileColor';
 import { C } from './theme';
 
-type TileProps = { title: string | null | undefined; date?: string | null; size: number; radius: number };
+/** `plain`: a list row's tile, drawn from fewer pieces (one soft patch), so a fast flick through the list stays light. */
+type TileProps = { title: string | null | undefined; date?: string | null; size: number; radius: number; plain?: boolean };
 
 /** The square tile: its colour, a soft lighter patch, and the first two letters large and faint. */
-export const Tile = memo(function Tile({ title, date, size, radius }: TileProps) {
+export const Tile = memo(function Tile({ title, date, size, radius, plain }: TileProps) {
   const t = useMemo(() => tileOf(title, date), [title, date]);
   // rings laid over each other, each a little smaller and very faint, read as one soft patch of light with no edge
-  const rings = size >= 100 ? BIG_RINGS : SMALL_RINGS;
+  const rings = plain ? PLAIN_RINGS : size >= 100 ? BIG_RINGS : SMALL_RINGS;
   const color = `rgba(${t.glow.join(',')},${(0.62 / rings.length).toFixed(3)})`;
   const patch = (scale: number) => {
     const w = size * scale;
@@ -29,6 +30,7 @@ export const Tile = memo(function Tile({ title, date, size, radius }: TileProps)
 
 const BIG_RINGS = Array.from({ length: 14 }, (_, i) => 1.9 - i * 0.12);
 const SMALL_RINGS = [1.7, 1.4, 1.1, 0.8, 0.5];
+const PLAIN_RINGS = [1.5, 0.9];
 const STEPS = 14;
 const LOW = 0.42; // how much of the tint is left at the bottom of the player
 /** The player's background, as in the Deal mockup: the tile's colour over the whole sheet, strongest at the top and

@@ -14,7 +14,10 @@ const mock = (name) => pathToFileURL(join(repo, 'spike/mockups', name)).href;
 // each pair: the mockup page, the taps that bring it to the same state, and the app's shot of that state
 const PAIRS = [
   { name: 'side-home', page: 'wall.html', steps: ["act('play', { id: 0 })", "act('close')"], app: 'home-mini-player' },
-  { name: 'side-library', page: 'wall.html', steps: ["act('play', { id: 0 })", "act('close')", "act('tab', { tab: 'library' })"], app: 'library-mini-player' },
+  { name: 'side-library', page: 'wall.html', steps: ["act('play', { id: 0 })", "act('close')", "act('tab', { tab: 'library' })"], app: 'library-all-mini-player' },
+  { name: 'side-library-chip', page: 'wall.html', steps: ["act('tab', { tab: 'library' })", "act('filter', { f: 'fire' })"], app: 'library-chip-favorites' },
+  { name: 'side-search-empty', page: 'wall.html', steps: ["act('tab', { tab: 'search' })"], app: 'search-empty-recents' },
+  { name: 'side-search-results', page: 'wall.html', steps: ["act('tab', { tab: 'search' })", "act('q', { q: 'beat' })"], app: 'search-results-mini-player' },
   { name: 'side-player', page: 'deal.html', steps: ["act('play', { id: 0 })"], app: 'player-art-dark' },
   { name: 'side-player-lines', page: 'deal.html', steps: ["act('play', { id: 0 })", "act('tags')"], app: 'player-30-tags' },
 ];

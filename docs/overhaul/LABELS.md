@@ -21,6 +21,7 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Library
 - Lock-screen log
 - Save
+- Search
 - Sort
 
 ## Cards.tsx
@@ -66,6 +67,8 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 ## Home.tsx
 - {…} days ago
 - {…} months ago
+- {…} plays
+- {…} versions
 - {…} years ago
 - 1 month ago
 - 1 year ago
@@ -76,9 +79,11 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - No Favorites yet: tap Favorite in the player
 - No Mine songs can play right now.
 - Not played in a while
-- Play {…}
+- Play
 - Recently played
 - Search
+- See all
+- See all: {…}
 - Shuffle
 - Shuffle my Favorites
 - Shuffle my songs
@@ -87,6 +92,7 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Tag songs
 - The Vault
 - Today
+- Versions of
 - Yesterday
 
 ## Library.tsx
@@ -95,24 +101,28 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - · {…} waiting on the laptop
 - {…} changes
 - {…} GB
+- {…} lines
 - {…} MB
 - {…} of {…} Mine songs on this phone · {…} of 8 GB
+- {…} plays
 - {…} songs
 - {…} ticked
 - {…} version {…} skipped: use Versions
-- {…}{…} found
 - 1 change
+- 1 line
+- 1 play
 - 8 GB limit reached: {…} Mine songs not on this phone
+- A to Z
+- All
 - Already Mine
 - Already one family
 - Archived
 - Cancel
 - Cloud only
-- Favorite
+- Every Mine song has a line tagged
 - Favorites
 - File missing
 - Group as versions
-- Grouped
 - Hidden
 - Hidden · {…}
 - it wasn't
@@ -120,23 +130,24 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Laptop not reachable: songs on this phone still play. Tap to try again.
 - Library
 - Loading songs…
-- Main ·
+- Main
 - Mine
-- more songs match: type more words to narrow
+- Most played
+- Needs tags
 - Newest
 - No Favorites yet: tap Favorite in the player
 - No Mine songs yet
-- No song or tag has “{…}”
 - No songs yet
 - No version groups yet
 - not mine
 - Not mine
+- Nothing archived
 - Nothing left unsorted
 - On the laptop
 - On this phone
+- Order: {…}
 - Phone storage full: {…} Mine songs not on this phone
 - Saving to phone: {…} of {…}
-- Search songs and tags
 - Shuffle
 - Shuffle off
 - Shuffle on, {…}
@@ -144,10 +155,11 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Tag songs
 - The laptop refused
 - they weren't
+- to tag
 - Try again
-- Type a word to search
 - Unsorted
 - version groups
+- Versions
 - Versions · {…}, Main: {…}{…}
 
 ## Notices.tsx
@@ -212,6 +224,28 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Tag here
 - Undo
 - Up next
+
+## SearchScreen.tsx
+- Cancel
+- Clear
+- Clear recent searches
+- Cloud only
+- File missing
+- Finds the lines you tagged, then titles. Works with the laptop off.
+- Loading songs…
+- more songs match: type more words to narrow
+- No recent searches
+- No song or line has “{…}”
+- On the laptop
+- On this phone
+- Recent
+- Search
+- Search lines and titles
+- Type a word to search
+
+## SongRow.tsx
+- Archived
+- Favorite
 
 ## Sort.tsx
 - {…} songs
@@ -301,6 +335,13 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 
 ## hangWatch.ts
 - {…} never showed
+
+## libraryCore.ts
+- Favorites
+- Most played
+- Needs tags
+- Recently added
+- Versions to compare
 
 ## playOrder.ts
 - Mine

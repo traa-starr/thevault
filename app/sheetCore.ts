@@ -29,14 +29,20 @@ export const layers = (now: Nav): { base: 'player' | 'queue' | null; queueOver: 
     ? { base: 'queue', queueOver: false }
     : { base: 'player', queueOver: now.sheet === 'queue' };
 
-// ---------- where I am (overhaul wave 1): two tabs, with Sort opened over them -----------------------------------------
-export type Tab = 'home' | 'library';
+// ---------- where I am (overhaul wave 1): the tabs, with Sort opened over them -----------------------------------------
+/** `search` (wave 2): the search screen, a third place under the same tab bar, reached by the round button. */
+export type Tab = 'home' | 'library' | 'search';
 /** `sort`: Sort is open over the tabs (it hides the tab bar; Back returns to the tab under it). */
 export type Place = { tab: Tab; sort: boolean };
 /** A tab tapped. Leaves Sort if it was open. It says nothing about the player: a tab can't move, reload or stall it. */
 export const tabTapped = (_now: Place, tab: Tab): Place => ({ tab, sort: false });
 export const sortOpened = (_now: Place): Place => ({ tab: 'home', sort: true });
 export const sortClosed = (now: Place): Place => ({ ...now, sort: false });
+/** Search asked for (the round button, Home's box, a link): the search screen, whatever was open. Asked again while
+ * it's showing: nothing changes, so two fast taps can't open two. */
+export const searchOpened = (_now: Place): Place => ({ tab: 'search', sort: false });
+/** The tab to go back to when search is cancelled: the one I was on. `from`: the place when search was opened. */
+export const searchLeft = (from: Place | null): Place => ({ tab: from && from.tab !== 'search' ? from.tab : 'home', sort: false });
 /** What a finger can reach. The open sheet covers the whole screen and takes every touch; closed (even while it is
  * still sliding away) it takes none, so the tabs and the mini player answer at once. */
 export const reachable = (nav: Nav, place: Place, hasSong: boolean) => {

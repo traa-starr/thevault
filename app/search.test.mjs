@@ -197,8 +197,9 @@ ok('the index is built once per tag list, again when the list changes', () => {
     assert.equal(JSON.parse(source('./app.json')).expo.scheme, 'thevault');
     const app = source('./App.tsx');
     assert.ok(app.includes('Linking.getInitialURL()') && app.includes("Linking.addEventListener('url'"));
-    const library = source('./Library.tsx');
-    assert.ok(library.includes('ref={searchBox}') && library.includes('searchBox.current?.focus()'));
+    // wave 2: the box is on the search screen now
+    const screen = source('./SearchScreen.tsx');
+    assert.ok(screen.includes('ref={box}') && screen.includes('box.current?.focus()'));
   });
   ok('the laptop address goes to the Keychain too, and app code without the Keychain piece (the build before) still runs', () => {
     const app = source('./App.tsx');

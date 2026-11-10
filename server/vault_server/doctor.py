@@ -140,6 +140,27 @@ def _trial_start(root):
     return WARN, f"isn't running. Start it for phone tests. A test start worked ({n} songs) and was stopped."
 
 
+STAYS_UP_TASK = "Vault server"  # the Windows job server/server_on.ps1 makes
+
+
+def task_state(run=subprocess.run):
+    """Whether the job that keeps the server up is scheduled: 'on', 'off', or None if Windows can't be asked."""
+    try:
+        p = run(["schtasks", "/query", "/tn", STAYS_UP_TASK], capture_output=True, timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return "on" if p.returncode == 0 else "off"
+
+
+def check_stays_up(state, answering):
+    """`answering`: the Server line above found a server running."""
+    if state == "on" and answering:
+        return PASS, "on: the server starts by itself at log-in and comes back if it stops."
+    if state == "on":
+        return WARN, "on, but the server isn't answering right now. Give it a minute; if it stays down, read server-log.txt in the library folder."
+    return WARN, "off: the server only runs while you start it by hand. Turn on: powershell -File server\\server_on.ps1"
+
+
 def run_test(script, runner=subprocess.run):
     """(level, words) for one of our self-tests. Its folders are throwaway ones."""
     try:
@@ -193,7 +214,7 @@ def check_phone_copies(conn, root):
 
 
 def run_doctor(root, port=PORT, tailscale=tailscale_info, runner=subprocess.run, guard=GUARD_TEST, library_test=LIBRARY_TEST, say=print,
-               backup_dir=BACKUP_DIR):
+               backup_dir=BACKUP_DIR, task=task_state):
     """Prints a line per check and one overall line. Returns the exit code: 2 if anything failed."""
     levels = []
 
@@ -211,7 +232,11 @@ def run_doctor(root, port=PORT, tailscale=tailscale_info, runner=subprocess.run,
         say("SKIP  Server, scan age, songs and fingerprint need the library.")
     else:
         line("Library marker", (PASS, "found."))
-        line("Server", check_server(root, address, port))
+        server = check_server(root, address, port)
+        line("Server", server)
+        state = task()
+        if state:  # None: Windows couldn't be asked (or a test): no line
+            line("Server stays up", check_stays_up(state, probe(LOOPBACK, port) not in (None, "odd")))  # the server itself is asked, not just the job
         try:
             conn = connect_readonly(root)
             try:

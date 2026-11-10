@@ -1,5 +1,5 @@
 // The frame every screen sits in (overhaul wave 1, Wall): the floating tab bar (Home, Library) with the round search
-// button beside it. The mini player floats just above (Player.tsx). The tabs only say where I am (nav.tsx): they never
+// button beside it (wave 2: it opens the search screen). The mini player floats just above (Player.tsx). The tabs only say where I am (nav.tsx): they never
 // touch the player, so tapping them as fast as I like can't stall or reload it.
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
@@ -45,9 +45,9 @@ export function TabBar() {
         })}
       </Glass>
       <Glass style={s.search} radius={S.search / 2}>
-        {/* straight to the search box, keyboard up */}
-        <Tap style={s.searchTap} radius={S.search / 2} onPress={() => openSearch('')} accessibilityLabel="Search">
-          <Icon name="search" size={24} color={C.dim} />
+        {/* straight to the search screen, keyboard up; lit while I'm there */}
+        <Tap style={s.searchTap} radius={S.search / 2} onPress={() => openSearch('')} accessibilityRole="tab" accessibilityState={{ selected: tab === 'search' }} accessibilityLabel="Search">
+          <Icon name="search" size={24} color={tab === 'search' ? C.accent : C.dim} />
         </Tap>
       </Glass>
     </View>

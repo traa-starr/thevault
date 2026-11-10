@@ -247,3 +247,76 @@ export function searchFromLink(link: string | null | undefined): { q: string } |
   }
   return { q: q.trim().slice(0, 200) };
 }
+
+// ---------- the search screen's list (overhaul wave 2) ---------------------------------------------------------------
+// `findSongs` is the search Library's box ran, moved here whole when search became its own screen: the same ladder,
+// the same order, the same cap. The screen and its test (searchScreen.test.mjs) both run it from here.
+export type Found<S, T extends SearchTag> = {
+  /** The rows, best first: titles holding every word, then songs with a tagged line sharing a word (best line
+   * first), then titles sharing only some words. A song sharing a word is never hidden. */
+  list: S[];
+  /** A row's tagged line, if one matched: shown on the row, and where the song starts when tapped. */
+  hitOf: Map<string, SongHit<T>>;
+  /** Songs with a matching line past the cap. */
+  more: number;
+  stems: string[];
+  typed: string;
+  ms: number;
+  tags: number;
+};
+
+/** `base`: the songs that may show (one row per family). `rowOf`: a version's line counts for its family's row. */
+export function findSongs<S extends { id: string; title: string }, T extends SearchTag>(
+  base: readonly S[],
+  allTags: T[],
+  rowOf: (id: string) => string,
+  query: string,
+  clock: () => number = () => performance.now(),
+): Found<S, T> {
+  const started = clock();
+  const asked = queryStems(query);
+  const words = new Set(asked);
+  const byId = new Map(base.map((song) => [song.id, song]));
+  const index = indexFor(allTags);
+  const { rows: hits, total } = searchSongs(index, query, undefined, (id) => byId.has(id), rowOf);
+  const hitOf = new Map(hits.map((hit) => [hit.songId, hit]));
+  // titles by word, the same stems as tags: every word in the title (or the text as typed) first, then tag matches,
+  // then titles sharing only some words, so a song sharing a word is never hidden
+  const wanted = query.trim().toLowerCase();
+  const share = base.map((song) => {
+    const own = new Set(stems(song.title));
+    const hit = asked.filter((w) => own.has(w)).length;
+    return { song, all: song.title.toLowerCase().includes(wanted) || (asked.length > 0 && words.size > 0 && [...words].every((w) => own.has(w))), some: hit > 0 };
+  });
+  const byTitle = share.filter((one) => one.all).map((one) => one.song);
+  const listed = new Set(byTitle.map((song) => song.id));
+  const byTag = hits.filter((hit) => !listed.has(hit.songId)).map((hit) => byId.get(hit.songId)!).filter(Boolean);
+  byTag.forEach((song) => listed.add(song.id));
+  const someTitle = share.filter((one) => one.some && !listed.has(one.song.id)).map((one) => one.song);
+  return { list: [...byTitle, ...byTag, ...someTitle], hitOf, more: Math.max(0, total - hits.length), stems: asked, typed: typedWord(query), ms: clock() - started, tags: allTags.length };
+}
+
+// ---------- recent searches ------------------------------------------------------------------------------------------
+export const RECENTS_KEPT = 8;
+const RECENT_MAX_CHARS = 60;
+
+/** A search that led somewhere (a result was tapped) goes to the top. The same words again, in any letter case, move
+ * up instead of showing twice. Words with nothing to search for aren't kept. */
+export function addRecent(list: readonly string[], text: string, kept = RECENTS_KEPT): string[] {
+  const words = text.replace(/\s+/g, ' ').trim().slice(0, RECENT_MAX_CHARS);
+  if (!queryStems(words).length) return [...list];
+  return [words, ...list.filter((one) => one.toLowerCase() !== words.toLowerCase())].slice(0, kept);
+}
+
+/** The saved file back as a list. Anything unreadable (a fresh install, a half-written file) is an empty list. */
+export function readRecents(text: string | null | undefined, kept = RECENTS_KEPT): string[] {
+  try {
+    const data: unknown = JSON.parse(text ?? '');
+    const list = (data as { recent?: unknown })?.recent;
+    if (!Array.isArray(list)) return [];
+    return list.filter((one): one is string => typeof one === 'string' && one.trim().length > 0).slice(0, kept);
+  } catch {
+    return [];
+  }
+}
+export const writeRecents = (list: readonly string[]) => JSON.stringify({ v: 1, recent: list });

@@ -47,6 +47,30 @@ const QUEUE = "app.player.open('queue')";
 const PULL = [195, 76, 330]; // the grab area at the top of the sheet, pulled 254 pt down and held
 const VERSION_TITLES = { s1: 'Midnight Run (rough 3)', 's1-1': 'Midnight Run (rough 2)', 's1-2': 'Midnight Run (first take)' };
 
+// ---- overhaul wave 2 (2026-11-10): the search screen, Library in Wall's look, Home's five new rows ----
+const SEARCH = "app.openSearch('')";
+const NO_SONG = { sheet: 'none', song: null };
+const RECENT = { 'recent-searches.json': JSON.stringify({ v: 1, recent: ['beat switch', 'drip', 'hook comes in', 'too much'] }) };
+const RATINGS = { s1: 'fire', s3: 'shelved', s4: 'fire', s7: 'shelved', s10: 'fire', s12: 'fire' };
+// the hard cases in one library: a 70-character title (s1, a Favorite with 3 versions), a 30-line song (s3, Archived),
+// a cloud-only song and a missing file (can't play), plays, a second version group
+const full = hard.map((one, i) => ({ ...one, rating: RATINGS[one.id] ?? null, where: i === 10 ? 'cloud' : i === 13 ? 'gone' : 'laptop' }));
+const FULL_TAGS = tagFile([
+  ...tags(30).map((t) => ({ ...t, id: `a${t.id}`, song_id: 's3' })),
+  { ...at(12, "drippin' on the beat, double it", 0), id: 'b0', song_id: 's5' },
+  { ...at(47, 'the beat drops here', 1), id: 'b1', song_id: 's5' },
+  { ...at(95, 'too much drip in the mix', 2), id: 'b2', song_id: 's8' },
+  { ...at(130, LONG, 3), id: 'b3', song_id: 's1' },
+  { ...at(20, 'hook comes in', 4), id: 'b4', song_id: 's9-1' },
+]);
+const rich = (fix = {}, steps = []) => whole({ songs: full, versions: { s1: 3, s9: 2 }, titles: { ...VERSION_TITLES, s1: HARD_TITLES[0] }, onPhone: ['s1', 's3', 's4', 's13'], ...fix, files: { ...FULL_TAGS, ...(fix.files ?? {}) }, player: { ...NO_SONG, ...(fix.player ?? {}) } }, steps);
+// the size of the real library, for the flick
+const BIG = Array.from({ length: 1395 }, (_, i) => ({
+  id: `b${i}`, title: i === 700 ? HARD_TITLES[0] : `${titles[i % titles.length]} ${Math.floor(i / titles.length) + 1}`, mine: i % 2 ? 'mine' : 'unknown', sorted: true, where: 'laptop',
+  date: `${2014 + (i % 12)}-0${(i % 9) + 1}-${10 + (i % 18)}`, folder: 'x', size: 4e6, rating: i % 9 === 0 ? 'fire' : i % 14 === 0 ? 'shelved' : null, plays: 0, last_heard: null, length: 200,
+}));
+const SCROLL = (to) => `document.querySelectorAll('div').forEach((el) => { if (el.offsetParent && el.scrollHeight > el.clientHeight + 40 && el.scrollWidth <= el.clientWidth + 1) el.scrollTop = ${to}; })`;
+
 export const fixtures = [
   { name: 'player-0-tags', ...player({ player: playing(), files: tagFile([]) }) },
   { name: 'player-0-tags-list-open', ...player({ player: playing(), files: tagFile([]) }, ["app.tagLine.toggleList('s1')"]) },
@@ -81,12 +105,6 @@ export const fixtures = [
   { name: 'rate-none-session', ...player({ player: playing(), songs, files: tagFile(tags(2)) }, ["app.session.start('http://laptop')"]) },
   { name: 'rate-fire-session', same: 'rate-none-session', ...player({ player: playing(), songs: rated({ s1: 'fire' }), files: tagFile(tags(2)) }, ["app.session.start('http://laptop')"]) },
   { name: 'rate-sort-card-has-none', ...player({ player: playing({ sorting: true, song: { ...song, mine: 'unknown', sorted: false } }), files: tagFile([]) }) },
-  { name: 'library-rated', fix: { screen: 'library', songs: rated({ s1: 'fire', s3: 'shelved', s4: 'fire', s7: 'shelved' }), onPhone: ['s1', 's3'] } },
-  { name: 'library-fire-filter', fix: { screen: 'library', songs: rated({ s1: 'fire', s3: 'shelved', s4: 'fire' }) }, steps: ["app.tapText('Fire')"] },
-  { name: 'search-typing-half-word', fix: { screen: 'library', songs: rated({ s8: 'shelved' }), files: SEARCH_TAGS }, steps: ["app.type('dri')"] },
-  { name: 'search-shelved-only-hit', fix: { screen: 'library', songs: rated({ s8: 'shelved' }), files: SEARCH_TAGS }, steps: ["app.type('too much')"] },
-  { name: 'library', fix: { screen: 'library', songs } },
-  { name: 'library-shuffle-unsorted', fix: { screen: 'library', songs, player: playing({ order: { shuffle: true }, pool: 'unsorted' }) } },
   // Previous / Play / Next centred from every place the player opens (2026-11-08 review)
   { name: 'centre-library', ...player({ player: playing(), files: tagFile(tags(2)) }) },
   { name: 'centre-sort-card', ...player({ player: playing({ sorting: true, song: { ...song, mine: 'unknown', sorted: false } }), files: tagFile([]) }) },
@@ -102,12 +120,6 @@ export const fixtures = [
   { name: 'info-after-session', same: 'info-before-session', ...player({ player: playing({ time: 15, duration: 214 }), songs, files: tagFile(tags(3)) }, ["app.session.start('http://laptop')"]) },
   { name: 'info-after-session-time-left', same: 'info-before-session', ...player({ player: playing({ time: 15, duration: 3725, timeLeft: true }), songs, files: tagFile(tags(3)) }, ["app.session.start('http://laptop')"]) },
   { name: 'centre-finding-start', ...player({ player: playing({ time: 15, duration: 0 }), songs, files: tagFile([]) }, ["app.session.start('http://laptop')"]) },
-  // search on the phone: empty field, a match, no match, many results, keyboard up
-  { name: 'search-empty', fix: { screen: 'library', songs, files: SEARCH_TAGS } },
-  { name: 'search-match', fix: { screen: 'library', songs, files: SEARCH_TAGS }, steps: ["app.type('drip on the beat')"] },
-  { name: 'search-no-match', fix: { screen: 'library', songs, files: SEARCH_TAGS }, steps: ["app.type('zzqx')"] },
-  { name: 'search-emoji', fix: { screen: 'library', songs, files: SEARCH_TAGS }, steps: ["app.type('😀😀')"] },
-  { name: 'search-many-keyboard', fix: { screen: 'library', songs: MANY, files: MANY_TAGS }, steps: ["app.type('hook')", 'app.keyboard()'] },
   { name: 'sort', fix: { screen: 'sort', routes: { '/sorting': SORTING } } },
   // ---- the whole app (2026-11-09): Home, the bar (mini player), the sheet as a layer, Queue from every opener ----
   // ---- overhaul wave 1 (2026-11-10): Wall's Home, the tabs, the mini player that grows, Deal's player ----
@@ -155,4 +167,48 @@ export const fixtures = [
   { name: 'queue-mid-close-mini-on-sort', ...whole({}, [SORT, QUEUE]), drag: PULL },
   { name: 'queue-mid-close-mini-on-home', ...whole({}, [QUEUE]), drag: PULL },
   { name: 'player-mid-close-on-library', ...whole({}, [LIB, OPEN]), drag: PULL },
+  // ---- wave 2: the search screen. Empty (recents, none), typing, results, no results, the keyboard, hard cases ----
+  { name: 'search-empty-recents', ...rich({ files: RECENT }, [SEARCH]) },
+  { name: 'search-empty-no-recents', ...rich({}, [SEARCH]) },
+  { name: 'search-empty-keyboard', ...rich({ files: RECENT }, [SEARCH, 'app.keyboard()']) },
+  { name: 'search-typing-half-word', ...rich({}, [SEARCH, "app.type('dri')", 'app.keyboard()']) },
+  { name: 'search-results', ...rich({}, [SEARCH, "app.type('drip on the beat')"]) },
+  { name: 'search-results-mini-player', ...rich({ player: { sheet: 'none', song } }, [SEARCH, "app.type('beat')"]) },
+  { name: 'search-no-results', ...rich({}, [SEARCH, "app.type('zzqx')", 'app.keyboard()']) },
+  { name: 'search-symbols-only', ...rich({}, [SEARCH, "app.type('?!')"]) },
+  { name: 'search-long-line-and-title', ...rich({}, [SEARCH, "app.type('rewritten cadence')"]) },
+  { name: 'search-title-70-chars', ...rich({}, [SEARCH, "app.type('hook finally')"]) },
+  { name: 'search-version-line-on-main', ...rich({}, [SEARCH, "app.type('hook comes')"]) },
+  { name: 'search-archived-hit', ...rich({}, [SEARCH, "app.type('too much')"]) },
+  { name: 'search-many-keyboard', ...whole({ songs: MANY, files: MANY_TAGS, player: NO_SONG }, [SEARCH, "app.type('hook')", 'app.keyboard()']) },
+  { name: 'search-many-scrolled-to-end', ...whole({ songs: MANY, files: MANY_TAGS, player: NO_SONG }, [SEARCH, "app.type('hook')", 'app.keyboard()', SCROLL(99999)]) },
+  { name: 'search-laptop-off', ...rich({ laptopOff: true }, [SEARCH, "app.type('beat')"]) },
+  { name: 'search-before-songs', ...whole({ songs: null, player: NO_SONG }, [SEARCH, "app.type('beat')"]) },
+  { name: 'search-then-cancel-is-home', ...rich({}, [SEARCH, "app.type('beat')", "app.tapText('Cancel')"]) },
+  { name: 'search-from-library-then-back', ...rich({}, [LIB, SEARCH, "app.type('beat')", 'app.closeSearch()']) },
+  { name: 'search-player-over-it', ...rich({ player: { sheet: 'none', song } }, [SEARCH, "app.type('beat')", OPEN]) },
+  // ---- wave 2: Library. Every chip, the empty chip, the orders, select mode, laptop off, the hard rows ----
+  { name: 'library-all', ...rich({}, [LIB]) },
+  { name: 'library-all-mini-player', ...rich({ player: { sheet: 'none', song: { ...song, id: 's4', title: full[3].title } } }, [LIB]) },
+  { name: 'library-chip-mine', ...rich({}, [LIB, "app.tapText('Mine')"]) },
+  { name: 'library-chip-favorites', ...rich({}, [LIB, "app.tapText('Favorites')"]) },
+  { name: 'library-chip-archived', ...rich({}, [LIB, "app.tapText('Archived')"]) },
+  { name: 'library-chip-needs-tags', ...rich({}, [LIB, "app.tapText('Needs tags')"]) },
+  { name: 'library-chip-versions', ...rich({}, [LIB, "app.tapText('Versions')"]) },
+  { name: 'library-chip-unsorted', ...rich({ songs: full.map((one, i) => (i % 5 === 1 ? { ...one, mine: 'unknown', sorted: false } : one)) }, [LIB, "app.tapText('Unsorted')"]) },
+  { name: 'library-chip-empty', ...whole({ songs: played, player: NO_SONG }, [LIB, "app.tapText('Archived')"]) },
+  { name: 'library-order-a-to-z', ...rich({}, [LIB, "app.tapText('Newest')"]) },
+  { name: 'library-order-most-played', ...rich({}, [LIB, "app.tapText('Newest')", "app.tapText('A to Z')"]) },
+  { name: 'library-select-mode', ...rich({}, [LIB, "app.openLibrarySelect('s4')"]) },
+  { name: 'library-shuffle-on', ...rich({ player: { sheet: 'none', song, order: { shuffle: true }, pool: 'mine' } }, [LIB]) },
+  { name: 'library-laptop-off', ...rich({ laptopOff: true }, [LIB]) },
+  { name: 'library-see-all-needs-tags', ...rich({}, ["app.openLibrary({ chip: 'untagged', sort: 'date' })"]) },
+  { name: 'library-see-all-most-played', ...rich({}, [LIB, "app.openLibrarySelect('s4')", HOME, "app.openLibrary({ chip: 'all', sort: 'plays' })"]) },
+  { name: 'library-1395-flick', ...whole({ songs: BIG, player: NO_SONG }, [LIB]), check: 'app.scrollCheck(1395)' },
+  // ---- wave 2: Home with its five new rows, top and scrolled; every row empty ----
+  { name: 'home-full', ...rich({}) },
+  { name: 'home-full-scrolled', ...rich({}, [SCROLL(560)]) },
+  { name: 'home-full-scrolled-to-end', ...rich({ player: { sheet: 'none', song } }, [SCROLL(9999)]) },
+  { name: 'home-every-row-empty', ...whole({ songs: [], files: tagFile([]), player: NO_SONG }) },
+  { name: 'home-versions-card-opens-group', ...rich({}, ["app.versions.openVersions('s1')"]) },
 ];

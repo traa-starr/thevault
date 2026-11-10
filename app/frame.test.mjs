@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { findGlass, findSymbols } from './nativePieces.ts';
-import { closeQueue, layers, openSheet, pullCloses, reachable, slideController, sortClosed, sortOpened, swipeDown, tabTapped } from './sheetCore.ts';
+import { closeQueue, layers, openSheet, pullCloses, reachable, searchOpened, slideController, sortClosed, sortOpened, swipeDown, tabTapped } from './sheetCore.ts';
 import { C, coveredBelow, S } from './theme.ts';
 import { contrast, tileOf, TINT_SHARE } from './tileColor.ts';
 
@@ -126,7 +126,7 @@ function app() {
     taps: {
       home: () => tap(can().tabs, () => (place = tabTapped(place, 'home'))),
       library: () => tap(can().tabs, () => (place = tabTapped(place, 'library'))),
-      search: () => tap(can().tabs, () => (place = tabTapped(place, 'library'))), // the round button: Library, box in focus
+      search: () => tap(can().tabs, () => (place = searchOpened(place))), // the round button: the search screen, box in focus
       sort: () => tap(can().tabs && place.tab === 'home', () => (place = sortOpened(place))), // Home's More
       sortBack: () => tap(!can().sheet && place.sort, () => (place = sortClosed(place))),
       mini: () => tap(can().mini, () => setNav(openSheet(nav, 'player'))),
@@ -164,7 +164,7 @@ function app() {
         else if (a.taps[names[Math.floor(rnd() * names.length)]]()) taps++;
         a.p.tick(rnd() < 0.5 ? 5 : Math.floor(rnd() * 200)); // often the very next frame: mid-grow, mid-close
         // at every moment: one tab, and the sheet takes touches exactly when the player says it's open
-        assert.ok(['home', 'library'].includes(a.place().tab));
+        assert.ok(['home', 'library', 'search'].includes(a.place().tab));
         assert.equal(reachable(a.nav(), a.place(), true).sheet, a.nav().sheet !== 'none');
       }
       a.p.tick(3000); // let everything land
@@ -232,7 +232,8 @@ function app() {
     ['the mini player over Sort', (a) => (a.taps.sort(), a.p.tick(50), a.taps.mini()), { tab: 'home', sort: true }],
     ['a Home card', (a) => a.taps.card(), { tab: 'home', sort: false }],
     ['a Library row', (a) => (a.taps.library(), a.p.tick(50), a.taps.card()), { tab: 'library', sort: false }],
-    ['a search result (the search button, then a row)', (a) => (a.taps.search(), a.p.tick(50), a.taps.card()), { tab: 'library', sort: false }],
+    ['a search result (the search button, then a row)', (a) => (a.taps.search(), a.p.tick(50), a.taps.card()), { tab: 'search', sort: false }],
+    ['the mini player on the search screen', (a) => (a.taps.search(), a.p.tick(50), a.taps.mini()), { tab: 'search', sort: false }],
   ];
   for (const [name, open, where] of openers) {
     ok(`swipe down from the player opened by ${name}: the mini player, same screen, like the down button`, () => {
@@ -264,7 +265,7 @@ function app() {
     });
   }
   ok('Queue swiped up from the mini player: a swipe down lands back on the mini player, never on the player', () => {
-    for (const tab of ['home', 'library']) {
+    for (const tab of ['home', 'library', 'search']) {
       const a = app();
       a.taps[tab]();
       a.p.tick(50);
@@ -290,9 +291,9 @@ function app() {
     assert.ok(nav.includes('setPlace(tabTapped(place, tab))') && nav.includes('setPlace(sortOpened(place))') && nav.includes('setPlace(sortClosed(place))'), 'the place moves by the tested rules');
     assert.ok(!/player\.(open|playList|toggle|next)\(/.test(nav.slice(nav.indexOf('export const goTab'), nav.indexOf('export const closeSort'))), 'a tab tap never calls the player');
     const app = code('./App.tsx');
-    const order = ['<Home ', '<Library ', '<Sort ', '<UndoToast />', '<TabBar />', '<MiniPlayer />', '<PlayerSheet />', '<VersionsLayer '].map((tag) => app.indexOf(tag));
+    const order = ['<Home ', '<Library ', '<SearchScreen ', '<Sort ', '<UndoToast />', '<TabBar />', '<MiniPlayer />', '<PlayerSheet />', '<VersionsLayer '].map((tag) => app.indexOf(tag));
     assert.ok(order.every((at, i) => at > 0 && (i === 0 || at > order[i - 1])), 'screens first, then the tab bar, mini player, player sheet and Versions above them');
-    assert.ok(/\(tab !== 'home' \|\| sort\) && s\.away/.test(app) && /\(tab !== 'library' \|\| sort\) && s\.away/.test(app) && /away: \{ display: 'none' \}/.test(app), 'the tab not showing is hidden, never unmounted');
+    assert.ok(/\(tab !== 'home' \|\| sort\) && s\.away/.test(app) && /\(tab !== 'library' \|\| sort\) && s\.away/.test(app) && /\(tab !== 'search' \|\| sort\) && s\.away/.test(app) && /away: \{ display: 'none' \}/.test(app), 'the tab not showing is hidden, never unmounted');
     assert.ok(!/\bModal\b/.test(app) && !/\bModal\b/.test(code('./Frame.tsx')) && !/\bModal\b/.test(code('./Home.tsx')), 'no iOS pop-up sheet anywhere in the frame');
     const player = code('./Player.tsx');
     assert.ok(player.includes("pointerEvents={visible ? 'auto' : 'none'}"), 'the sheet takes touches only while the player says it is open');

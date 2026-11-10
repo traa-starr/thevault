@@ -42,6 +42,8 @@ export const S = {
   row: 60,
   rowTile: 44,
   cardTile: 132,
+  /** Home's lower rows (wave 2). */
+  cardSmall: 104,
   /** The player's tile: a square, at most this share of the screen's height. */
   playerTileMax: 0.42,
   mini: 60,

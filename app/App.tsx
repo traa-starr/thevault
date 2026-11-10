@@ -1,4 +1,4 @@
-// The app's frame (overhaul wave 1): the tab screens (Home, Library) with Sort opened over them, then the tab bar, the
+// The app's frame (overhaul wave 1): the tab screens (Home, Library, and wave 2's Search) with Sort opened over them, then the tab bar, the
 // mini player and the player sheet above, as siblings, so changing screen never touches the player. Home and Library
 // both stay drawn (the one not showing is only hidden): a tab change never loads the songs again.
 // The laptop's address is typed on Home and stays on the phone, never in the repo.
@@ -12,6 +12,7 @@ import { keychain } from './keychain';
 import { closeSort, openSearch, placeNow, usePlace } from './nav';
 import { TabBar } from './Frame';
 import Home from './Home';
+import SearchScreen from './SearchScreen';
 import { C, coveredBelow, T } from './theme';
 import { searchFromLink } from './search';
 import { offline } from './offline';
@@ -130,13 +131,13 @@ export default function App() {
     hang.start(() => {
       const { sheet } = player.now();
       const at = placeNow();
-      const where = at.sort ? 'Sort' : at.tab === 'library' ? 'Library' : 'Home';
+      const where = at.sort ? 'Sort' : at.tab === 'library' ? 'Library' : at.tab === 'search' ? 'Search' : 'Home';
       return sheet === 'none' ? where : `${where}+${sheet}`;
     }, AppState.currentState === 'active');
     return () => hang.setActive(false);
   }, []);
 
-  // a lock-screen Shortcut's link (thevault://search): straight to the search box, from a cold start or from the back
+  // a lock-screen Shortcut's link (thevault://search): straight to the search screen, from a cold start or from the back
   const addressNow = useRef(address);
   addressNow.current = address;
   useEffect(() => {
@@ -252,6 +253,13 @@ export default function App() {
         {url ? (
           <View style={[s.screen, { paddingBottom: coveredBelow(true, !!song) }, (tab !== 'library' || sort) && s.away]}>
             <Library url={url} />
+          </View>
+        ) : null}
+        {/* Search: its own screen under the same tab bar, kept drawn like the other two. Its list makes its own room
+            above the keyboard, or above the tab bar and mini player */}
+        {url ? (
+          <View style={[s.screen, (tab !== 'search' || sort) && s.away]}>
+            <SearchScreen url={url} showing={tab === 'search' && !sort} />
           </View>
         ) : null}
         {sort && url ? (
