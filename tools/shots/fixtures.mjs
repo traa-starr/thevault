@@ -72,6 +72,13 @@ const BIG = Array.from({ length: 1395 }, (_, i) => ({
 }));
 const SCROLL = (to) => `document.querySelectorAll('div').forEach((el) => { if (el.offsetParent && el.scrollHeight > el.clientHeight + 40 && el.scrollWidth <= el.clientWidth + 1) el.scrollTop = ${to}; })`;
 
+// ---- overhaul wave 4 (2026-11-11): Queue, Versions, Compare, Settings, the whole-app pass ----
+const SETTINGS = 'app.openSettings()';
+const SETS = { ...SORTING, sets: [{ id: 'f1', name: 'FL Studio Projects/2025', kind: 'folder', songs: songs.slice(0, 6).map((one) => one.id) }, { id: 'n1', name: 'Midnight Run', kind: 'name', songs: ['s1'] }] };
+// the card in front says its song's title and date; the card behind shows no words. The first card is Midnight Run
+// (2025-01-10), the next No Sleep 2: after a throw the next one must be up and the first one's date gone
+const CARD_SHOWS = (title, not) => `(() => { const t = document.body.innerText; return { problems: [...(t.includes(${JSON.stringify(title)}) ? [] : ['the card in front is not ${title}']), ...(${JSON.stringify(not)} && t.includes(${JSON.stringify(not)}) ? ['${not} is still on screen'] : [])], note: 'card in front: ${title}' }; })()`;
+
 export const fixtures = [
   { name: 'player-0-tags', ...player({ player: playing(), files: tagFile([]) }) },
   { name: 'player-0-tags-list-open', ...player({ player: playing(), files: tagFile([]) }, ["app.tagLine.toggleList('s1')"]) },
@@ -154,12 +161,13 @@ export const fixtures = [
   { name: 'library-mini-player', ...whole({}, [LIB]) },
   { name: 'sort-mini-player', ...whole({}, [SORT]) },
   { name: 'cards', ...whole({ player: { sheet: 'none' } }, [SORT, "app.tapText('Cards · 15 left')"]) },
-  // ---- overhaul wave 3 (2026-11-11): Deal's swipe card. The fake player saves no verdict, so after a throw the same
-  // song is back at rest: that is the "nothing left on the next card" proof ----
+  // ---- overhaul wave 3 (2026-11-11): Deal's swipe card. Wave 4: the fake player saves the verdict like the real one,
+  // so after a throw the next song's card is up, at rest, with no stamp or tilt left on it ----
   { name: 'cards-mid-swipe-right', ...whole({ player: { sheet: 'none' } }, [SORT, CARDS]), drag: [195, 400, 285, 390] },
   { name: 'cards-mid-swipe-left', ...whole({ player: { sheet: 'none' } }, [SORT, CARDS]), drag: [195, 400, 85, 410] },
   { name: 'cards-mid-swipe-up', ...whole({ player: { sheet: 'none' } }, [SORT, CARDS]), drag: [195, 420, 205, 300] },
-  { name: 'cards-after-throw', ...whole({ player: { sheet: 'none' } }, [SORT, CARDS]), drag: [195, 400, 360, 390], release: true },
+  { name: 'cards-start', ...whole({ player: { sheet: 'none' } }, [SORT, CARDS]), check: CARD_SHOWS('2025-01-10', 'No Sleep 2') },
+  { name: 'cards-after-throw', ...whole({ player: { sheet: 'none' } }, [SORT, CARDS]), drag: [195, 400, 360, 390], release: true, check: CARD_SHOWS('No Sleep 2', '2025-01-10') },
   { name: 'cards-last-song', ...whole({ player: { sheet: 'none' }, routes: { '/status': { songs: 1395 }, '/sorting': { ...SORTING, songs: SORTING.songs.slice(0, 1) } } }, [SORT, "app.tapText('Cards · 1 left')"]) },
   { name: 'cards-not-sure-pile', ...whole({ player: { sheet: 'none' }, files: { 'not-sure.json': JSON.stringify(['s2', 's5']) } }, [SORT, "app.tapText('Not sure · 2')"]) },
   { name: 'cards-hard-title', ...whole({ player: { sheet: 'none' }, routes: { '/status': { songs: 1395 }, '/sorting': { ...SORTING, songs: SORTING.songs.map((one, i) => (i === 0 ? { ...one, title: HARD_TITLES[0], where: 'cloud' } : one)) } } }, [SORT, CARDS]) },
@@ -223,4 +231,31 @@ export const fixtures = [
   { name: 'home-full-scrolled-to-end', ...rich({ player: { sheet: 'none', song } }, [SCROLL(9999)]) },
   { name: 'home-every-row-empty', ...whole({ songs: [], files: tagFile([]), player: NO_SONG }) },
   { name: 'home-versions-card-opens-group', ...rich({}, ["app.versions.openVersions('s1')"]) },
+  // ---- wave 4 ----
+  { name: 'queue-empty', ...whole({ upNext: [] }, [LIB, OPEN, QUEUE]) },
+  { name: 'queue-hard-titles', ...whole({ songs: hard, upNext: hard.slice(0, 8).map((one) => one.id), player: { song: { ...song, title: HARD_TITLES[0] }, wanted: false } }, [LIB, QUEUE]) },
+  { name: 'queue-before-songs', ...whole({ songs: null, titles: {} }, [QUEUE]) },
+  { name: 'queue-sort-card', ...whole({ player: { sorting: true } }, [SORT, OPEN, QUEUE]) },
+  { name: 'versions-sheet-playing', ...whole({ versions: { s1: 3 }, titles: VERSION_TITLES }, [LIB, "app.versions.openVersions('s1')"]) },
+  { name: 'versions-menu', ...whole({ versions: { s1: 3 }, titles: VERSION_TITLES, picked: ['s1'] }, [LIB, "app.versions.openVersions('s1')", "app.tapText('Midnight Run (rough 2)')"]) },
+  { name: 'versions-menu-main', ...whole({ versions: { s1: 3 }, titles: { ...VERSION_TITLES, s1: 'Midnight Run (final)' }, player: NO_SONG }, [LIB, "app.versions.openVersions('s1')", "app.tapText('Midnight Run (final)')"]) },
+  { name: 'versions-hard-title', ...rich({}, ["app.versions.openVersions('s1')"]) },
+  { name: 'versions-picker', ...whole({ songs: played }, [LIB, "app.versions.openPicker({ id: 's4', title: 'No Sleep 2', folder: 'x' })"]) },
+  { name: 'compare-first-version', ...whole({ versions: { s1: 3 }, titles: VERSION_TITLES, compare: { ids: ['s1', 's1-1', 's1-2'], at: 0 }, player: { comparing: true } }, [LIB, OPEN]) },
+  { name: 'home-gear', ...whole({ songs: played, player: NO_SONG }) },
+  { name: 'settings', ...whole({ songs: played, player: NO_SONG }, [SETTINGS]) },
+  { name: 'settings-mini-player', ...whole({ songs: played }, [SETTINGS]) },
+  { name: 'settings-editing', ...whole({ songs: played, player: NO_SONG }, [SETTINGS, "app.tapText('Change laptop address')", 'app.keyboard()']) },
+  { name: 'settings-laptop-off', ...whole({ songs: played, laptopOff: true, player: NO_SONG }, [SETTINGS]) },
+  { name: 'settings-then-home-tab', ...whole({ songs: played, player: NO_SONG }, [SETTINGS, HOME]) },
+  { name: 'settings-then-back', ...whole({ songs: played, player: NO_SONG }, [SETTINGS, "app.tapText('Back')"]) },
+  { name: 'sort-set-open', ...whole({ player: NO_SONG, routes: { '/status': { songs: 1395 }, '/sorting': SETS } }, [SORT, "app.tapText('FL Studio Projects/2025')"]) },
+  { name: 'sort-swept-undo', ...whole({ player: NO_SONG, routes: { '/status': { songs: 1395 }, '/sorting': SETS } }, [SORT, "app.tapText('FL Studio Projects/2025')", "app.tapText('All mine')"]) },
+  { name: 'sort-laptop-off', ...whole({ player: NO_SONG, laptopOff: true }, [SORT]) },
+  { name: 'hidden', ...rich({}, [LIB, "app.tapText('Hidden')"]) },
+  { name: 'hidden-laptop-off', ...rich({ laptopOff: true }, [LIB, "app.tapText('Hidden')"]) },
+  { name: 'home-backup-didnt-save', ...whole({ songs: played, saveFailed: true, player: NO_SONG }) },
+  { name: 'home-welcome-back', ...whole({ songs: played, player: NO_SONG, restored: { savedAt: '2026-11-01T10:00:00Z', notSure: 2, changes: 3, lastSong: true, settings: true } }) },
+  { name: 'library-changes-waiting', ...rich({ pending: [{ id: 'p2', kind: 'rating_set', data: { song_id: 's5', value: 'fire' } }], saveFailed: true }, [LIB]) },
+  { name: 'session-version-row', ...player({ player: playing(), songs, versions: { s1: 3 }, titles: VERSION_TITLES, files: tagFile(tags(2)) }, ["app.session.start('http://laptop')"]) },
 ];

@@ -141,24 +141,33 @@ export const dayOf = (now: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
+/** How many times the long-ago half's seats the day's pick is drawn from: the 18 longest-unheard for 6 seats. */
+export const LONG_AGO_POOL = 3;
+
 /** Not played in a while. `songs`: the ones that may show (Mine, not Archived, a family's Main, playable now).
- * Half the row: songs heard, but not for 30 days or more, longest ago first. The rest: songs never played since
- * counting began, a different handful each day (the same all day). Either half fills the other's empty seats. */
+ * Half the row: songs heard, but not for 30 days or more. The rest: songs never played since counting began. Both
+ * halves are a different handful each day and the same all day (wave 4: the long-ago half used to be the same six
+ * until I played them, so a new day changed the row's order, not its songs). The long-ago handful is drawn from the
+ * longest-unheard (three times its seats), then shown longest ago first. Either half fills the other's empty seats. */
 export function notPlayedInAWhile<S extends { id: string }>(songs: readonly S[], plays: PlayMap, now: number, limit = ROW_SONGS): S[] {
   const day = dayOf(now);
+  const byDay = (list: readonly S[], half: string) =>
+    list
+      .map((song) => ({ song, key: hash(`${day}/${half}${song.id}`) }))
+      .sort((a, b) => a.key - b.key || (a.song.id < b.song.id ? -1 : 1))
+      .map((one) => one.song);
   const longAgo = songs
     .filter((song) => {
       const last = plays.get(song.id)?.last ?? 0;
       return last > 0 && now - last >= A_WHILE_DAYS * DAY_MS;
     })
     .sort((a, b) => plays.get(a.id)!.last - plays.get(b.id)!.last);
-  const never = songs
-    .filter((song) => !(plays.get(song.id)?.last ?? 0))
-    .map((song) => ({ song, key: hash(`${day}/${song.id}`) }))
-    .sort((a, b) => a.key - b.key || (a.song.id < b.song.id ? -1 : 1))
-    .map((one) => one.song);
+  const never = byDay(songs.filter((song) => !(plays.get(song.id)?.last ?? 0)), '');
   const half = Math.ceil(limit / 2);
-  const fromLongAgo = longAgo.slice(0, Math.max(half, limit - never.length));
+  const seats = Math.max(half, limit - never.length);
+  const fromLongAgo = byDay(longAgo.slice(0, seats * LONG_AGO_POOL), 'heard/')
+    .slice(0, seats)
+    .sort((a, b) => plays.get(a.id)!.last - plays.get(b.id)!.last);
   return [...fromLongAgo, ...never.slice(0, limit - fromLongAgo.length)];
 }
 

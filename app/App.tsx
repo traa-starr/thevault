@@ -1,19 +1,23 @@
 // The app's frame (overhaul wave 1): the tab screens (Home, Library, and wave 2's Search) with Sort opened over them, then the tab bar, the
 // mini player and the player sheet above, as siblings, so changing screen never touches the player. Home and Library
 // both stay drawn (the one not showing is only hidden): a tab change never loads the songs again.
-// The laptop's address is typed on Home and stays on the phone, never in the repo.
+// The laptop's address is typed on Home the first time, changed in Settings (wave 4), and stays on the phone, never in
+// the repo. Its rules are laptopCore.ts.
 import { File, Paths } from 'expo-file-system';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, AppState, Linking, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AppState, Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 import buildInfo from './build-info.json';
 import Library from './Library';
 import { keychain } from './keychain';
-import { closeSort, openSearch, placeNow, usePlace } from './nav';
+import { loadAddress as loadKept, saveAddress as saveKept, serverUrl, type AddressIO } from './laptopCore';
+import { closeSettings, closeSort, openSearch, openSettings, placeNow, usePlace } from './nav';
 import { TabBar } from './Frame';
 import Home from './Home';
 import SearchScreen from './SearchScreen';
-import { C, coveredBelow, T } from './theme';
+import Settings from './Settings';
+import { Tap } from './Tap';
+import { C, coveredBelow, R, S, T } from './theme';
 import { searchFromLink } from './search';
 import { offline } from './offline';
 import { pauseOutbox, startOutbox } from './outbox';
@@ -26,7 +30,6 @@ import { VersionsLayer } from './Versions';
 import { phoneBackup, survivalStamp, usePhoneBackup } from './phoneBackup';
 import { compare } from './compareStore';
 import { codeVersion, pointUpdatesAt, updateLine, useReloadOnUpdate } from './updates';
-import { logText } from './pressLog';
 import { meter } from './meter';
 import { hang } from './hangWatch';
 import { timing } from './timings';
@@ -40,51 +43,32 @@ globalThis.fetch = ((...args: Parameters<typeof fetch>) => {
 
 timing.setVersion(codeVersion(buildInfo.build)); // so the laptop judges only the newest code's timings
 
-const PORT = 8787;
 // Stamped by the GitHub build; "dev" when run from the laptop.
 const buildLine = buildInfo.build === 'dev'
   ? 'Build: dev'
   : `Build ${buildInfo.build}${buildInfo.commit ? ` · ${buildInfo.commit}` : ''}${buildInfo.date ? ` · ${buildInfo.date}` : ''}`;
 const TIMEOUT_MS = 5000;
+const LAPTOP_OFF = 'Laptop not reachable';
 const addressFile = () => new File(Paths.document, 'laptop-address.txt');
 
 const ADDRESS_KEY = 'laptop-address';
 
-const writeAddressFile = (address: string) => {
-  const file = addressFile();
-  if (!file.exists) file.create();
-  file.writeSync(address);
-};
-
 // The address lives in a file, and in the Keychain too: a reinstall wipes the file, the Keychain gives it back.
-const loadAddress = () => {
-  const file = addressFile();
-  const onFile = file.exists ? file.textSync().trim() : '';
-  if (onFile) {
-    keychain.keep(ADDRESS_KEY, onFile);
-    return onFile;
-  }
-  const kept = keychain.read(ADDRESS_KEY);
-  if (kept) {
-    try {
-      writeAddressFile(kept);
-    } catch {
-      // a full phone: the Keychain still has it next time
-    }
-  }
-  return kept;
+// What is read and written when is laptopCore.ts (tested); this is only where.
+const addressIO: AddressIO = {
+  readFile: () => {
+    const file = addressFile();
+    return file.exists ? file.textSync() : '';
+  },
+  writeFile: (address) => {
+    const file = addressFile();
+    if (!file.exists) file.create();
+    file.writeSync(address);
+  },
+  readKept: () => keychain.read(ADDRESS_KEY),
+  keep: (address) => keychain.keep(ADDRESS_KEY, address),
 };
-
-const saveAddress = (address: string) => {
-  writeAddressFile(address);
-  keychain.keep(ADDRESS_KEY, address);
-};
-
-const serverUrl = (address: string) => {
-  const withScheme = /^https?:\/\//i.test(address) ? address : `http://${address}`;
-  const url = withScheme.replace(/\/+$/, '');
-  return /:\d+$/.test(url) ? url : `${url}:${PORT}`;
-};
+const loadAddress = () => loadKept(addressIO);
 
 async function songCount(address: string) {
   const abort = new AbortController();
@@ -106,9 +90,8 @@ async function songCount(address: string) {
 export default function App() {
   const [address, setAddress] = useState(loadAddress);
   const [draft, setDraft] = useState(address);
-  const [editing, setEditing] = useState(!address);
   const [line, setLine] = useState('');
-  const { tab, sort } = usePlace();
+  const { tab, sort, settings } = usePlace();
   const { song } = usePlayerPick('song');
   const [stamp] = useState(survivalStamp);
   const { waiting: fresh } = usePhoneBackup();
@@ -117,12 +100,12 @@ export default function App() {
 
   const check = useCallback(async () => {
     if (!address) return;
-    setLine('Checking the laptop…');
+    setLine((was) => was || 'Checking the laptop…'); // the last answer stays until the new one comes
     try {
       const count = await songCount(address);
       setLine(`${count.toLocaleString('en-US')} songs on the laptop`);
     } catch {
-      setLine('Laptop not reachable');
+      setLine(LAPTOP_OFF);
     }
   }, [address]);
 
@@ -131,7 +114,7 @@ export default function App() {
     hang.start(() => {
       const { sheet } = player.now();
       const at = placeNow();
-      const where = at.sort ? 'Sort' : at.tab === 'library' ? 'Library' : at.tab === 'search' ? 'Search' : 'Home';
+      const where = at.settings ? 'Settings' : at.sort ? 'Sort' : at.tab === 'library' ? 'Library' : at.tab === 'search' ? 'Search' : 'Home';
       return sheet === 'none' ? where : `${where}+${sheet}`;
     }, AppState.currentState === 'active');
     return () => hang.setActive(false);
@@ -187,21 +170,22 @@ export default function App() {
     return () => sub.remove();
   }, [check]);
 
-  const save = () => {
-    const next = draft.trim();
-    if (!next) return;
-    saveAddress(next);
+  /** Saved to the file and the Keychain first, then shown. False: nothing was typed. */
+  const saveTyped = (typed: string) => {
+    const next = saveKept(addressIO, typed);
+    if (!next) return false;
     setAddress(next);
-    setEditing(false);
+    return true;
   };
+  const save = () => void saveTyped(draft);
 
   // back on Home: the laptop's line is asked again (the old Back from Library did this)
   useEffect(() => {
     if (tab === 'home' && !sort) check();
-  }, [tab, sort]);
+  }, [tab, sort, settings]);
 
   const url = address ? serverUrl(address) : '';
-  // first open (or Change laptop address): the box to type it in
+  // first open: the box to type it in (after that it's changed in Settings)
   const addressBox = (
     <View style={s.setup}>
       {fresh && !address ? <Text style={s.line}>Fresh install: type your laptop address, with the laptop on, and everything comes back.</Text> : null}
@@ -217,36 +201,18 @@ export default function App() {
         placeholder="Laptop address"
         placeholderTextColor={C.faint}
       />
-      <Pressable onPress={save}>
-        <Text style={s.link}>Save</Text>
-      </Pressable>
+      <Tap filled style={s.save} radius={22} onPress={save} accessibilityLabel="Save">
+        <Text style={s.saveWord}>Save</Text>
+      </Tap>
     </View>
   );
-  // the bottom of Home: the laptop, and the quiet build line (a long press shows the lock-screen log, 6.7)
-  const about = (
-    <View style={s.about}>
-      {address && editing ? addressBox : address ? (
-        <>
-          <Text style={s.line}>{line}</Text>
-          <Pressable onPress={() => setEditing(true)}>
-            <Text style={s.link}>Change laptop address</Text>
-          </Pressable>
-        </>
-      ) : null}
-      <Text style={s.small}>Data since {stamp}</Text>
-      <Pressable onLongPress={showPressLog}>
-        <Text style={s.small}>{updateLine(buildLine)}</Text>
-      </Pressable>
-    </View>
-  );
-
   // Only the tab content swaps. The tab bar, mini player, player sheet and Versions sit above it and never reload.
   return (
     <View style={s.root}>
       <StatusBar style="light" />
       <View style={s.screen}>
-        <View style={[s.screen, (tab !== 'home' || sort) && s.away]}>
-          <Home url={url} setup={addressBox} about={about} showing={tab === 'home' && !sort} />
+        <View style={[s.screen, (tab !== 'home' || sort || settings) && s.away]}>
+          <Home url={url} setup={addressBox} onSettings={openSettings} showing={tab === 'home' && !sort && !settings} />
         </View>
         {/* Library: drawn once there's a laptop to ask, then kept, so its songs load once. Its list ends above the
             tab bar and the mini player */}
@@ -267,6 +233,13 @@ export default function App() {
             <Sort url={url} onBack={closeSort} />
           </View>
         ) : null}
+        {/* Settings: over Home, under the same tab bar and mini player. Drawn only while it's open: Back, a tab or
+            search leaves it, and a half-typed address goes with it */}
+        {settings && url ? (
+          <View style={s.screen}>
+            <Settings address={address} line={line} off={line === LAPTOP_OFF} stamp={stamp} build={updateLine(buildLine)} mini={!!song} onSave={saveTyped} onBack={closeSettings} />
+          </View>
+        ) : null}
         <UndoToast />
       </View>
       {/* no tabs until there's a laptop to show songs from: Library isn't drawn yet */}
@@ -278,24 +251,13 @@ export default function App() {
   );
 }
 
-/** The lock-screen log: the last lines here, all of it through the share sheet (Copy is there). */
-function showPressLog() {
-  const text = logText();
-  const tail = text.split('\n').slice(-20).join('\n');
-  Alert.alert('Lock-screen log', tail, [
-    { text: 'Close', style: 'cancel' },
-    { text: 'Copy all', onPress: () => Share.share({ message: text }).catch(() => {}) },
-  ]);
-}
-
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   screen: { flex: 1, backgroundColor: C.bg },
   away: { display: 'none' },
   setup: { gap: 12, marginTop: 8 },
-  about: { marginTop: 28, gap: 8, alignItems: 'flex-start' },
   line: { ...T.meta, fontSize: 15 },
-  input: { alignSelf: 'stretch', color: C.text, fontSize: 16, backgroundColor: C.raised, borderRadius: 12, padding: 12 },
-  link: { color: C.text, fontSize: 15, paddingVertical: 10 },
-  small: { color: C.faint, fontSize: 12 },
+  input: { alignSelf: 'stretch', height: 48, color: C.text, fontSize: 16, backgroundColor: C.raised, borderRadius: R.field, paddingHorizontal: 12 },
+  save: { alignSelf: 'flex-start', height: S.tap, minWidth: 88, paddingHorizontal: 18, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: C.white, overflow: 'hidden' },
+  saveWord: { color: '#000', fontSize: 15, fontWeight: '700' },
 });

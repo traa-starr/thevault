@@ -118,9 +118,9 @@ Runs alongside Phase 3. 2.7 passed 2026-11-10: overhaul app code may start. Owne
 - [x] O.2 Clickable mockups, 2-3 directions with a design system sketch; I tap through on the phone and pick one *(picked 2026-11-10: Wall base, Deal's player, Deal's swipe card for Sort; DECISIONS)*
 - [x] O.3 Native pieces that don't touch overhaul screens, one full rebuild: fewer locked iOS reports, search URL scheme
   (lock-screen Shortcut), laptop address in the Keychain, haptics *(rebuild installed 2026-11-10; address restored on 2nd reinstall; locked wake-ups to confirm in `timings`)*
-- [ ] O.4 Overhaul build from the picked mockup, in waves (confirmed 2026-11-10): 1 frame (tabs + mini player that grows
+- [x] O.4 Overhaul build from the picked mockup, in waves (confirmed 2026-11-10): 1 frame (tabs + mini player that grows
   into the player) + Home + player; 2 Library + search; 3 Sort as swipe cards (tucked away) + tagging; 4 the rest
-  *(wave 1 phone-verified 2026-11-10, 7 of 7; design system `docs/overhaul/DESIGN-SYSTEM.md`. Wave 2 phone-verified 2026-11-11, 7 of 8 + 3 notes (server-after-restart pending): search screen, Library with chips and tiles, Home's five auto rows, the server that stays up. Wave 3 phone-verified 2026-11-11, 3 of 3 run (fix-ups, laptop-off line, tagging); Sort cards check waits for new songs)*
+  *(wave 1 phone-verified 2026-11-10, 7 of 7; design system `docs/overhaul/DESIGN-SYSTEM.md`. Wave 2 phone-verified 2026-11-11, 7 of 8 + 3 notes (server-after-restart pending): search screen, Library with chips and tiles, Home's five auto rows, the server that stays up. Wave 3 phone-verified 2026-11-11, 3 of 3 run (fix-ups, laptop-off line, tagging); Sort cards check waits for new songs. Wave 4 built 2026-11-11 (Queue, Versions, Compare, Settings, whole-app pass), phone checks pending)*
 - [ ] O.5 Overhaul native pieces (glass, native tabs, SF Symbols, Live Activity) in their own full rebuild, list in
   `docs/overhaul/REBUILD.md` *(SF Symbols and glass phone-verified 2026-11-10 after the rebuild;
   native tabs dropped, DECISIONS; Live Activity last)*

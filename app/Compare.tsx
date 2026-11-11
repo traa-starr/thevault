@@ -8,6 +8,7 @@ import { useEffect, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 import { compare, useCompare } from './compareStore';
 import { dialTarget } from './playOrder';
+import { C } from './theme';
 import { songTitle, useVersions } from './versionStore';
 
 export const WHEEL_ROW = 32;
@@ -102,7 +103,7 @@ export function CompareDial() {
           const dim = i !== sounding || !!compare.refusal(id) || compare.notReady(id);
           return (
             <View key={id} style={s.row}>
-              <Text style={[s.name, dim && s.dim]} numberOfLines={1}>{songTitle(id)}</Text>
+              <Text style={[s.name, dim && s.dim]} numberOfLines={1} ellipsizeMode="middle">{songTitle(id)}</Text>
               <Text style={s.count}>{i + 1}/{ids.length}</Text>
             </View>
           );
@@ -113,10 +114,11 @@ export function CompareDial() {
 }
 
 const s = StyleSheet.create({
-  wheel: { width: WHEEL_WIDTH, height: WHEEL_ROW, borderRadius: WHEEL_ROW / 2, backgroundColor: '#1e1e1e', overflow: 'hidden' },
+  // look (overhaul wave 4): the app's own raised pill with a faint edge; the name white, the count grey. No blue
+  wheel: { width: WHEEL_WIDTH, height: WHEEL_ROW, borderRadius: WHEEL_ROW / 2, backgroundColor: C.raised, borderWidth: StyleSheet.hairlineWidth, borderColor: C.glassEdge, overflow: 'hidden' },
   window: { height: WHEEL_ROW },
   row: { height: WHEEL_ROW, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12 },
-  name: { flexShrink: 1, color: '#8ab4f8', fontSize: 15 },
+  name: { flexShrink: 1, color: C.text, fontSize: 15 },
   dim: { opacity: 0.4 },
-  count: { color: '#666', fontSize: 12, fontVariant: ['tabular-nums'] },
+  count: { color: C.dim, fontSize: 12, fontVariant: ['tabular-nums'] },
 });

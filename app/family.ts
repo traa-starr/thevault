@@ -161,3 +161,16 @@ export function groupEdit(families: Families, ticked: string[]): FamilyEdit | nu
   if (Object.keys(songs).length < 2) return null;
   return make(families, songs);
 }
+
+// ---------- a version's menu (overhaul wave 4: drawn by the app, the same choices the iOS alert had) -------------------
+export type VersionChoice = 'Play' | 'Make main' | 'Keep as Main' | 'Remove from Versions' | 'Not mine' | 'Cancel';
+/** What a version's menu offers, top to bottom. The newest is Main by itself: Keep as Main makes it stay when a newer
+ * version joins, and is gone once it's my pick. Not mine is only for a version that isn't the Main. Cancel is last,
+ * under a gap, where a slip does nothing. */
+export const versionMenu = (isMain: boolean, picked: boolean): VersionChoice[] => [
+  'Play',
+  ...(!isMain ? ['Make main' as const] : picked ? [] : ['Keep as Main' as const]),
+  'Remove from Versions',
+  ...(isMain ? [] : ['Not mine' as const]),
+  'Cancel',
+];

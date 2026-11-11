@@ -240,6 +240,21 @@ def doctor_path():
     check("on but the server isn't answering: a warning that names the log (the job alone proves nothing)", stuck[0] == doctor.WARN and "server-log.txt" in stuck[1])
     off = doctor.check_stays_up("off", True)
     check("off: a warning with the command to turn it on", off[0] == doctor.WARN and "server_on.ps1" in off[1])
+    # the old StartVault job (wave 4, E): doctor says gone or still there, so nobody opens Task Scheduler to look
+    asked = []
+
+    def spy(cmd, **k):
+        asked.append(cmd)
+        return subprocess.CompletedProcess(cmd, 1, b"", b"")
+
+    check("the old job is asked for by its own name, and only asked", doctor.task_state(spy, name=doctor.OLD_TASK) == "off" and asked == [["schtasks", "/query", "/tn", "StartVault"]])
+    check("the server's own job is still asked for by its name", doctor.task_state(spy) == "off" and asked[-1][-1] == doctor.STAYS_UP_TASK)
+    gone = doctor.check_old_launcher("off")
+    check("StartVault gone: a pass that says gone", gone == (doctor.PASS, "gone."))
+    there = doctor.check_old_launcher("on")
+    check("StartVault still there: a warning with the one command that deletes it", there[0] == doctor.WARN and "still there" in there[1] and "Unregister-ScheduledTask -TaskName StartVault" in there[1] and "administrator" in there[1])
+    code = (HERE / "vault_server" / "doctor.py").read_text(encoding="utf-8")
+    check("doctor only asks Windows about jobs, never makes, changes or removes one", code.count('"schtasks"') == 1 and '"/query"' in code and not re.search(r'"/(delete|create|change|end|run)"', code, re.I))
 
 
 def script_path():

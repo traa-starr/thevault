@@ -1,8 +1,8 @@
 // Home (overhaul wave 1, Wall): something to play within one tap. Search, Shuffle and Favorites, what I played
 // lately, and songs I haven't played in a while. Wave 2 adds five rows under those: Recently added, Most played,
 // Favorites, Needs tags, Versions to compare, each with a "See all" that opens Library on the matching chip or order.
-// Sort, the tagging session and the laptop's address are at the bottom under More: reachable in one tap, never in the
-// way. A row with nothing in it isn't drawn (a fresh install shows no blank headings).
+// Sort and the tagging session are at the bottom under More: reachable in one tap, never in the way. The laptop's
+// address and the build line moved to Settings (wave 4), behind the small gear beside the title. A row with nothing in it isn't drawn (a fresh install shows no blank headings).
 // The rows' rules: playLog.ts (the first two) and libraryCore.ts (the five new ones).
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -87,13 +87,13 @@ type Props = {
   url: string;
   /** First open, no address yet: the box to type it in. Shown in place of everything playable. */
   setup: ReactNode;
-  /** Under More: the laptop's line, Change laptop address, the build line. */
-  about: ReactNode;
+  /** The gear beside the title: opens Settings. */
+  onSettings: () => void;
   /** Home is the screen in front (its tab, and Sort not over it). */
   showing: boolean;
 };
 
-export default function Home({ url, setup, about, showing }: Props) {
+export default function Home({ url, setup, onSettings, showing }: Props) {
   const { songs: fresh, families } = useVersions();
   // until the laptop answers (10 s if it's off): the list saved on the phone, so Home is never empty while it waits
   const [saved] = useState(() => loadSongList<LibSong>()?.songs ?? null);
@@ -183,7 +183,15 @@ export default function Home({ url, setup, about, showing }: Props) {
   };
   return (
     <ScrollView style={s.page} contentContainerStyle={[s.content, { paddingBottom: coveredBelow(true, !!playing) + 24 }]} keyboardShouldPersistTaps="handled">
-      <Text style={s.title}>The Vault</Text>
+      <View style={s.titleRow}>
+        <Text style={s.title}>The Vault</Text>
+        {/* no gear until there's a laptop: first run shows the address box below instead */}
+        {url ? (
+          <Tap style={s.gear} radius={22} onPress={onSettings} accessibilityLabel="Settings">
+            <Icon name="settings" size={22} color={C.dim} />
+          </Tap>
+        ) : null}
+      </View>
       <RestoreNotice />
       <WaitingLine />
       <LaptopLine />
@@ -234,7 +242,6 @@ export default function Home({ url, setup, about, showing }: Props) {
           </Tap>
         </>
       )}
-      {about}
     </ScrollView>
   );
 }
@@ -242,7 +249,10 @@ export default function Home({ url, setup, about, showing }: Props) {
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: C.bg },
   content: { paddingTop: 64, paddingHorizontal: S.side },
-  title: { ...T.title, marginBottom: 16 },
+  // the row is exactly as high as the title was, so nothing under it moved when the gear arrived
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 34, marginBottom: 16 },
+  title: { ...T.title },
+  gear: { width: S.tap, height: S.tap, marginRight: -10, alignItems: 'center', justifyContent: 'center' },
   search: { height: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, borderRadius: R.field, backgroundColor: C.raised },
   searchWord: { color: C.dim, fontSize: 17 },
   pair: { flexDirection: 'row', gap: 10, marginTop: 14 },

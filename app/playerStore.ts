@@ -917,7 +917,11 @@ export const player = {
 
   /** On launch: the last library song back in the bar, at its spot, paused. Its list and shuffle come back too. */
   restore(serverUrl: string) {
-    if (state.order) return;
+    // a song is already there (the address was changed in Settings): only where the next song is fetched from changes
+    if (state.order) {
+      if (serverUrl) url = serverUrl;
+      return;
+    }
     try {
       const file = lastPlayFile();
       if (!file.exists) return;

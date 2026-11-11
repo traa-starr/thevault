@@ -4,13 +4,13 @@
 import { useSyncExternalStore } from 'react';
 import { player } from './playerStore';
 import type { Chip, SortBy } from './libraryCore';
-import { searchLeft, searchOpened, sortClosed, sortOpened, tabTapped, type Place, type Tab } from './sheetCore';
+import { samePlace, searchLeft, searchOpened, settingsClosed, settingsOpened, sortClosed, sortOpened, tabTapped, type Place, type Tab } from './sheetCore';
 
 export type { Place, Tab };
 let place: Place = { tab: 'home', sort: false };
 const placeListeners = new Set<() => void>();
 const setPlace = (next: Place) => {
-  if (next.tab === place.tab && next.sort === place.sort) return;
+  if (samePlace(next, place)) return;
   place = next;
   placeListeners.forEach((listener) => listener());
 };
@@ -29,6 +29,9 @@ export const placeNow = () => place;
 export const goTab = (tab: Tab) => setPlace(tabTapped(place, tab));
 export const openSort = () => setPlace(sortOpened(place));
 export const closeSort = () => setPlace(sortClosed(place));
+/** Settings: Home's gear opens it, its Back closes it (a tab, Sort or search leaves it too). */
+export const openSettings = () => setPlace(settingsOpened(place));
+export const closeSettings = () => setPlace(settingsClosed(place));
 const goHomeNow = () => goTab('home');
 const goLibraryNow = () => goTab('library');
 
@@ -128,9 +131,3 @@ export const goHome = () => {
   player.open('none');
   goHomeNow();
 };
-
-/** The old Home link on every screen: the tab bar does its job now, so it draws nothing. Kept so the screens not yet
- * restyled (Sort, Cards, Hidden, Queue) need no change in this wave. */
-export function HomeButton() {
-  return null;
-}

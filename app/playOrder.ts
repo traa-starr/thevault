@@ -97,6 +97,15 @@ export function walkAhead(order: Order, count: number, avoid: Avoid = []): Order
 }
 
 /** What Up next shows: each song once, stopping when list order comes back round to the current song. */
+/** A Queue row let go: `rows` as they showed, the row dragged from slot `from` to slot `to`. Which song moved, and the
+ * song it now follows (null: it's first, right after the song playing): what `moveInOrder` takes. */
+export function queueDrop(rows: readonly string[], from: number, to: number): { id: string; afterId: string | null } {
+  const id = rows[from];
+  const moved = rows.filter((one) => one !== id);
+  moved.splice(to, 0, id);
+  return { id, afterId: to > 0 ? moved[to - 1] : null };
+}
+
 export function upNext(order: Order, count: number, avoid: Avoid = []): string[] {
   const out: string[] = [];
   for (const moved of walkAhead(order, count, avoid)) {

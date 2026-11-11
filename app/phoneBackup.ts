@@ -4,6 +4,7 @@
 import { File, Paths } from 'expo-file-system';
 import { useSyncExternalStore } from 'react';
 import { BACKUP_WITHIN_MS, choicesKey, HEALTH_GOOD_MS } from './energy';
+import { ANSWERS_NOW_MS, backupDidntSave, callFailure, TIMED_OUT } from './laptopCore';
 import { onOutbox, pendingNow, restoreChanges } from './outbox';
 import { player } from './playerStore';
 import type { Change } from './playOrder';
@@ -90,13 +91,17 @@ const gather = (): Backup => {
   return { stamp: survivalStamp(), notSure: [...loadNotSure()], outbox: pendingNow(), files };
 };
 
-async function call(path: string, init?: RequestInit) {
+async function call(path: string, init?: RequestInit, timeout = TIMEOUT_MS) {
   const abort = new AbortController();
-  const timer = setTimeout(() => abort.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => abort.abort(), timeout);
   try {
     const r = await fetch(`${url}${path}`, { ...init, signal: abort.signal });
     if (!r.ok) throw new Error(`Server said ${r.status}`);
     return await r.json();
+  } catch (e) {
+    // our own wait ran out: said apart from "no answer at all", which is what a laptop that's off gives
+    if (abort.signal.aborted) throw new Error(TIMED_OUT);
+    throw e;
   } finally {
     clearTimeout(timer);
   }
@@ -168,13 +173,26 @@ async function send() {
       lastSent = body;
       if (state.saveFailed) update({ saveFailed: false });
     } catch (e) {
+      const failure = callFailure(String(e instanceof Error ? e.message : e));
+      // a timeout is what a laptop that's off looks like, and also a laptop that's on but slow with a big backup:
+      // one small call tells them apart (wave 3 review, catch 5: every timeout used to read as "laptop off")
+      // (a fresh install still waiting for its old backup has sent nothing: its timeout is never "didn't save")
+      let answersNow = false;
+      if (failure === 'timeout' && !state.waiting) {
+        try {
+          await call('/health', undefined, ANSWERS_NOW_MS);
+          answersNow = true;
+        } catch {
+          // off after all
+        }
+      }
       // the laptop didn't answer at all (off, or out of reach since its version was asked): nothing to say here,
       // Library says so; the version is asked again next time
-      if (!String(e instanceof Error ? e.message : e).startsWith('Server said')) {
+      if (!backupDidntSave(failure, answersNow, state.waiting)) {
         healthAt = 0;
         return;
       }
-      // the laptop answered but didn't take it (older code, a full disk): say so, and try again later.
+      // the laptop answered but didn't take it (older code, a full disk, too slow): say so, and try again later.
       // A fresh install keeps waiting and sends nothing.
       if (!state.saveFailed) update({ saveFailed: true });
     }

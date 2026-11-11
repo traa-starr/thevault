@@ -1,10 +1,14 @@
 // Notices that must never be missed (board meeting 5): changes still waiting to reach the laptop, and what came
 // back after a reinstall, shown at the top of Library, Sort and the home page. Library also says when the laptop server
 // is out of date or didn't save the phone's backup.
+// Look (overhaul wave 4, the whole-app pass): the warn colour of "Laptop not reachable", left-aligned like it; the
+// Welcome back card on the app's own surface.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useOffline } from './offline';
 import { flush, useOutbox } from './outbox';
 import { phoneBackup, usePhoneBackup } from './phoneBackup';
+import { Tap } from './Tap';
+import { C, R, S, T } from './theme';
 
 const count = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n.toLocaleString('en-US')} ${many}`);
 
@@ -75,18 +79,18 @@ export function RestoreNotice() {
         Songs, Mine, groups and Hidden come from the laptop. {back.length ? `Also back${when(restored.savedAt)}: ${back.join(', ')}.` : 'Nothing else was waiting on the old install.'}{' '}
         Songs save to this phone again from 0.
       </Text>
-      <Pressable onPress={phoneBackup.dismiss} style={s.ok}>
+      <Tap onPress={phoneBackup.dismiss} style={s.ok} radius={22}>
         <Text style={s.okText}>OK</Text>
-      </Pressable>
+      </Tap>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  waiting: { color: '#e8b04a', fontSize: 14, textAlign: 'center', paddingVertical: 6, paddingHorizontal: 12 },
-  card: { backgroundColor: '#222', borderRadius: 10, padding: 14, marginHorizontal: 12, marginVertical: 6, gap: 6 },
-  cardTitle: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  cardText: { color: '#ccc', fontSize: 14, lineHeight: 20 },
-  ok: { alignSelf: 'flex-end', minWidth: 64, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  okText: { color: '#8ab4f8', fontSize: 16, fontWeight: '600' },
+  waiting: { color: C.warnText, fontSize: 14, paddingBottom: 8 },
+  card: { backgroundColor: C.surface, borderRadius: R.cardTile, padding: 14, marginVertical: 6, gap: 6 },
+  cardTitle: { ...T.heading },
+  cardText: { ...T.meta, fontSize: 14, lineHeight: 20 },
+  ok: { alignSelf: 'flex-end', minWidth: 72, height: S.tap, borderRadius: 22, backgroundColor: C.raised, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  okText: { color: C.text, fontSize: 15, fontWeight: '600' },
 });

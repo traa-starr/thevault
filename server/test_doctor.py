@@ -196,6 +196,17 @@ def main():
     code, out = run(root)
     check("doctor adds or changes nothing in the library", fingerprint(root) == state and (root / DB_NAME).read_bytes() == db_bytes)
 
+    # the old StartVault job (wave 4, E): one line, gone or still there, so nobody opens Task Scheduler to look
+    for old, word, level in [("off", "gone", doctor.PASS), ("on", "still there", doctor.WARN)]:
+        code, out = run(root, task=lambda: "on", old_task=lambda: old)
+        said = [x for x in out if "Old StartVault job" in x]
+        check(f"doctor has one StartVault line: {word}", len(said) == 1 and word in said[0] and said[0].startswith(level), str(out))
+    code, out = run(root, task=lambda: "on", old_task=lambda: None)
+    check("Windows can't say whether StartVault is there: no line, no crash", not any("StartVault" in x for x in out), str(out))
+    code, out = run(root)
+    check("Windows can't be asked at all: no StartVault line", not any("StartVault" in x for x in out), str(out))
+    check("doctor's fingerprint of the library is unchanged by the new line", fingerprint(root) == state)
+
     # library gone
     ghost = tmp / "never-made"
     code, out = run(ghost)

@@ -1,5 +1,6 @@
 // The player as the fixture says it is: no sound.
 import { closeQueue, openSheet } from '../../../app/sheetCore';
+import { addChanges } from './outbox';
 import { FIX, notify, noop, useFix } from './store';
 
 export type PlayerSong = { id: string; title: string; mine: string; sorted: boolean };
@@ -31,6 +32,10 @@ export const player = noop({
     notify();
   },
   now: () => state,
+  recent: () => FIX.recent ?? [],
+  // a verdict is saved as the real player saves it (a change in the outbox), so Sort's next card is the next song
+  judge: (list: PlayerSong[], value: string) => void addChanges(list.map((one) => ({ kind: 'mine_set', songId: one.id, value }))),
+  unjudge: (list: PlayerSong[]) => void addChanges(list.map((one) => ({ kind: 'mine_restore', songId: one.id }))),
   upNext: () => FIX.upNext ?? [],
   titleOf: (id: string) => (FIX.songs ?? []).find((song: any) => song.id === id)?.title ?? id,
   // the sheet moves by the app's real rules (sheetCore.ts)

@@ -333,7 +333,10 @@ ok('songs heard long ago fill the row when few were never played, and the other 
   const plays = heard(all.slice(0, 18).map((song, i) => [song.id, 31 + i]));
   const row = notPlayedInAWhile(all, plays, NOW).map((song) => song.id);
   assert.equal(row.length, ROW_SONGS);
-  assert.deepEqual(row.slice(0, 10), all.slice(8, 18).map((song) => song.id).reverse());
+  // ten of the 18 heard long ago (the day's pick, wave 4), longest ago first; then the two never played
+  const longAgo = row.slice(0, 10);
+  assert.ok(longAgo.every((id) => plays.has(id)));
+  assert.deepEqual(longAgo, [...longAgo].sort((a, b) => plays.get(a).last - plays.get(b).last));
   assert.deepEqual(row.slice(10).sort(), ['s18', 's19']);
 });
 

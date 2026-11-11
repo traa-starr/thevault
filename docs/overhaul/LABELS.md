@@ -9,19 +9,15 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - {…} songs on the laptop
 - Build {…}{…}{…}
 - Build: dev
-- Change laptop address
 - Checking the laptop…
-- Close
-- Copy all
-- Data since
 - Fresh install: type your laptop address, with the laptop on, and everything comes back.
 - Home
 - Laptop address
 - Laptop not reachable
 - Library
-- Lock-screen log
 - Save
 - Search
+- Settings
 - Sort
 
 ## Cards.tsx
@@ -83,6 +79,7 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Search
 - See all
 - See all: {…}
+- Settings
 - Shuffle
 - Shuffle my Favorites
 - Shuffle my songs
@@ -204,7 +201,7 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Next song
 - Not mine
 - Nothing after this song
-- Now playing
+- Now playing: {…}
 - Open player: {…}
 - Pause
 - Paused
@@ -243,6 +240,21 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Search
 - Search lines and titles
 - Type a word to search
+
+## Settings.tsx
+- Address
+- Back
+- Cancel
+- Change laptop address
+- Close
+- Copy all
+- Data since
+- Laptop
+- Laptop address
+- Lock-screen log
+- Save
+- Settings
+- This phone
 
 ## SongRow.tsx
 - Archived
@@ -294,6 +306,7 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Undo
 
 ## Versions.tsx
+- : plays in shuffle
 - ”. Pick its Main.
 - (newest)
 - (your pick)
@@ -303,27 +316,22 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Compare
 - Done
 - Hidden: {…}
-- Keep as Main
 - Linked to {…}
 - Linking “
 - Loading songs…
 - Main
-- Main, your pick
-- Main{…}: plays in shuffle
 - Make main
+- Newest
 - No Mine song matches
 - No Mine songs yet
 - not mine
-- Not mine
-- Play
 - Recently played, then the same folder
-- Remove from Versions
 - Removed: {…}
 - Search Mine songs
-- The Main plays in shuffle and holds the Library row. It's the newest version unless you pick one with Make main.
 - Undo
 - version picker
 - Versions ·
+- Your pick
 
 ## cardsCore.ts
 - not mine
@@ -337,10 +345,19 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Not on this phone
 
 ## family.ts
+- Cancel
+- Keep as Main
+- Make main
+- Not mine
+- Play
+- Remove from Versions
 - That's the same song.
 
 ## hangWatch.ts
 - {…} never showed
+
+## laptopCore.ts
+- Timed out
 
 ## libraryCore.ts
 - Favorites
@@ -348,6 +365,9 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Needs tags
 - Recently added
 - Versions to compare
+
+## playLog.ts
+- heard/
 
 ## playOrder.ts
 - Mine

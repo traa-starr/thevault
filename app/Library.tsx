@@ -10,6 +10,7 @@ import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import Hidden from './Hidden';
 import { Icon } from './Icon';
 import { CHIPS, chipSongs, keepIfSame, linesByRow, nextSort, rowLayout, sortSongs, taggedOnceKnown, type Chip, type SortBy } from './libraryCore';
+import { listRetrier } from './laptopCore';
 import { takeLibraryAsk, takeSeed, useLibraryAsk, useSeed } from './nav';
 import { inSongList } from './energy';
 import { loadSongList, offline, saveSongList, useOffline } from './offline';
@@ -72,6 +73,21 @@ export default function Library({ url }: { url: string }) {
   const pending = useMemo(() => waitingAll.filter((change) => change.kind !== 'play_add'), [choiceKey]);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  // the next fetch was asked for by the app, not by a tap: the "Laptop not reachable" line stays up until it's back,
+  // so it can't blink off and on every time the app tries again by itself
+  const byItself = useRef(false);
+  // when the list is asked for again by itself (laptopCore.ts listRetrier: the rule the test runs)
+  const made = useRef<ReturnType<typeof listRetrier> | null>(null);
+  const retrier = (made.current ??= listRetrier({
+    now: Date.now,
+    later: (fn, ms) => setTimeout(fn, ms),
+    cancel: (timer) => clearTimeout(timer as ReturnType<typeof setTimeout>),
+    ask: () => {
+      byItself.current = true;
+      setAttempt((n) => n + 1);
+    },
+  }));
+  useEffect(() => retrier.stop, [retrier]);
   const [sort, setSort] = useState<SortBy>('date'); // Newest every time the app opens
   const [showHidden, setShowHidden] = useState(false);
   const [hiddenOnLaptop, setHiddenOnLaptop] = useState<number | null>(null); // null: an older laptop, or not asked yet
@@ -96,7 +112,9 @@ export default function Library({ url }: { url: string }) {
     const abort = new AbortController();
     const timer = setTimeout(() => abort.abort(), TIMEOUT_MS);
     let current = true;
-    setFailed(false);
+    if (!byItself.current) setFailed(false);
+    byItself.current = false;
+    retrier.started();
     (async () => {
       try {
         await flush(); // so the list comes back with my latest choices in it
@@ -105,6 +123,8 @@ export default function Library({ url }: { url: string }) {
         if (!r.ok) throw new Error(`Server said ${r.status}`);
         const data: { songs: Song[]; hidden?: number } = await r.json();
         if (!current) return;
+        retrier.came();
+        setFailed(false);
         offline.setReachable(true);
         setHiddenOnLaptop(data.hidden ?? null);
         saveSongList(data.songs, asked);
@@ -114,6 +134,7 @@ export default function Library({ url }: { url: string }) {
         setFetched(data.songs);
       } catch {
         if (!current) return;
+        retrier.failed();
         setFailed(true);
         offline.setReachable(false);
         // the last list, so songs on the phone still play
@@ -184,11 +205,10 @@ export default function Library({ url }: { url: string }) {
 
   const { reachable, stored } = useOffline();
   const laptopOff = reachable === false;
-  // the list fetch failed, and something else has since reached the laptop (it's back on): ask for the list again, so
-  // the "Laptop not reachable" line clears by itself
-  useEffect(() => {
-    if (failed && reachable === true) setAttempt((n) => n + 1);
-  }, [reachable]);
+  // the list fetch failed, and something else has since reached the laptop (it's back on): the list is asked for
+  // again, so the "Laptop not reachable" line clears by itself. Once at once; after that it waits longer each time,
+  // so a laptop that answers small calls while the list itself times out isn't asked for ever (listRetrier)
+  useEffect(() => retrier.reachable(reachable), [reachable, retrier]);
   const canPlay = (song: Song) => offline.has(song.id) || (!laptopOff && song.where === 'laptop');
   // what plays: the Library list as it stands (chips and sort)
   const playable = useMemo(() => base.filter(canPlay), [base, laptopOff, stored]);

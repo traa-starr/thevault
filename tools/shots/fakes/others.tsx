@@ -13,10 +13,8 @@ export const useCompare = () => cmp;
 // Compare, Versions: the real components
 export { CompareDial, WHEEL_ROW, WHEEL_WIDTH } from '../../../app/Compare';
 export { startLink, VersionsChip, VersionsLayer, VersionsToast } from '../../../app/Versions';
-// Hidden
-export default function Hidden() {
-  return null;
-}
+// Hidden: the real screen (wave 4), over the fake outbox; the fake laptop answers its list with the fixture's songs
+export { default } from '../../../app/Hidden';
 // versionStore
 export type LibSong = any;
 export type Sent = any;
@@ -53,5 +51,6 @@ export const loadSongList = () => (FIX.songs ? { songs: FIX.songs, asked: 0 } : 
 export const saveSongList = () => {};
 // phoneBackup
 export const phoneBackup = noop();
-export const usePhoneBackup = () => ({ outOfDate: false, saveFailed: false, waiting: 0, restored: 0 });
+// `saveFailed`, `outOfDate`, `restored` in the fixture: the notice lines and the Welcome back card
+export const usePhoneBackup = () => ({ outOfDate: !!FIX.outOfDate, saveFailed: !!FIX.saveFailed, waiting: 0, restored: FIX.restored ?? 0 });
 export const survivalStamp = () => '2026-11-01';

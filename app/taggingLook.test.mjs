@@ -24,13 +24,15 @@ ok('timers and the reserved line stay as built: 400 ms hold, reserved line 52 hi
   assert.ok(/delayLongPress=\{HOLD_MS\}/.test(tagging), 'the row uses the one hold time');
 });
 
-ok('hold menu: a half sheet with rows of 44 pt or more, Change words first, Delete last in plain white', () => {
+ok('hold menu: a half sheet with rows of 44 pt or more, Change words first, Delete in plain white, then a gap, then Cancel on its own (wave 4, catch 18)', () => {
   const row = num(/ROW_HEIGHT = (\d+)/, tagging);
   assert.ok(row >= S.tap, `rows ${row} high`);
   const menu = tagging.slice(tagging.indexOf('function HoldMenu('), tagging.indexOf('const s = StyleSheet'));
   const items = [...menu.matchAll(/item\((['`])([^'`]+)\1/g)].map((m) => m[2]);
-  assert.deepEqual(items, ['Change words', 'Move to ${clock(time)}', 'Cancel', 'Delete']);
+  assert.deepEqual(items, ['Change words', 'Move to ${clock(time)}', 'Delete', 'Cancel']);
   assert.ok(!/item\('Delete'[^)]*s\.menu\w+\)/.test(menu), 'Delete has no colour of its own');
+  assert.ok(/item\('Delete'[^\n]*\n\s*<View style=\{s\.menuGap\} \/>\n\s*\{item\('Cancel'/.test(menu), 'a gap sets Cancel apart from Delete: a slip off Cancel lands on the gap');
+  assert.ok(/tagLine\.delete\(tag\)/.test(menu), 'Delete still goes through tagStore, which gives its Undo');
   assert.ok(/menuSheet: \{[^}]*borderTopLeftRadius: R\.sheet/.test(tagging) && /backgroundColor: C\.raised/.test(tagging), 'raised, sheet corner');
   assert.ok(/menuScrim/.test(menu) && /onPress=\{tagLine\.closeMenu\}/.test(menu), 'a tap outside closes it');
   assert.ok(/<HoldMenu /.test(playerSrc), 'the player draws it at page level');

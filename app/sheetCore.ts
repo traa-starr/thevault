@@ -33,11 +33,18 @@ export const layers = (now: Nav): { base: 'player' | 'queue' | null; queueOver: 
 /** `search` (wave 2): the search screen, a third place under the same tab bar, reached by the round button. */
 export type Tab = 'home' | 'library' | 'search';
 /** `sort`: Sort is open over the tabs (it hides the tab bar; Back returns to the tab under it). */
-export type Place = { tab: Tab; sort: boolean };
+/** `settings` (wave 4): Settings is open over Home. Only ever there when true, and never with Sort. */
+export type Place = { tab: Tab; sort: boolean; settings?: true };
 /** A tab tapped. Leaves Sort if it was open. It says nothing about the player: a tab can't move, reload or stall it. */
 export const tabTapped = (_now: Place, tab: Tab): Place => ({ tab, sort: false });
 export const sortOpened = (_now: Place): Place => ({ tab: 'home', sort: true });
-export const sortClosed = (now: Place): Place => ({ ...now, sort: false });
+export const sortClosed = (now: Place): Place => ({ tab: now.tab, sort: false });
+/** Settings (wave 4): opened from Home's gear, over Home, the tab bar and mini player still there. Its Back returns to
+ * Home; a tab, Sort or search leaves it too (each of those rules builds a place without it). */
+export const settingsOpened = (_now: Place): Place => ({ tab: 'home', sort: false, settings: true });
+export const settingsClosed = (now: Place): Place => ({ tab: now.tab, sort: now.sort });
+/** The same place: nothing to redraw. */
+export const samePlace = (a: Place, b: Place) => a.tab === b.tab && a.sort === b.sort && !!a.settings === !!b.settings;
 /** Search asked for (the round button, Home's box, a link): the search screen, whatever was open. Asked again while
  * it's showing: nothing changes, so two fast taps can't open two. */
 export const searchOpened = (_now: Place): Place => ({ tab: 'search', sort: false });

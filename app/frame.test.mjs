@@ -291,9 +291,9 @@ function app() {
     assert.ok(nav.includes('setPlace(tabTapped(place, tab))') && nav.includes('setPlace(sortOpened(place))') && nav.includes('setPlace(sortClosed(place))'), 'the place moves by the tested rules');
     assert.ok(!/player\.(open|playList|toggle|next)\(/.test(nav.slice(nav.indexOf('export const goTab'), nav.indexOf('export const closeSort'))), 'a tab tap never calls the player');
     const app = code('./App.tsx');
-    const order = ['<Home ', '<Library ', '<SearchScreen ', '<Sort ', '<UndoToast />', '<TabBar />', '<MiniPlayer />', '<PlayerSheet />', '<VersionsLayer '].map((tag) => app.indexOf(tag));
+    const order = ['<Home ', '<Library ', '<SearchScreen ', '<Sort ', '<Settings ', '<UndoToast />', '<TabBar />', '<MiniPlayer />', '<PlayerSheet />', '<VersionsLayer '].map((tag) => app.indexOf(tag));
     assert.ok(order.every((at, i) => at > 0 && (i === 0 || at > order[i - 1])), 'screens first, then the tab bar, mini player, player sheet and Versions above them');
-    assert.ok(/\(tab !== 'home' \|\| sort\) && s\.away/.test(app) && /\(tab !== 'library' \|\| sort\) && s\.away/.test(app) && /\(tab !== 'search' \|\| sort\) && s\.away/.test(app) && /away: \{ display: 'none' \}/.test(app), 'the tab not showing is hidden, never unmounted');
+    assert.ok(/\(tab !== 'home' \|\| sort \|\| settings\) && s\.away/.test(app) && /\(tab !== 'library' \|\| sort\) && s\.away/.test(app) && /\(tab !== 'search' \|\| sort\) && s\.away/.test(app) && /away: \{ display: 'none' \}/.test(app), 'the tab not showing is hidden, never unmounted');
     assert.ok(!/\bModal\b/.test(app) && !/\bModal\b/.test(code('./Frame.tsx')) && !/\bModal\b/.test(code('./Home.tsx')), 'no iOS pop-up sheet anywhere in the frame');
     const player = code('./Player.tsx');
     assert.ok(player.includes("pointerEvents={visible ? 'auto' : 'none'}"), 'the sheet takes touches only while the player says it is open');

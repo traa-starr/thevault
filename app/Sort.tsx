@@ -1,13 +1,17 @@
 // Sort home: how far along I am, the cards, the Not sure pile, and sets to sweep (folders first, then repeated name
 // patterns). A set opens inline with its songs listed, and only then offers All mine / All not mine. A sweep is one send,
 // and its Undo puts back only the songs that sweep changed.
+// Look (overhaul wave 4, the whole-app pass): theme colours only. The green and red blocks are gone (amber is the one
+// accent); buttons are the quiet pills of the Sort card, the main one white like Play.
 import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import Cards from './Cards';
-import { HomeButton } from './nav';
 import { WaitingLine } from './Notices';
 import { player } from './playerStore';
 import { session } from './sessionStore';
+import { tint } from './Tagging';
+import { Tap } from './Tap';
+import { C, R, S, T } from './theme';
 import { loadNotSure, saveNotSure, useSortData, type SortSet, type SortSong } from './sortData';
 
 type Row = { key: string; set: SortSet } & ({ kind: 'set' } | { kind: 'actions' } | { kind: 'song'; song: SortSong });
@@ -37,11 +41,11 @@ export default function Sort({ url, onBack }: { url: string; onBack: () => void 
       <View style={s.page}>
         <Header onBack={onBack} />
         <View style={s.middle}>
-          <Text style={s.line}>{failed ? 'Laptop not reachable' : 'Loading…'}</Text>
+          <Text style={[s.line, failed && s.warn]}>{failed ? 'Laptop not reachable' : 'Loading…'}</Text>
           {failed ? (
-            <Pressable onPress={retry}>
-              <Text style={s.link}>Try again</Text>
-            </Pressable>
+            <Tap style={s.button} radius={22} onPress={retry}>
+              <Text style={s.buttonText}>Try again</Text>
+            </Tap>
           ) : null}
         </View>
       </View>
@@ -106,20 +110,20 @@ export default function Sort({ url, onBack }: { url: string; onBack: () => void 
           <View style={s.top}>
             <Text style={s.progress}>{number(view.total - view.open.length)} of {number(view.total)} sorted</Text>
             {toCard ? (
-              <Pressable style={[s.button, s.primary]} onPress={() => setCards({ scope: null, pile: false })}>
+              <Tap filled style={[s.button, s.primary]} radius={24} onPress={() => setCards({ scope: null, pile: false })}>
                 <Text style={s.primaryText}>Cards · {number(toCard)} left</Text>
-              </Pressable>
+              </Tap>
             ) : (
               <Text style={s.line}>Every song has a card verdict or is in Not sure.</Text>
             )}
             {/* the tagging session over Mine songs: the cards' other half */}
-            <Pressable style={({ pressed }) => [s.button, s.outlined, pressed && s.pressed]} onPress={() => session.start(url)}>
+            <Tap style={s.button} radius={22} onPress={() => session.start(url)}>
               <Text style={s.buttonText}>Tag songs</Text>
-            </Pressable>
+            </Tap>
             {unsure ? (
-              <Pressable style={s.button} onPress={() => setCards({ scope: null, pile: true })}>
+              <Tap style={s.button} radius={22} onPress={() => setCards({ scope: null, pile: true })}>
                 <Text style={s.buttonText}>Not sure · {number(unsure)}</Text>
-              </Pressable>
+              </Tap>
             ) : null}
             <Text style={s.section}>{view.sets.length ? 'Sets to sweep' : 'No sets left'}</Text>
           </View>
@@ -128,7 +132,7 @@ export default function Sort({ url, onBack }: { url: string; onBack: () => void 
           if (item.kind === 'set') {
             const isOpen = openSet === item.set.id;
             return (
-              <Pressable style={s.set} onPress={() => setOpenSet(isOpen ? null : item.set.id)}>
+              <Pressable style={(p) => [s.set, tint(p)]} onPress={() => setOpenSet(isOpen ? null : item.set.id)}>
                 <Text style={s.setName} numberOfLines={2}>{item.set.name}</Text>
                 <Text style={s.setCount}>
                   {songs(item.set.songs.length)} · {item.set.kind === 'folder' ? 'folder' : 'similar names'} · {isOpen ? 'hide' : 'show songs'}
@@ -139,21 +143,21 @@ export default function Sort({ url, onBack }: { url: string; onBack: () => void 
           if (item.kind === 'actions') {
             return (
               <View style={s.actions}>
-                <Pressable style={[s.button, s.good]} onPress={() => sweepSet(item.set, 'mine')}>
+                <Tap style={s.button} radius={22} onPress={() => sweepSet(item.set, 'mine')}>
                   <Text style={s.buttonText}>All mine</Text>
-                </Pressable>
-                <Pressable style={[s.button, s.bad]} onPress={() => sweepSet(item.set, 'not mine')}>
+                </Tap>
+                <Tap style={s.button} radius={22} onPress={() => sweepSet(item.set, 'not mine')}>
                   <Text style={s.buttonText}>All not mine</Text>
-                </Pressable>
-                <Pressable style={s.button} onPress={() => setCards({ scope: item.set.songs, pile: false })}>
+                </Tap>
+                <Tap style={s.button} radius={22} onPress={() => setCards({ scope: item.set.songs, pile: false })}>
                   <Text style={s.buttonText}>One by one</Text>
-                </Pressable>
+                </Tap>
               </View>
             );
           }
           const off = item.song.where !== 'laptop';
           return (
-            <Pressable style={s.song} disabled={off} onPress={() => play(item.set, item.song)}>
+            <Pressable style={(p) => [s.song, tint(p)]} disabled={off} onPress={() => play(item.set, item.song)}>
               <Text style={[s.songTitle, off && s.off]} numberOfLines={1}>{item.song.title}</Text>
               <Text style={s.songDetail} numberOfLines={1}>{detail(item.song) || ' '}</Text>
             </Pressable>
@@ -175,42 +179,42 @@ export default function Sort({ url, onBack }: { url: string; onBack: () => void 
 function Header({ onBack }: { onBack: () => void }) {
   return (
     <View style={s.header}>
-      <Pressable onPress={onBack}>
-        <Text style={s.link}>Back</Text>
-      </Pressable>
+      <Tap style={s.back} radius={22} onPress={onBack} accessibilityLabel="Back">
+        <Text style={s.backWord}>Back</Text>
+      </Tap>
       <Text style={s.title}>Sort</Text>
-      <HomeButton />
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: '#000', paddingTop: 60, paddingHorizontal: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  title: { color: '#fff', fontSize: 26, fontWeight: '700' },
-  link: { color: '#8ab4f8', fontSize: 15, padding: 8 },
+  page: { flex: 1, backgroundColor: C.bg, paddingTop: S.statusBar + 6, paddingHorizontal: S.side },
+  // the same header as Cards: Back, then the screen's name
+  header: { height: S.tap, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  back: { height: S.tap, minWidth: S.tap, justifyContent: 'center', marginLeft: -8 },
+  backWord: { color: C.dim, fontSize: 15, paddingHorizontal: 8 },
+  title: { ...T.title, flex: 1 },
   middle: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  line: { color: '#ddd', fontSize: 16 },
+  line: { ...T.meta, fontSize: 15 },
+  warn: { color: C.warnText },
   top: { gap: 10, paddingBottom: 8 },
-  progress: { color: '#ddd', fontSize: 16, fontVariant: ['tabular-nums'] },
-  section: { color: '#888', fontSize: 13, marginTop: 12 },
-  button: { backgroundColor: '#2a2a2a', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 14, alignItems: 'center' },
-  buttonText: { color: '#fff', fontSize: 15 },
-  primary: { backgroundColor: '#fff', paddingVertical: 16 },
-  outlined: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#555', minHeight: 48, justifyContent: 'center' },
-  pressed: { backgroundColor: '#3a3a3c' },
-  primaryText: { color: '#111', fontSize: 17, fontWeight: '700' },
-  good: { backgroundColor: '#1e5b34' },
-  bad: { backgroundColor: '#6a2a2a' },
-  set: { paddingVertical: 14, borderBottomColor: '#2a2a2a', borderBottomWidth: 1 },
-  setName: { color: '#fff', fontSize: 17, fontWeight: '600' },
-  setCount: { color: '#888', fontSize: 13, marginTop: 2 },
+  progress: { ...T.meta, fontSize: 15, color: C.text, fontVariant: ['tabular-nums'] },
+  section: { ...T.heading, marginTop: 18 },
+  // a quiet pill, 44 to touch; the main one (Cards) is white like Play
+  button: { minHeight: S.tap, borderRadius: 22, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: C.raised, overflow: 'hidden' },
+  buttonText: { color: C.text, fontSize: 15, fontWeight: '600' },
+  primary: { minHeight: 48, borderRadius: 24, backgroundColor: C.white },
+  primaryText: { color: '#000', fontSize: 17, fontWeight: '700' },
+  set: { minHeight: S.row, justifyContent: 'center', paddingVertical: 10, borderBottomColor: C.line, borderBottomWidth: StyleSheet.hairlineWidth },
+  setName: { ...T.row, fontWeight: '600' },
+  setCount: { ...T.meta, marginTop: 2 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 10 },
-  song: { height: 56, justifyContent: 'center', paddingLeft: 12, borderBottomColor: '#222', borderBottomWidth: 1 },
-  songTitle: { color: '#ddd', fontSize: 15 },
-  songDetail: { color: '#777', fontSize: 12, marginTop: 2 },
-  off: { color: '#666' },
-  toast: { position: 'absolute', left: 16, right: 16, bottom: 40, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 8, backgroundColor: '#333' },
-  toastText: { flex: 1, color: '#fff', fontSize: 15 },
-  toastUndo: { color: '#8ab4f8', fontSize: 16, fontWeight: '700' },
+  song: { height: 56, justifyContent: 'center', paddingLeft: 12, borderBottomColor: C.line, borderBottomWidth: StyleSheet.hairlineWidth },
+  songTitle: { color: C.text, fontSize: 15 },
+  songDetail: { ...T.meta, fontSize: 12, marginTop: 2 },
+  off: { color: C.faint },
+  // the same toast as the player's Undo
+  toast: { position: 'absolute', left: 16, right: 16, bottom: 40, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: R.toast, backgroundColor: C.toast },
+  toastText: { flex: 1, ...T.toast },
+  toastUndo: { color: C.accent, fontSize: 16, fontWeight: '700' },
 });

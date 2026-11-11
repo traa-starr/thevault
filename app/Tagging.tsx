@@ -49,7 +49,7 @@ export function ReservedLine({ songId, duration, fallback, passed }: { songId: s
           onChangeText={tagLine.type}
           onSubmitEditing={() => tagLine.finish(songId)}
           placeholder={draft.songId !== songId ? `On ${draft.songTitle}` : editing ? 'Change the words' : 'A line to remember'}
-          placeholderTextColor="#636366"
+          placeholderTextColor={C.faint}
           returnKeyType="done"
           submitBehavior="blurAndSubmit"
           autoCorrect={false}
@@ -129,7 +129,7 @@ export const playingTag = (tags: ShownTag[], time: number) => {
 
 /** The song's tags, only while Lines · N has it open. Tap a row to jump (the list stays open); the playing row is marked.
  *  Rows keep their places while the list is open (rowOrder); time order comes back when it's reopened. Hold a row for
- *  Change words · Move to now · Cancel · Delete (HoldMenu, a half sheet over the player; the held row stays lit); with
+ *  Change words · Move to now · Delete · Cancel (HoldMenu, a half sheet over the player; the held row stays lit); with
  *  a menu open, a tap on any row only closes it. */
 export function TagList({ songId, songTitle, tags, time }: { songId: string | null | undefined; songTitle: string; tags: ShownTag[]; time: number }) {
   const { listFor, menuFor } = useTagLine();
@@ -175,8 +175,8 @@ export function TagList({ songId, songTitle, tags, time }: { songId: string | nu
 }
 
 /** The held row's menu: a half sheet over the player (`raised`, corner 22), the line it is about on top, then
- *  Change words · Move to now · Cancel · Delete, each a 52 row, Delete last in plain white. A tap on the dark
- *  outside closes it. Drawn by the player at its page level, so it sits over everything. What each does: tagStore. */
+ *  Change words · Move to now · Delete, then a gap and a line, then Cancel on its own at the bottom (wave 4: Delete
+ *  used to sit right under Cancel, where a slip deleted a line). Each a 52 row. A tap on the dark outside closes it. Drawn by the player at its page level, so it sits over everything. What each does: tagStore. */
 export function HoldMenu({ tags, songTitle, time }: { tags: ShownTag[]; songTitle: string; time: number }) {
   const { menuFor } = useTagLine();
   const tag = menuFor ? tags.find((one) => one.id === menuFor) : undefined;
@@ -196,8 +196,9 @@ export function HoldMenu({ tags, songTitle, time }: { tags: ShownTag[]; songTitl
         </View>
         {item('Change words', () => tagLine.changeWords(tag, songTitle, tag.song_id))}
         {item(`Move to ${clock(time)}`, () => tagLine.moveToNow(tag, player.positionNow()))}
-        {item('Cancel', tagLine.closeMenu, s.menuCancel)}
         {item('Delete', () => tagLine.delete(tag))}
+        <View style={s.menuGap} />
+        {item('Cancel', tagLine.closeMenu, s.menuCancel)}
       </View>
     </View>
   );
@@ -228,6 +229,8 @@ const s = StyleSheet.create({
   menuItem: { height: ROW_HEIGHT, justifyContent: 'center' },
   menuText: { ...T.row },
   menuCancel: { color: C.dim },
+  // sets Cancel apart from Delete: a slip off Cancel lands on this, not on Delete
+  menuGap: { height: 1, backgroundColor: C.line, marginTop: 8, marginBottom: 8 },
   // fills the art's place in the player while Lines is open (Player.tsx): rows from the top, the rest scrolls
   list: { flex: 1 },
   row: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomColor: C.line, borderBottomWidth: 1 },

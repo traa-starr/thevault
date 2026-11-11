@@ -141,15 +141,25 @@ def _trial_start(root):
 
 
 STAYS_UP_TASK = "Vault server"  # the Windows job server/server_on.ps1 makes
+OLD_TASK = "StartVault"  # the launcher from before the server stayed up by itself (2026-11-10): no longer used
 
 
-def task_state(run=subprocess.run):
-    """Whether the job that keeps the server up is scheduled: 'on', 'off', or None if Windows can't be asked."""
+def task_state(run=subprocess.run, name=STAYS_UP_TASK):
+    """Whether a Windows job of this name is scheduled (by default the one that keeps the server up): 'on', 'off', or
+    None if Windows can't be asked. Only asks; never makes, changes or removes a job."""
     try:
-        p = run(["schtasks", "/query", "/tn", STAYS_UP_TASK], capture_output=True, timeout=15)
+        p = run(["schtasks", "/query", "/tn", name], capture_output=True, timeout=15)
     except (OSError, subprocess.SubprocessError):
         return None
     return "on" if p.returncode == 0 else "off"
+
+
+def check_old_launcher(state):
+    """The old StartVault job: gone, or still there (so nobody has to open Task Scheduler to look)."""
+    if state == "off":
+        return PASS, "gone."
+    return WARN, ("still there. It isn't used any more ('Vault server' starts the server now). Delete it once, in a PowerShell "
+                  "window opened with 'Run as administrator': Unregister-ScheduledTask -TaskName StartVault -Confirm:$false")
 
 
 def check_stays_up(state, answering):
@@ -214,7 +224,7 @@ def check_phone_copies(conn, root):
 
 
 def run_doctor(root, port=PORT, tailscale=tailscale_info, runner=subprocess.run, guard=GUARD_TEST, library_test=LIBRARY_TEST, say=print,
-               backup_dir=BACKUP_DIR, task=task_state):
+               backup_dir=BACKUP_DIR, task=task_state, old_task=None):
     """Prints a line per check and one overall line. Returns the exit code: 2 if anything failed."""
     levels = []
 
@@ -237,6 +247,9 @@ def run_doctor(root, port=PORT, tailscale=tailscale_info, runner=subprocess.run,
         state = task()
         if state:  # None: Windows couldn't be asked (or a test): no line
             line("Server stays up", check_stays_up(state, probe(LOOPBACK, port) not in (None, "odd")))  # the server itself is asked, not just the job
+        old = (old_task or (lambda: task_state(name=OLD_TASK)))() if state else None  # Windows couldn't be asked: no line here either
+        if old:
+            line("Old StartVault job", check_old_launcher(old))
         try:
             conn = connect_readonly(root)
             try:

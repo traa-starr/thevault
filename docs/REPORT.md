@@ -1,32 +1,32 @@
-# REPORT
-**Step:** Overhaul wave 3: wave 2 fix-ups, quiet open screen, Sort as swipe cards, tagging, 2026-11-11. Built by Fable 5 over two sessions (A, B and the board in the first; C, D, review, fixes, publish in this one).
-
-**Verified by running (this session):** `/verify` 27/27 PASS in 59 s (new: `cards` 15 checks, `taggingLook` 4, `openScreen` 6). `check_repo` clean. Shots: 8 cards + side-by-side with `deal.html`, 15 session, 2 hold-menu, 31 Library, 19 Home, 19 search, all drawn without errors; checked by Sonnet in four passes (12 catches fixed on the way). Off then on for real: `server_off` → STOPPED, no answer on the port; `server_on` → RUNNING, `doctor` "Server: running, reachable" and "stays up: on". `StartVault` is still in Task Scheduler (Windows refused the delete without an admin window). Publish went out.
-
-**Phone timings** (run at wrap; app code is wave 2's publish, so B's fix is not in these numbers yet):
+**Step:** Overhaul wave 4: Queue, versions, settings, whole-app pass, groundwork, 2026-11-11. Built over two sessions (A-E, shots, review, fixes in the first; verify, publish, wrap in this one).
+**Verified by running:** `/verify` 29/29 PASS in 65 s (over the 1-min bar by 5 s). `check_repo` clean. `doctor` PASS, 1 WARN (scan 10 days old), "Old StartVault job: gone". Shots `cards`: 9 of 9, `cards-start` front "2025-01-10", `cards-after-throw` front "No Sleep 2". Phone copies made now: 0.
+**Phone timings:**
 ```
-Energy while playing, app code 2026-11-11T04:03:59, per minute. Plays: 57 from the phone's copy, 0 streamed
-  open (7 min): wake-ups 173, redraws 198.4, network calls 8.8, file writes 7.6. FAIL (reports over 130, redraws over 135, net over 6)
-  locked (17 min): wake-ups 36, redraws 1.1, network calls 0.2, file writes 1.9. PASS
-Hang watch (screen stuck over 2 s), app code 2026-11-11T04:03:59: watched 23 min on screen. PASS (quiet)
-Tap to first sound: library PASS (236 ms typical, 32), lockscreen PASS (357 ms, 19); session, previous, search: not enough yet; sort, restore: none yet
+Search: typical 7 ms, slow end 13 ms, worst 19 ms (197 times), about 33 tags
+  open: none yet
+  locked (2 min): wake-ups 31, redraws 0.0, network calls 1.8, file writes 1.8. not enough yet (2 of 5 min)
+Hang watch: watched 23 min on screen. PASS (quiet)
+  session: typical 256 ms, worst 267 ms (2 times); over 1 s: 0. not enough yet (2 of 5)
+  library: typical 261 ms, worst 281 ms (4 times); over 1 s: 0. not enough yet (4 of 5)
+  sort, previous, lockscreen, search, restore: none yet
 ```
-**Phone update:** `published 20261111-092521` (close and reopen the app). Server restarted (the off/on proof).
+**Phone update:** published 20261111-232116; server restarted (doctor changed).
+**Needs the phone:** 1. Queue: from the player, then from the mini player: looks like the rest; drag a song (one tick); swipe down lands where you came from. 2. Versions: a song with versions, play two, Compare, set a Main. 3. Settings: tap the gear on Home, address right; close and reopen the app, still connected. 4. Walk Home, Library, search, player, tagging, hold a line: nothing looks older; Delete sits apart from Cancel. 5. Leave the app open and playing 7 min (screen on) for the open-screen line.
+**Changed:** app: App, Compare, Hidden, Home, Icon, Library, Notices, Player, Sort, Tagging, Versions, family, nav, phoneBackup, playLog, playOrder, playerStore, sheetCore; new Settings, laptopCore, laptop.test, wave4.test; tests frame, playData, searchScreen, taggingLook. server: doctor + test_doctor, test_keepalive. tools/shots: fakes, fixtures. docs: DECISIONS, STATUS, REPORT, ROADMAP, overhaul/LABELS; new NEW-SONGS-OPTIONS, LIVE-ACTIVITY-OPTIONS, board/wave4, board/wave4-review.
+**Done when:**
+- A tests + shots (Queue both openers mid-close, Versions, Compare): pass (tests run now; shots checked last session, `board/wave4-review.md`).
+- B Settings shot; address saves and survives restart (`laptop.test`): pass.
+- C catch 4 + 5 tests, session row + hold menu shots, day-change test, cards-after-throw differs: pass. `timings` open line: **fail (not run): "none yet"**, wave 3 code had no open listen either.
+- D two memos, 39 lines each, each with a pick: pass. E doctor StartVault line + test: pass ("gone").
+- `/verify` all PASS: pass, but 65 s, not under 1 min. check_repo clean, publish out: pass.
+- I prove 1-4: not run (for chat).
+**Plan I chose:** 1 [x] board + break list · 2 [x] A · 3 [x] B · 4 [x] C · 5 [x] E, D · 6 [x] shots, fresh eyes, fixes, verify, publish, wrap. Calls in DECISIONS "Wave 4 build calls".
+**Not done:** open-screen line (needs your 7-min open listen). Stretch (waveform spike): skipped, Fable budget.
+**Decisions needed:**
+- Review catch 7: put the Versions explaining line back? Rec: no, the Main's menu says it. Default: leave out.
+- Review catch 6: gap between "All mine" and "All not mine" in Sort? Rec: only if you mis-tap. Default: as built.
+- New songs memo: rec option 1 (30-min timer) + "look now" in Sort. Live Activity: rec a throwaway build after 2.7. Your pick.
+**Proposed next step:** Review. wave 4 on the phone, then your 3.7 searches at ~50 tags.
+**Pitch:** split `/verify`'s two slow items (playlistCore 17 s, tsc 17 s) to run side by side: back under a minute.
 
-**Needs the phone:** 1. Home: rows open on different songs; Not played in a while starts at 0:00; a Library row with heart, Versions and plays shows the phone icon, second line whole. 2. Laptop off (`server_off`), then search and Library: each says "Laptop not reachable…"; `server_on`: it clears on the next list. 3. Sort › Cards: throw 10 cards right, left, up, fast: amber Mine / grey Not mine / Not sure stamp as you drag, one buzz per verdict, nothing double-counts, the count drops by one each, no stamp or tilt left on the next card; Undo the last from the toast under the buttons. 4. Tag songs: a short session (count line + amber bar, Not mine pill, Next song lit); open Lines, hold a line: the half sheet; Change words and Delete, then Undo. Then listen locked 10 min, and 7 min open, for B's numbers (`timings` after).
-
-**Changed:** `app/` Cards.tsx, Tagging.tsx, Player.tsx, cardsCore.ts (new), cards.test.mjs (new), taggingLook.test.mjs (new); `tools/shots/` entry.tsx, fixtures.mjs, shoot.mjs, side.mjs; docs: DECISIONS, LESSONS (two `plan` rows now kept true by tests and shots), STATUS, overhaul/LABELS, board/wave3-review.md (new). From the first session: Home, Library, SearchScreen, SongRow, energy.ts, libraryCore, outbox, phoneBackup, playLog, playOrder, playerStore, playlistCore, tagStore, their tests, openScreen.test.mjs, board/wave3.md.
-
-**Done when:** A: no-repeat and day-change tests pass (`library`); Not played from 0 test passes (`playData`); phone-icon row shot drawn, second line whole (a row with all four marks at once isn't in the fixture: check 1 covers it); `StartVault` absent **fail** (owner deletes it); off then on run for real **pass**; laptop-off shots now fail every fetch like a real phone and show the app's own line **pass**. B: model test holds the ceilings **pass**; `timings` quoted above (open FAIL on wave 2's code: the fix ships now; locked PASS). C: swipe and tap tests **pass** (15); shots start, mid-swipe ×3, after a throw, last song, Not sure pile, hard title, side-by-side **pass**. D: session and tag-edit shots **pass** (sheet from two openers). `/verify` 27/27 under 1 min, `check_repo` clean, published: **pass**. I prove 1-4: not run (for chat).
-
-**Plan I chose:** all 6 STATUS lines ticked. Guessed: the Undo for tag edits stays on the reserved line (the board said a toast); the up drag lifts the card half the finger, 32 pt at most; the card behind is bare; the Undo toast takes the "+ Version" row's spot; Next song lit amber.
-
-**Fresh-eyes review** (`board/wave3-review.md`, 20 catches): fixed 1 (A's shots redrawn, fixtures fail the fetch), 2 (double verdict guard), 3 (one ghost per throw), 11 (sheet shot from the Sort-card player), 13 (card fills the screen: the Sort layer was padded twice), 14 (behind card air); proved 7 (menu closes on song change). Left for chat: 4 (list refetch if the probe passes while the fetch times out), 5 (backup errors read as laptop off), 16 (search's laptop line shifts the list 25 pt), 17, 18, 20. The rest as built with reasons in the file.
-
-**Not done:** `StartVault` delete (needs an admin window: Task Scheduler › StartVault › Delete). Stretch (waveform spike): not started.
-
-**Decisions needed:** (1) Catch 16: a reserved line in search so nothing shifts (costs 25 pt always) or keep the line that appears. Default keep. (2) Catch 4 and 5 (`Library.tsx`, `phoneBackup.ts`): fold a test for "probe passes, list fetch fails" and "backup timeout" into wave 4's whole-app pass. Default yes.
-
-**Proposed next step:** wave 4 (Queue, versions, settings, whole-app pass, Live Activity spike last), after the phone checks and B's open-screen numbers on this publish.
-**Pitch:** let the shots' fake player judge a card (drop it from the fake list), so "nothing left on the next card" is a drawn frame of the *next* song, not the same one back.
-**Odd in how we work:** the fresh-eyes agent ran 4.4 min and 127k Sonnet tokens on a 2,600-line diff; its best catches (stale A shots, the doubled padding's cause) were things the Sonnet shot checks had flagged as "unused space" without a cause. Shot checks say what; the reviewer says why. Keep both.
+Odd in how we work: the music guard blocks harmless read-only Bash lines that mix `grep -E` with pipes ("hides its content"); I split them into Grep calls.

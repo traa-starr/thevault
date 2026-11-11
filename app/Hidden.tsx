@@ -1,14 +1,17 @@
 // Songs marked Not mine, with Restore. Restore goes through the outbox like Undo, so it works when the laptop is away.
+// Look (overhaul wave 4, the whole-app pass): the list row every screen uses (60 high, a tile), theme colours only.
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { HomeButton } from './nav';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { Tile } from './Art';
 import { addChange, flush, useOutbox } from './outbox';
 import { withoutRestored } from './playOrder';
+import { Tap } from './Tap';
+import { C, R, S, T } from './theme';
 
 type Song = { id: string; title: string; where: string; date: string | null };
 
 const TIMEOUT_MS = 10000;
-const ROW_HEIGHT = 60;
+const ROW_HEIGHT = S.row;
 const WHERE: Record<string, string> = { laptop: 'On the laptop', cloud: 'Cloud only', gone: 'File missing' };
 
 const detail = (song: Song) => [song.date, WHERE[song.where]].filter(Boolean).join(' · ');
@@ -54,18 +57,17 @@ export default function Hidden({ url, onBack }: { url: string; onBack: () => voi
   return (
     <View style={s.page}>
       <View style={s.header}>
-        <Pressable onPress={onBack}>
-          <Text style={s.link}>Back</Text>
-        </Pressable>
+        <Tap style={s.back} radius={22} onPress={onBack} accessibilityLabel="Back">
+          <Text style={s.backWord}>Back</Text>
+        </Tap>
         <Text style={s.title}>Hidden</Text>
-        <HomeButton />
       </View>
       {failed && !songs ? (
         <View style={s.middle}>
-          <Text style={s.line}>Laptop not reachable</Text>
-          <Pressable onPress={() => setAttempt(attempt + 1)}>
-            <Text style={s.link}>Try again</Text>
-          </Pressable>
+          <Text style={[s.line, s.warn]}>Laptop not reachable</Text>
+          <Tap style={s.again} radius={22} onPress={() => setAttempt(attempt + 1)}>
+            <Text style={s.againWord}>Try again</Text>
+          </Tap>
         </View>
       ) : !songs ? (
         <View style={s.middle}>
@@ -79,13 +81,14 @@ export default function Hidden({ url, onBack }: { url: string; onBack: () => voi
           ListEmptyComponent={<Text style={s.empty}>Nothing hidden</Text>}
           renderItem={({ item }) => (
             <View style={s.row}>
+              <Tile title={item.title} date={item.date} size={S.rowTile} radius={R.rowTile} plain />
               <View style={s.text}>
                 <Text style={s.rowTitle} numberOfLines={1}>{item.title}</Text>
-                <Text style={s.rowDetail} numberOfLines={1}>{detail(item)}</Text>
+                <Text style={s.rowDetail} numberOfLines={1}>{detail(item) || ' '}</Text>
               </View>
-              <Pressable onPress={() => restore(item.id)} hitSlop={8}>
-                <Text style={s.restore}>Restore</Text>
-              </Pressable>
+              <Tap style={s.restore} radius={18} onPress={() => restore(item.id)} hitSlop={4}>
+                <Text style={s.restoreWord}>Restore</Text>
+              </Tap>
             </View>
           )}
         />
@@ -95,17 +98,23 @@ export default function Hidden({ url, onBack }: { url: string; onBack: () => voi
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: '#000', paddingTop: 60, paddingHorizontal: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  title: { color: '#fff', fontSize: 26, fontWeight: '700' },
-  link: { color: '#8ab4f8', fontSize: 15, padding: 8 },
+  page: { flex: 1, backgroundColor: C.bg, paddingTop: S.statusBar + 6, paddingHorizontal: S.side },
+  header: { height: S.tap, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  back: { height: S.tap, minWidth: S.tap, justifyContent: 'center', marginLeft: -8 },
+  backWord: { color: C.dim, fontSize: 15, paddingHorizontal: 8 },
+  title: { ...T.title, flex: 1 },
   middle: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  line: { color: '#ddd', fontSize: 18 },
-  count: { color: '#ddd', fontSize: 14, paddingVertical: 8 },
-  empty: { color: '#888', fontSize: 15, textAlign: 'center', paddingTop: 32 },
-  row: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomColor: '#2a2a2a', borderBottomWidth: 1 },
-  text: { flex: 1 },
-  rowTitle: { color: '#fff', fontSize: 16 },
-  rowDetail: { color: '#888', fontSize: 13, marginTop: 2 },
-  restore: { color: '#8ab4f8', fontSize: 15, fontWeight: '700', padding: 8 },
+  line: { ...T.meta, fontSize: 15 },
+  warn: { color: C.warnText },
+  again: { minHeight: S.tap, borderRadius: 22, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: C.raised, overflow: 'hidden' },
+  againWord: { color: C.text, fontSize: 15, fontWeight: '600' },
+  count: { ...T.meta, paddingVertical: 8, fontVariant: ['tabular-nums'] },
+  empty: { ...T.meta, fontSize: 15, textAlign: 'center', paddingTop: 32 },
+  row: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomColor: C.line, borderBottomWidth: StyleSheet.hairlineWidth },
+  text: { flex: 1, minWidth: 0 },
+  rowTitle: { ...T.row },
+  rowDetail: { ...T.meta, marginTop: 2 },
+  // a quiet pill, 36 high with its touch reaching 44
+  restore: { height: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: C.raised, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  restoreWord: { color: C.text, fontSize: 14, fontWeight: '600' },
 });

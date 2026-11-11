@@ -267,7 +267,8 @@ ok('catches 16 and 17: search says when the laptop is off, and "Loading songs…
   // Library is what finds out (its list fetch gives up after 10 s) and what asks again when the laptop is back
   const library = code('./Library.tsx');
   assert.ok(/const TIMEOUT_MS = 10000;/.test(library) && library.includes('offline.setReachable(false);'));
-  assert.ok(library.includes('if (failed && reachable === true) setAttempt((n) => n + 1);'), 'back on: the list is asked for again, the line clears by itself');
+  // (wave 4: once at once, then waiting longer each time: the rule is laptopCore's listRetrier, run in laptop.test.mjs)
+  assert.ok(library.includes('useEffect(() => retrier.reachable(reachable), [reachable, retrier]);') && library.includes('retrier.failed();') && library.includes('retrier.came();'), 'back on: the list is asked for again, the line clears by itself');
   assert.ok(library.includes('{(failed || laptopOff) && songs ? ('), 'Library says so however it found out');
 });
 

@@ -6,14 +6,14 @@ import { SymbolView } from './native';
 
 export type IconName =
   | 'play' | 'pause' | 'next' | 'previous' | 'home' | 'library' | 'search' | 'favorite' | 'favoriteOn' | 'archive' | 'archiveOn'
-  | 'tag' | 'lines' | 'queue' | 'shuffle' | 'more' | 'down' | 'close' | 'eye' | 'eyeOff' | 'back';
+  | 'tag' | 'lines' | 'queue' | 'shuffle' | 'more' | 'down' | 'close' | 'eye' | 'eyeOff' | 'back' | 'settings' | 'grip';
 
 /** Apple's name for each. */
 export const SF: Record<IconName, string> = {
   play: 'play.fill', pause: 'pause.fill', next: 'forward.fill', previous: 'backward.fill', home: 'house.fill', library: 'square.stack.fill',
   search: 'magnifyingglass', favorite: 'heart', favoriteOn: 'heart.fill', archive: 'archivebox', archiveOn: 'archivebox.fill', tag: 'tag.fill',
   lines: 'text.alignleft', queue: 'list.bullet', shuffle: 'shuffle', more: 'ellipsis', down: 'chevron.down', close: 'xmark', eye: 'eye',
-  eyeOff: 'eye.slash', back: 'chevron.left',
+  eyeOff: 'eye.slash', back: 'chevron.left', settings: 'gearshape.fill', grip: 'line.3.horizontal',
 };
 
 type Props = { name: IconName; size?: number; color: string };
@@ -131,6 +131,21 @@ function Drawn({ name, size, color }: Required<Props>) {
           {bar(19, 2.6, { position: 'absolute', transform: [{ rotate: '-45deg' }] })}
         </View>
       );
+    case 'settings':
+      // a gear: four bars crossed for the teeth, a disc over them, a dark hole in the middle
+      return (
+        <View style={box} pointerEvents="none">
+          {bar(22, 5, { position: 'absolute', borderRadius: 1.5 * u })}
+          {bar(22, 5, { position: 'absolute', borderRadius: 1.5 * u, transform: [{ rotate: '45deg' }] })}
+          {bar(22, 5, { position: 'absolute', borderRadius: 1.5 * u, transform: [{ rotate: '90deg' }] })}
+          {bar(22, 5, { position: 'absolute', borderRadius: 1.5 * u, transform: [{ rotate: '135deg' }] })}
+          <View style={[fill, { width: 16 * u, height: 16 * u, borderRadius: 8 * u, alignItems: 'center', justifyContent: 'center' }]}>
+            <View style={{ width: 6.5 * u, height: 6.5 * u, borderRadius: 3.25 * u, backgroundColor: '#000', opacity: 0.8 }} />
+          </View>
+        </View>
+      );
+    case 'grip':
+      return <View style={[box, { gap: 3.6 * u }]} pointerEvents="none">{bar(18, 2.2)}{bar(18, 2.2)}{bar(18, 2.2)}</View>;
     case 'eye':
     case 'eyeOff':
       return (

@@ -1,6 +1,7 @@
 // What you see of the player: the mini player, the full player as a sheet that grows out of it, the queue and the
 // Undo toast. The player itself is playerStore.ts, so closing any of these never touches the music.
-// Look (overhaul wave 1): the player from the Deal mockup on Wall's design system (theme.ts).
+// Look (overhaul wave 1): the player from the Deal mockup on Wall's design system (theme.ts). Wave 4: Queue in the
+// list style every other screen uses (60 rows with a tile, the playing song pinned on top in amber).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { Animated, Dimensions, Easing, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -20,7 +21,7 @@ import { Tap } from './Tap';
 import { compare, useCompare } from './compareStore';
 import { openLibrarySelect, usePlace } from './nav';
 import { player, usePlayer, usePlayerPick } from './playerStore';
-import { draftGoesOnChange, listIsOpen, seekRelease, shuffleAfterTap, shuffleWords, type ShownTag } from './playOrder';
+import { draftGoesOnChange, listIsOpen, queueDrop, seekRelease, shuffleAfterTap, shuffleWords, type ShownTag } from './playOrder';
 import { ratingStore, useRating } from './ratingStore';
 import { session, useSession, useSessionCount } from './sessionStore';
 import { layers, pullCloses, slideController, type Nav } from './sheetCore';
@@ -30,7 +31,6 @@ import { C, coveredBelow, R, S, T } from './theme';
 import { VersionsChip, VersionsToast } from './Versions';
 import * as versions from './versionStore';
 
-const ROW_HEIGHT = 48;
 const HOLD_MS = 300; // not lower: a hold let go just short of this jumps to the song
 const SLIDE_MS = 220;
 const EDGE_ZONE = 0.3; // the share of the list, top and bottom, that scrolls it during a drag; the middle 40% is safe
@@ -386,7 +386,7 @@ export function FullPlayer() {
         )}
       </View>
       {/* versions: + Version, the Versions chip, and Compare (or its wheel) in one fixed slot. The row keeps its height */}
-      <View style={s.versionRow}>
+      <View style={[s.versionRow, inSession && s.versionRowSession]}>
         {!shownId || (!comparing && (sorting || (out && !inSession))) ? null : (
           <>
             {/* never a sheet over this sheet (iOS froze on that): the player closes first, then the next screen opens */}
@@ -484,16 +484,11 @@ function SessionTop() {
 /** The share of the session done, 0 to 1 (a session of none is 0, never a division by zero). */
 export const sessionShare = (tagged: number, of: number) => (of > 0 ? Math.min(Math.max(tagged / of, 0), 1) : 0);
 
-/** Up next with one row moved to its slot. */
-const withRowAt = (rows: string[], id: string, slot: number) => {
-  const out = rows.filter((one) => one !== id);
-  out.splice(slot, 0, id);
-  return out;
-};
-
-function QueueRow({ id, sorting }: { id: string; sorting: boolean }) {
+/** One song up next: the list row every screen uses (60 high, a 44 tile). Tap: jump to it. Hold: lift it to move it. */
+function QueueRow({ id, date, sorting }: { id: string; date: string | null; sorting: boolean }) {
   const lift = useReorderableDrag();
   const lifted = useIsActive();
+  const title = player.titleOf(id);
   return (
     <Pressable
       style={[s.queueRow, lifted && s.queueLifted]}
@@ -501,14 +496,27 @@ function QueueRow({ id, sorting }: { id: string; sorting: boolean }) {
       onLongPress={sorting ? undefined : lift}
       delayLongPress={HOLD_MS}
     >
-      <Text style={s.queueSong} numberOfLines={1}>{player.titleOf(id)}</Text>
-      {sorting ? null : <Text style={s.queueGrip}>≡</Text>}
+      <Tile title={title} date={date} size={S.rowTile} radius={R.rowTile} plain />
+      <View style={s.queueWords}>
+        <Text style={s.queueSong} numberOfLines={1}>{title}</Text>
+        <Text style={s.queueMeta} numberOfLines={1}>{date || ' '}</Text>
+      </View>
+      {/* the grip only says "this moves": the whole row lifts on a hold. None on a Sort card's queue (no reorder there) */}
+      {sorting ? null : (
+        <View style={s.queueGrip}>
+          <Icon name="grip" size={20} color={C.faint} />
+        </View>
+      )}
     </Pressable>
   );
 }
 
 function Queue() {
-  const { song, order, marks, sorting } = usePlayerPick('song', 'order', 'marks', 'sorting');
+  const { song, order, marks, sorting, wanted } = usePlayerPick('song', 'order', 'marks', 'sorting', 'wanted');
+  // every song's date (its tile's shade and the row's second line), one table per song list: a row never searches
+  // 1,395 songs for its own. Empty until the list is in: the rows keep their height
+  const { songs: listed } = versions.useVersions();
+  const dates = useMemo(() => new Map((listed ?? []).map((one): [string, string | null] => [one.id, one.date ?? null])), [listed]);
   const live = useMemo(() => player.upNext(), [order, marks]);
   // Rows stay frozen while one is lifted, so a song ending mid-drag can't move them under the finger.
   const [frozen, setFrozen] = useState<string[] | null>(null);
@@ -534,26 +542,33 @@ function Queue() {
   }, [thaw]);
 
   const onReorder = ({ from, to }: ReorderableListReorderEvent) => {
-    const id = shown.current[from];
-    const moved = withRowAt(shown.current, id, to);
+    const drop = queueDrop(shown.current, from, to);
     setFrozen(null);
-    player.moveUpNext(id, to > 0 ? moved[to - 1] : null);
+    player.moveUpNext(drop.id, drop.afterId);
   };
 
   return (
     <View style={s.queue}>
       <View style={s.queueHeader}>
-        <Pressable onPress={player.closeQueue}>
-          <Text style={s.word}>Back</Text>
-        </Pressable>
+        <Tap style={s.queueBack} radius={22} onPress={player.closeQueue} accessibilityLabel="Back">
+          <Text style={s.queueBackWord}>Back</Text>
+        </Tap>
         <Text style={s.queueTitle}>Queue</Text>
       </View>
-      <Text style={s.queueLabel}>Now playing</Text>
-      <Text style={s.queueNow} numberOfLines={1}>{song?.title}</Text>
-      <Text style={s.queueLabel}>Up next</Text>
+      {/* the song playing: the same row, its title amber, pinned above the list. No grip: it can't be moved */}
+      <View style={s.queueRow} accessible accessibilityLabel={`Now playing: ${song?.title ?? ''}`}>
+        <Tile title={song?.title} date={dates.get(song?.id ?? '') ?? null} size={S.rowTile} radius={R.rowTile} plain />
+        <View style={s.queueWords}>
+          <Text style={[s.queueSong, s.queueNow]} numberOfLines={1}>{song?.title}</Text>
+          <Text style={s.queueMeta} numberOfLines={1}>{sorting ? 'Sorting' : wanted ? 'Playing' : 'Paused'}</Text>
+        </View>
+      </View>
+      <Text style={s.queueHeading}>Up next</Text>
       <ReorderableList
         style={s.queueList}
+        contentContainerStyle={s.queueEnd}
         data={rows}
+        extraData={dates}
         dragEnabled={!sorting}
         shouldUpdateActiveItem
         animationDuration={SLIDE_MS}
@@ -564,7 +579,7 @@ function Queue() {
         onReorder={onReorder}
         keyExtractor={(id) => id}
         ListEmptyComponent={<Text style={s.queueEmpty}>Nothing after this song</Text>}
-        renderItem={({ item }) => <QueueRow id={item} sorting={sorting} />}
+        renderItem={({ item }) => <QueueRow id={item} date={dates.get(item) ?? null} sorting={sorting} />}
       />
     </View>
   );
@@ -733,6 +748,9 @@ const s = StyleSheet.create({
   verdictWordOn: { color: C.text, fontWeight: '700' },
   verdictOff: { color: C.faint },
   versionRow: { height: 46, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+  // in a session the row starts where the Not mine pill above it starts (the word's own 8 of padding taken back),
+  // instead of centred under a pill that sits left (wave 3 review, catch 17)
+  versionRowSession: { justifyContent: 'flex-start', marginLeft: -8 },
   compareSlot: { width: WHEEL_WIDTH, height: 46, justifyContent: 'center', alignItems: 'flex-end' }, // the closed word ends where the pill does (6.7)
   seek: { height: S.seek, justifyContent: 'center' },
   track: { height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.22)', overflow: 'hidden' },
@@ -756,15 +774,22 @@ const s = StyleSheet.create({
   toastInPlayer: { left: S.playerSide, right: S.playerSide, top: 8 },
   toastText: { flex: 1, ...T.toast },
   toastUndo: { color: C.accent, fontSize: 16, fontWeight: '700' },
-  queue: { flex: 1, backgroundColor: C.surface, paddingHorizontal: 16 },
-  queueHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  queueTitle: { color: C.text, fontSize: 26, fontWeight: '700' },
-  queueLabel: { color: C.dim, fontSize: 13, marginTop: 8, marginBottom: 4 },
-  queueNow: { color: C.accent, fontSize: 17, fontWeight: '600', marginBottom: 12 },
+  // Queue (wave 4): the list style of Library and search, on the sheet's own surface
+  queue: { flex: 1, backgroundColor: C.surface, paddingHorizontal: S.side },
+  queueHeader: { height: S.tap, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  queueBack: { height: S.tap, minWidth: S.tap, justifyContent: 'center', marginLeft: -8 },
+  queueBackWord: { color: C.dim, fontSize: 15, paddingHorizontal: 8 },
+  queueTitle: { ...T.title, flex: 1 },
+  queueHeading: { ...T.heading, marginTop: 18, marginBottom: 6 },
   queueList: { flex: 1 },
-  queueRow: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderBottomColor: C.line, borderBottomWidth: 1 },
-  queueLifted: { backgroundColor: C.raised, borderRadius: 6 },
-  queueSong: { flex: 1, color: C.text, fontSize: 16 },
-  queueGrip: { color: C.faint, fontSize: 20, paddingLeft: 16 },
-  queueEmpty: { color: C.dim, fontSize: 15, paddingTop: 16 },
+  // the last row scrolls clear of the phone's home bar
+  queueEnd: { paddingBottom: S.homeBar + 8 },
+  queueRow: { height: S.row, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.surface, borderBottomColor: C.line, borderBottomWidth: StyleSheet.hairlineWidth },
+  queueLifted: { backgroundColor: C.raised, borderRadius: R.rowTile, borderBottomColor: 'transparent' },
+  queueWords: { flex: 1, minWidth: 0, justifyContent: 'center' },
+  queueSong: { ...T.row },
+  queueNow: { color: C.accent },
+  queueMeta: { ...T.meta, marginTop: 2, fontVariant: ['tabular-nums'] },
+  queueGrip: { width: S.tap, height: S.tap, marginRight: -10, alignItems: 'center', justifyContent: 'center' },
+  queueEmpty: { ...T.meta, fontSize: 15, textAlign: 'center', paddingTop: 32 },
 });
