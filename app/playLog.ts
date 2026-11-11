@@ -162,5 +162,6 @@ export function notPlayedInAWhile<S extends { id: string }>(songs: readonly S[],
   return [...fromLongAgo, ...never.slice(0, limit - fromLongAgo.length)];
 }
 
-/** Where a song from "Not played in a while" starts: 0:30, or a third of the way into a short one. */
-export const rediscoverStart = (length: number | null | undefined) => (length && length > 0 && length < 90 ? Math.floor(length / 3) : 30);
+/** Where a song from "Not played in a while" starts: the beginning, like every other Home card (owner, 2026-11-11:
+ * the song is already Mine, no need to jump in. It was 0:30). */
+export const rediscoverStart = (_length?: number | null) => 0;

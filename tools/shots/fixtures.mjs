@@ -23,7 +23,7 @@ const MANY_TAGS = tagFile(MANY.map((one, i) => ({ ...at(10 + i, `${words[i % wor
 const rated = (ratings) => songs.map((one) => ({ ...one, rating: ratings[one.id] ?? null }));
 const player = (fix, steps) => ({ fix: { screen: 'player', ...fix }, steps });
 // the whole app: Home first; steps walk to Library or Sort and open the sheet, as taps would
-const SORTING = { total: 40, songs: songs.map((s) => ({ ...s, mine: 'unknown', sorted: false })), sets: [] };
+const SORTING = { total: 40, songs: songs.map((s) => ({ ...s, mine: 'unknown', sorted: false, folder: 'FL Studio Projects/2025' })), sets: [] };
 const whole = (fix = {}, steps = []) => ({
   fix: {
     screen: 'app', songs, upNext: songs.slice(1, 9).map((one) => one.id), routes: { '/status': { songs: 1395 }, '/sorting': SORTING },
@@ -33,6 +33,7 @@ const whole = (fix = {}, steps = []) => ({
 });
 const LIB = "app.goTab('library')";
 const SORT = "app.openSort()";
+const CARDS = "app.tapText('Cards · 15 left')";
 const HOME = "app.goTab('home')";
 // play data for Home's rows: five songs heard lately, three not for a long while, the rest never. Dates spread over
 // the years, so tiles run from dark (old) to bright (new)
@@ -81,6 +82,8 @@ export const fixtures = [
   { name: 'player-two-notices', ...player({ player: playing({ order: { shuffle: true } }), files: tagFile(tags(3)) }, ["app.say({text:'',bold:'1:02  punch in here'})", "app.sayAside({text:'Shuffle: ',bold:'Unsorted'})"]) },
   { name: 'player-undo-and-shuffle', ...player({ player: playing({ order: { shuffle: true } }), files: tagFile(tags(3)) }, ["app.sayAside({text:'Shuffle: ',bold:'Mine'})", "app.say({text:'Tagged at ',bold:'1:02',undo:()=>{}})"]) },
   { name: 'player-hold-menu', ...player({ player: playing(), files: tagFile(tags(5)) }, ["app.tagLine.toggleList('s1')", "app.tagLine.hold('t1')"]) },
+  // the same sheet from another opener (LESSONS 2026-11-08): the player on a Sort card
+  { name: 'hold-menu-sort-card', ...player({ player: playing({ sorting: true, song: { ...song, mine: 'unknown', sorted: false } }), files: tagFile(tags(5)) }, ["app.tagLine.toggleList('s1')", "app.tagLine.hold('t1')"]) },
   { name: 'player-change-words', ...player({ player: playing(), files: tagFile(tags(5)) }, ["app.tagLine.toggleList('s1')", "app.tagLine.changeWords({id:'t1',song_id:'s1',version_id:'v1',text:'double the ad-libs',at_sec:11.5,made_at:'m'}, 'Midnight Run (rough 3)', 's1')"]) },
   { name: 'player-moved-keeps-row', ...player({ player: playing(), files: tagFile(tags(5)) }, ["app.tagLine.toggleList('s1')", "app.tagLine.moveToNow({id:'t0',song_id:'s1',version_id:'v1',text:'hook comes in',at_sec:5,made_at:'m'}, 62)"]) },
   { name: 'player-deleted-undo', ...player({ player: playing(), files: tagFile(tags(5)) }, ["app.tagLine.toggleList('s1')", "app.tagLine.delete({id:'t2',song_id:'s1',version_id:'v1',text:'beat switch',at_sec:18,made_at:'m'})"]) },
@@ -151,6 +154,15 @@ export const fixtures = [
   { name: 'library-mini-player', ...whole({}, [LIB]) },
   { name: 'sort-mini-player', ...whole({}, [SORT]) },
   { name: 'cards', ...whole({ player: { sheet: 'none' } }, [SORT, "app.tapText('Cards · 15 left')"]) },
+  // ---- overhaul wave 3 (2026-11-11): Deal's swipe card. The fake player saves no verdict, so after a throw the same
+  // song is back at rest: that is the "nothing left on the next card" proof ----
+  { name: 'cards-mid-swipe-right', ...whole({ player: { sheet: 'none' } }, [SORT, CARDS]), drag: [195, 400, 285, 390] },
+  { name: 'cards-mid-swipe-left', ...whole({ player: { sheet: 'none' } }, [SORT, CARDS]), drag: [195, 400, 85, 410] },
+  { name: 'cards-mid-swipe-up', ...whole({ player: { sheet: 'none' } }, [SORT, CARDS]), drag: [195, 420, 205, 300] },
+  { name: 'cards-after-throw', ...whole({ player: { sheet: 'none' } }, [SORT, CARDS]), drag: [195, 400, 360, 390], release: true },
+  { name: 'cards-last-song', ...whole({ player: { sheet: 'none' }, routes: { '/status': { songs: 1395 }, '/sorting': { ...SORTING, songs: SORTING.songs.slice(0, 1) } } }, [SORT, "app.tapText('Cards · 1 left')"]) },
+  { name: 'cards-not-sure-pile', ...whole({ player: { sheet: 'none' }, files: { 'not-sure.json': JSON.stringify(['s2', 's5']) } }, [SORT, "app.tapText('Not sure · 2')"]) },
+  { name: 'cards-hard-title', ...whole({ player: { sheet: 'none' }, routes: { '/status': { songs: 1395 }, '/sorting': { ...SORTING, songs: SORTING.songs.map((one, i) => (i === 0 ? { ...one, title: HARD_TITLES[0], where: 'cloud' } : one)) } } }, [SORT, CARDS]) },
   { name: 'player-over-library', ...whole({}, [LIB, OPEN]) },
   { name: 'queue-from-mini-library', ...whole({}, [LIB, QUEUE]) },
   { name: 'queue-from-player', ...whole({}, [LIB, OPEN, QUEUE]) },

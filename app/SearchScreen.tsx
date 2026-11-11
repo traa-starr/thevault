@@ -9,7 +9,7 @@ import { FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from
 import { Tile } from './Art';
 import { Icon } from './Icon';
 import { useKeyboardHeight } from './keyboard';
-import { sortSongs } from './libraryCore';
+import { resultState, sortSongs } from './libraryCore';
 import { closeSearch, takeSearchAsk, useSearchAsk } from './nav';
 import { loadSongList, offline, useOffline } from './offline';
 import { useOutbox } from './outbox';
@@ -28,7 +28,9 @@ import { useVersions, type LibSong } from './versionStore';
 
 type Song = LibSong;
 const WHERE: Record<string, string> = { laptop: 'On the laptop', cloud: 'Cloud only', gone: 'File missing' };
-const detail = (song: Song) => [song.date, offline.has(song.id) ? 'On this phone' : WHERE[song.where]].filter(Boolean).join(' · ');
+/** A title row's second line: its date, and where the file is when that isn't this phone (the phone mark says that). */
+const detail = (song: Song) => [song.date, offline.has(song.id) ? '' : WHERE[song.where]].filter(Boolean).join(' · ');
+const LAPTOP_OFF = 'Laptop not reachable: songs on this phone still play. Tap to try again.';
 
 /** A result whose tagged line matched: the line (its matching words bold) over the song's title, the second on the
  * right. Up to two lines of the tag show; the row grows for the second. */
@@ -94,6 +96,10 @@ export default function SearchScreen({ url, showing }: { url: string; showing: b
   const canPlay = (song: Song) => offline.has(song.id) || (!laptopOff && song.where === 'laptop');
   // what plays after a result: every song that can play, newest first (Library's list as it opens)
   const playable = useMemo(() => (base ?? []).filter(canPlay), [base, laptopOff, stored]);
+  // A line on a version plays that version, so the row goes by that version's file, not its Main's (review
+  // 2026-11-10, catch 13): the same rule `play` below uses.
+  const whereOf = useMemo(() => new Map((listed ?? []).map((song) => [song.id, song.where])), [listed]);
+  const lineState = (row: Song, id: string) => resultState(id === row.id ? row.where : whereOf.get(id), offline.has(id), laptopOff);
 
   /** A result tapped: the song the row shows (the row carries it, so results still changing can't swap it), from its
    * line's second. A version's line plays that version, in its Main's place in the list. */
@@ -155,8 +161,23 @@ export default function SearchScreen({ url, showing }: { url: string; showing: b
           <Text style={s.cancelWord}>Cancel</Text>
         </Pressable>
       </View>
+      {/* the laptop is off: said here too, so greyed songs have a reason (review 2026-11-10, catch 16) */}
+      {laptopOff && base ? (
+        <Pressable onPress={() => offline.start(url)}>
+          <Text style={s.laptopOff}>{LAPTOP_OFF}</Text>
+        </Pressable>
+      ) : null}
       {!base ? (
-        <Text style={s.empty}>Loading songs…</Text>
+        // no list from the laptop and none saved on the phone: once the laptop is known to be off (10 s at most),
+        // loading ends in a plain line instead of waiting for ever (catch 17)
+        laptopOff ? (
+          <Pressable style={s.failed} onPress={() => offline.start(url)}>
+            <Text style={s.failedLine}>Laptop not reachable</Text>
+            <Text style={s.failedMore}>No songs are saved on this phone yet. Tap to try again.</Text>
+          </Pressable>
+        ) : (
+          <Text style={s.empty}>Loading songs…</Text>
+        )
       ) : !found ? (
         <View style={s.recent}>
           {recent.length ? (
@@ -192,11 +213,11 @@ export default function SearchScreen({ url, showing }: { url: string; showing: b
           ListFooterComponent={found.more ? <Text style={s.empty}>{found.more.toLocaleString('en-US')} more songs match: type more words to narrow</Text> : undefined}
           renderItem={({ item }) => {
             const hit = found.hitOf.get(item.id);
-            const disabled = item.where !== 'laptop' && !offline.has(item.id);
+            const { off, disabled } = lineState(item, hit ? hit.tag.song_id : item.id);
             return hit ? (
-              <LineRow song={item} hit={hit} stems={found.stems} typed={found.typed} rating={ratings.get(item.id)} off={!canPlay(item)} disabled={disabled} onPress={() => play(item, hit, text)} />
+              <LineRow song={item} hit={hit} stems={found.stems} typed={found.typed} rating={ratings.get(item.id)} off={off} disabled={disabled} onPress={() => play(item, hit, text)} />
             ) : (
-              <SongRow song={item} meta={detail(item)} rating={ratings.get(item.id)} off={!canPlay(item)} disabled={disabled} playing={playingSong?.id === item.id} onPress={(song) => play(song, undefined, text)} />
+              <SongRow song={item} meta={detail(item)} onPhone={offline.has(item.id)} bold={found} rating={ratings.get(item.id)} off={off} disabled={disabled} playing={playingSong?.id === item.id} onPress={(song) => play(song, undefined, text)} />
             );
           }}
         />
@@ -210,17 +231,22 @@ const s = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
   field: { flex: 1, height: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, borderRadius: R.field, backgroundColor: C.raised },
   input: { flex: 1, minWidth: 0, height: 48, color: C.text, fontSize: 17, padding: 0 },
-  cancel: { height: S.tap, minWidth: 64, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
+  // Cancel, Clear and every row end on the same right edge (the page's): the words sit flush right in their touch
+  cancel: { height: S.tap, minWidth: 64, paddingLeft: 12, alignItems: 'flex-end', justifyContent: 'center' },
   cancelWord: { color: C.dim, fontSize: 15 },
   recent: { flex: 1 },
   recentTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
   heading: { ...T.heading },
-  clear: { height: S.tap, minWidth: 64, alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 4 },
+  clear: { height: S.tap, minWidth: 64, alignItems: 'flex-end', justifyContent: 'center', paddingLeft: 12 },
   clearWord: { color: C.dim, fontSize: 15 },
   recentRow: { height: S.tap, flexDirection: 'row', alignItems: 'center', gap: 12 },
   recentWords: { ...T.row, flex: 1 },
   hint: { ...T.meta, marginTop: 16 },
   empty: { color: C.dim, fontSize: 15, textAlign: 'center', paddingTop: 32, paddingBottom: 8 },
+  laptopOff: { color: C.warnText, fontSize: 14, paddingBottom: 8 },
+  failed: { alignItems: 'center', paddingTop: 32, paddingBottom: 8, gap: 6, minHeight: S.tap },
+  failedLine: { color: C.dim, fontSize: 17 },
+  failedMore: { color: C.dim, fontSize: 15, textAlign: 'center' },
   lineRow: { minHeight: 60, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
   words: { flex: 1, minWidth: 0 },
   line: { color: C.dim, fontSize: 17, lineHeight: 22 },

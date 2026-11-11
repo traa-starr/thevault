@@ -9,8 +9,8 @@
 // Fake songs and fake lines only.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { addRecent, findSongs, indexFor, queryStems, readRecents, RECENTS_KEPT, searchSongs, stems, typedWord, writeRecents } from './search.ts';
-import { sortSongs } from './libraryCore.ts';
+import { addRecent, findSongs, indexFor, pieces, queryStems, readRecents, RECENTS_KEPT, searchSongs, stems, typedWord, writeRecents } from './search.ts';
+import { resultState, sortSongs } from './libraryCore.ts';
 import { searchLeft, searchOpened, sortOpened, tabTapped, reachable } from './sheetCore.ts';
 
 let n = 0;
@@ -225,6 +225,61 @@ ok('recent searches survive a restart (the file) and a wipe or a broken file sta
   assert.ok(/recents\.add\(words\);/.test(screen) && screen.indexOf('recents.add(words)') > screen.indexOf('showMessage(NOT_HERE)'), 'kept only when a result is tapped and can play');
   assert.ok(!/recents\.add\(/.test(screen.replace('recents.add(words);', '')), 'never while typing');
   assert.ok(screen.includes('onPress={() => (setText(words), box.current?.focus())}'), 'tapping a recent search fills the box and keeps the keyboard up; it doesn\'t play anything');
+});
+
+// ---------- wave 2 review catches fixed in wave 3 (docs/board/wave2-review.md) -----------------------------------------
+ok('catch 13: a line on a version goes by that version\'s file, not its Main\'s: playable version, row not greyed or dead', () => {
+  // the version is on this phone, laptop off: plays, whatever its Main is
+  assert.deepEqual(resultState('laptop', true, true), { off: false, disabled: false });
+  assert.deepEqual(resultState('gone', true, false), { off: false, disabled: false });
+  // not on the phone: plays from the laptop while it's on, greyed (and says why on a tap) while it's off
+  assert.deepEqual(resultState('laptop', false, false), { off: false, disabled: false });
+  assert.deepEqual(resultState('laptop', false, true), { off: true, disabled: false });
+  // cloud only or missing, not on the phone: can't be tapped at all
+  for (const where of ['cloud', 'gone']) assert.deepEqual(resultState(where, false, false), { off: true, disabled: true });
+  // a version the saved list doesn't know: treated as on the laptop, as a tap on it does
+  assert.deepEqual(resultState(undefined, false, false), { off: false, disabled: false });
+  const screen = code('./SearchScreen.tsx');
+  assert.ok(screen.includes('resultState(id === row.id ? row.where : whereOf.get(id), offline.has(id), laptopOff)'));
+  assert.ok(screen.includes('lineState(item, hit ? hit.tag.song_id : item.id)'), 'the row asks about the song a tap would play');
+});
+
+ok('catch 15: a title match is drawn like a line match: the matched words marked, also the word still being typed; a title with no whole word to mark stays plain', () => {
+  const marked = (title, query) => pieces(title, queryStems(query), typedWord(query)).filter((piece) => piece.hit).map((piece) => piece.text);
+  assert.deepEqual(marked('Cold Brew (final v7)', 'cold'), ['Cold']);
+  assert.deepEqual(marked('Midnight Run 12', 'midn'), ['Midnight']);
+  assert.deepEqual(marked('Cold Brew tape', 'brew cold'), ['Cold', 'Brew']);
+  assert.deepEqual(marked('Midnight Run', 'idnigh'), [], 'found by letters inside a word: nothing to mark');
+  const row = code('./SongRow.tsx');
+  assert.ok(row.includes('const parts = bold ? pieces(song.title, bold.stems, bold.typed) : [];') && row.includes('const marked = parts.some((piece) => piece.hit);'));
+  assert.ok(row.includes('marked ? parts.map(') && row.includes(': song.title}'), 'no match to mark: the plain title');
+  assert.ok(code('./SearchScreen.tsx').includes('bold={found}'), 'the search screen hands its words to title rows');
+  assert.ok(!code('./Library.tsx').includes('bold='), 'Library rows are never marked');
+});
+
+ok('catches 16 and 17: search says when the laptop is off, and "Loading songs…" ends in a plain line once it is known to be off', () => {
+  const screen = code('./SearchScreen.tsx');
+  assert.ok(screen.includes("const LAPTOP_OFF = 'Laptop not reachable: songs on this phone still play. Tap to try again.';"));
+  assert.ok(code('./Library.tsx').includes('Laptop not reachable: songs on this phone still play. Tap to try again.'), 'the same words as Library');
+  assert.ok(/\{laptopOff && base \? \(\s*<Pressable onPress=\{\(\) => offline\.start\(url\)\}>\s*<Text style=\{s\.laptopOff\}>\{LAPTOP_OFF\}<\/Text>/.test(screen), 'the line shows over recents and results, and a tap asks the laptop again');
+  const loading = screen.slice(screen.indexOf('{!base ? ('), screen.indexOf(') : !found ? ('));
+  assert.ok(loading.indexOf('laptopOff ? (') < loading.indexOf('Laptop not reachable') && loading.indexOf('Laptop not reachable') < loading.indexOf('Loading songs…'), 'no list and the laptop off: the fail line, not Loading');
+  // Library is what finds out (its list fetch gives up after 10 s) and what asks again when the laptop is back
+  const library = code('./Library.tsx');
+  assert.ok(/const TIMEOUT_MS = 10000;/.test(library) && library.includes('offline.setReachable(false);'));
+  assert.ok(library.includes('if (failed && reachable === true) setAttempt((n) => n + 1);'), 'back on: the list is asked for again, the line clears by itself');
+  assert.ok(library.includes('{(failed || laptopOff) && songs ? ('), 'Library says so however it found out');
+});
+
+ok('catch 18: Cancel, Clear and the rows end on the same right edge', () => {
+  const screen = code('./SearchScreen.tsx');
+  const style = (name) => new RegExp(`\\n  ${name}: \\{([^}]*)\\}`).exec(screen)[1];
+  for (const name of ['cancel', 'clear']) {
+    assert.ok(style(name).includes("alignItems: 'flex-end'"), `${name}: its word sits at the right of its touch`);
+    assert.ok(!/paddingHorizontal|paddingRight|marginRight/.test(style(name)), `${name}: nothing between its word and the page edge`);
+    assert.ok(style(name).includes('height: S.tap') && style(name).includes('minWidth: 64'), `${name}: still a 44 pt touch`);
+  }
+  assert.ok(!/paddingRight|marginRight/.test(style('lineRow')) && !/paddingRight|marginRight/.test(style('top')));
 });
 
 console.log(`\n${n} search screen checks passed`);

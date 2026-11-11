@@ -59,9 +59,11 @@ export type Engine = {
   setQuiet: (quiet: boolean) => void;
 };
 
-/** How often the player reports its progress: twice a second on screen, every 2 s locked or in the background (each
- * report wakes the app, and nobody is watching the clock). The slow rate needs the build of 2026-11-10 or later. */
-export const REPORT_MS = { open: 500, locked: 2000 } as const;
+/** How often the player reports its progress: once a second on screen (the clock shows whole seconds; it was twice a
+ * second until 2026-11-11, 120 wake-ups a minute before anything else happened), every 2 s locked or in the
+ * background (each report wakes the app, and nobody is watching the clock), and twice a second only while a song is
+ * finding its start spot. Changing the rate needs the build of 2026-11-10 or later. */
+export const REPORT_MS = { open: 1000, locked: 2000, finding: 500 } as const;
 
 export type Raw = { currentTime: number; duration: number; isLoaded: boolean; isBuffering: boolean; playing: boolean; volume: number };
 type Status = { currentTime: number; duration: number; playing: boolean; isBuffering: boolean; isLoaded: boolean; didJustFinish: boolean };
@@ -244,14 +246,14 @@ export function playlistEngine(list: List, { onSound, onTrack, onStarted }: Hand
   let every: number = REPORT_MS.open;
   /** Sets the report rate to what fits now. Called after anything that can change it. */
   const pace = () => {
-    const want = quiet && !gate.now() ? REPORT_MS.locked : REPORT_MS.open;
+    const want = gate.now() ? REPORT_MS.finding : quiet ? REPORT_MS.locked : REPORT_MS.open;
     if (want === every || typeof list.setUpdateInterval !== 'function') return;
     every = want;
     list.setUpdateInterval(want);
   };
   list.addListener('playlistStatusUpdate', (status) => {
     gate.settle();
-    pace(); // the start spot was found: back to the slow rate if nobody is looking
+    pace(); // the start spot was found: back to the screen's rate, or the slow one if nobody is looking
     const waiting = gate.now();
     onSound({
       time: waiting ? waiting.at : status.currentTime,

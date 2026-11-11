@@ -1,17 +1,19 @@
 // Tagging in the player (BLUEPRINT "Phase 2: tagging"): the reserved line under the seek bar (the typing field, or a
 // short note with Undo) and the song's list of lines. The Tag and Lines buttons are in the player's action row (Player.tsx). Fixed heights throughout, so nothing moves.
+// Look (overhaul wave 3, board/wave3.md D): Lines rows in the list style, the hold menu as a half sheet (HoldMenu).
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { player } from './playerStore';
-import { C } from './theme';
+import { C, R, S, T } from './theme';
 import { clock, clockExact, dropPlainNote, MAX_TEXT, say, tagLine, useTagLine } from './tagStore';
 import { listIsOpen, noTickWords, rowOrder, songStartWords, tickWordsAfter, type ShownTag, type TickWords } from './playOrder';
 
 const ACCENT = C.accent;
 const NUDGE = 0.5;
 export const LINE_HEIGHT = 52;
-const ROW_HEIGHT = 48;
-const HOLD_MS = 400; // a Tags row held this long shows its menu (board: Queue rows keep 300)
+/** A Lines row, and a row of the hold menu's half sheet. */
+export const ROW_HEIGHT = 52;
+export const HOLD_MS = 400; // a Tags row held this long shows its menu (board: Queue rows keep 300)
 
 /** The one pressed look in the app: an instant light tint behind the control, never a fade. */
 export const pressedLook = { backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 8 };
@@ -127,7 +129,8 @@ export const playingTag = (tags: ShownTag[], time: number) => {
 
 /** The song's tags, only while Lines · N has it open. Tap a row to jump (the list stays open); the playing row is marked.
  *  Rows keep their places while the list is open (rowOrder); time order comes back when it's reopened. Hold a row for
- *  Change words · Move to now · Cancel · Delete in its place; with a menu open, a tap on any row only closes it. */
+ *  Change words · Move to now · Cancel · Delete (HoldMenu, a half sheet over the player; the held row stays lit); with
+ *  a menu open, a tap on any row only closes it. */
 export function TagList({ songId, songTitle, tags, time }: { songId: string | null | undefined; songTitle: string; tags: ShownTag[]; time: number }) {
   const { listFor, menuFor } = useTagLine();
   const open = !!songId && listIsOpen(listFor, songId);
@@ -148,11 +151,10 @@ export function TagList({ songId, songTitle, tags, time }: { songId: string | nu
         ids.map((id) => {
           const tag = byId.get(id);
           if (!tag) return null; // deleted: its place is kept, so Undo puts it back there
-          if (menuFor === id) return <RowMenu key={id} tag={tag} songTitle={songTitle} time={time} />;
           return (
             <Pressable
               key={id}
-              style={(p) => [s.row, tint(p)]}
+              style={(p) => [s.row, menuFor === id && s.rowHeld, tint(p)]}
               onPress={() => (menuFor ? tagLine.closeMenu() : jumpToTag(tag))}
               onLongPress={() => tagLine.hold(id)}
               delayLongPress={HOLD_MS}
@@ -172,51 +174,68 @@ export function TagList({ songId, songTitle, tags, time }: { songId: string | nu
   );
 }
 
-/** A held row: four equal columns in the row's own height, Delete last and red. */
-function RowMenu({ tag, songTitle, time }: { tag: ShownTag; songTitle: string; time: number }) {
+/** The held row's menu: a half sheet over the player (`raised`, corner 22), the line it is about on top, then
+ *  Change words · Move to now · Cancel · Delete, each a 52 row, Delete last in plain white. A tap on the dark
+ *  outside closes it. Drawn by the player at its page level, so it sits over everything. What each does: tagStore. */
+export function HoldMenu({ tags, songTitle, time }: { tags: ShownTag[]; songTitle: string; time: number }) {
+  const { menuFor } = useTagLine();
+  const tag = menuFor ? tags.find((one) => one.id === menuFor) : undefined;
+  if (!tag) return null;
   const item = (label: string, onPress: () => void, style?: object) => (
     <Pressable style={(p) => [s.menuItem, tint(p)]} onPress={onPress} accessibilityLabel={label}>
-      <Text style={[s.menuText, style]} numberOfLines={2}>{label}</Text>
+      <Text style={[s.menuText, style]} numberOfLines={1}>{label}</Text>
     </Pressable>
   );
   return (
-    <View style={s.menuRow}>
-      {item('Change words', () => tagLine.changeWords(tag, songTitle, tag.song_id))}
-      {item(`Move to ${clock(time)}`, () => tagLine.moveToNow(tag, player.positionNow()))}
-      {item('Cancel', tagLine.closeMenu, s.menuCancel)}
-      <View style={s.menuGap} />
-      {item('Delete', () => tagLine.delete(tag), s.menuDelete)}
+    <View style={s.menuLayer}>
+      <Pressable style={s.menuScrim} onPress={tagLine.closeMenu} accessibilityLabel="Cancel" />
+      <View style={s.menuSheet}>
+        <View style={s.menuAbout}>
+          <Text style={s.menuAt}>{clock(tag.at_sec)}</Text>
+          <Text style={[s.menuWords, !tag.text && s.rowEmpty]} numberOfLines={1}>{tag.text || 'no words yet'}</Text>
+        </View>
+        {item('Change words', () => tagLine.changeWords(tag, songTitle, tag.song_id))}
+        {item(`Move to ${clock(time)}`, () => tagLine.moveToNow(tag, player.positionNow()))}
+        {item('Cancel', tagLine.closeMenu, s.menuCancel)}
+        {item('Delete', () => tagLine.delete(tag))}
+      </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
   line: { height: LINE_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  msg: { flex: 1, color: '#8e8e93', fontSize: 15 },
-  aside: { flexShrink: 0, marginLeft: 2, color: '#8e8e93', fontSize: 15 },
-  bold: { color: '#fff', fontWeight: '500' },
-  act: { height: 44, justifyContent: 'center', paddingHorizontal: 4 },
+  msg: { flex: 1, color: C.dim, fontSize: 15 },
+  aside: { flexShrink: 0, marginLeft: 2, color: C.dim, fontSize: 15 },
+  bold: { color: C.text, fontWeight: '500' },
+  act: { height: S.tap, justifyContent: 'center', paddingHorizontal: 4 },
   undoText: { color: ACCENT, fontSize: 15 },
-  cancelText: { color: '#8e8e93', fontSize: 15 },
+  cancelText: { color: C.dim, fontSize: 15 },
   at: { flexDirection: 'row', alignItems: 'center' },
   atText: { color: ACCENT, fontSize: 14, fontVariant: ['tabular-nums'] },
-  nudge: { width: 28, height: 44, alignItems: 'center', justifyContent: 'center' },
-  nudgeText: { color: '#8e8e93', fontSize: 18 },
-  field: { flex: 1, minWidth: 0, height: 40, backgroundColor: '#2c2c2e', color: '#fff', borderRadius: 10, paddingHorizontal: 12, fontSize: 16 },
+  nudge: { width: 28, height: S.tap, alignItems: 'center', justifyContent: 'center' },
+  nudgeText: { color: C.dim, fontSize: 18 },
+  field: { flex: 1, minWidth: 0, height: 40, backgroundColor: C.raised, color: C.text, borderRadius: R.field, paddingHorizontal: 12, fontSize: 16 },
   atEditing: { width: 44 },
-  menuRow: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'stretch', borderBottomColor: '#2c2c2e', borderBottomWidth: 1 },
-  menuItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 },
-  menuText: { color: '#fff', fontSize: 13, textAlign: 'center' },
-  menuCancel: { color: 'rgba(255,255,255,0.7)' },
-  menuDelete: { color: '#ff6961' },
-  menuGap: { width: 1, marginVertical: 10, backgroundColor: '#3a3a3c' },
+  // the hold menu: a half sheet at the bottom of the player, the rest darkened
+  // the player page's own edges (its padding doesn't inset an absolute child), so the sheet spans the screen
+  menuLayer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 8, justifyContent: 'flex-end' },
+  menuScrim: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)' },
+  menuSheet: { backgroundColor: C.raised, borderTopLeftRadius: R.sheet, borderTopRightRadius: R.sheet, paddingHorizontal: S.side, paddingTop: 8, paddingBottom: S.homeBar + 8 },
+  menuAbout: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomColor: C.line, borderBottomWidth: 1 },
+  menuAt: { ...T.meta, width: 48, fontVariant: ['tabular-nums'] },
+  menuWords: { flex: 1, ...T.meta, fontSize: 15 },
+  menuItem: { height: ROW_HEIGHT, justifyContent: 'center' },
+  menuText: { ...T.row },
+  menuCancel: { color: C.dim },
   // fills the art's place in the player while Lines is open (Player.tsx): rows from the top, the rest scrolls
   list: { flex: 1 },
-  row: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 14, borderBottomColor: '#2c2c2e', borderBottomWidth: 1 },
-  rowAt: { width: 44, color: '#8e8e93', fontSize: 14, fontVariant: ['tabular-nums'] },
-  rowWords: { flex: 1, color: '#fff', fontSize: 15 },
-  rowEmpty: { color: '#636366', fontStyle: 'italic' },
+  row: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomColor: C.line, borderBottomWidth: 1 },
+  rowHeld: { backgroundColor: C.raised, borderRadius: R.rowTile },
+  rowAt: { ...T.meta, width: 48, fontVariant: ['tabular-nums'] },
+  rowWords: { flex: 1, ...T.row },
+  rowEmpty: { color: C.faint, fontStyle: 'italic' },
   rowNow: { color: ACCENT },
-  rowSync: { fontSize: 11, color: '#636366' },
-  empty: { height: ROW_HEIGHT, lineHeight: ROW_HEIGHT, color: '#636366', fontSize: 14 },
+  rowSync: { fontSize: 11, color: C.faint },
+  empty: { height: ROW_HEIGHT, lineHeight: ROW_HEIGHT, color: C.faint, fontSize: 14 },
 });

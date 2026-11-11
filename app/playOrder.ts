@@ -298,9 +298,10 @@ export const shuffleAfterTap = ({ on, pool }: ShufflePick): ShufflePick =>
   !on ? { on: true, pool: 'mine' } : pool === 'mine' ? { on: true, pool: 'unsorted' } : { on: false, pool };
 export const shuffleWords = ({ on, pool }: ShufflePick) => (!on ? 'off' : pool === 'mine' ? 'Mine' : 'Unsorted');
 
-/** Tag words as playback passes a tick. One sample per time update; a step longer than this is a seek, not play. */
+/** Tag words as playback passes a tick. One sample per time update; a step longer than this is a seek, not play.
+ * Reports come once a second on screen (REPORT_MS.open), so a late one can be nearly 2 s on: the step allows 2.5. */
 export const TICK_SHOW_MS = 4000;
-const PLAY_STEP = 1.5;
+export const PLAY_STEP = 2.5;
 /** `from`: the last second heard while playing on its own; null after a drag, seek, pause or open field. */
 export type TickWords = { from: number | null; tagId: string | null; until: number };
 export const noTickWords: TickWords = { from: null, tagId: null, until: 0 };

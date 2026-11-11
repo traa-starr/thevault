@@ -11,10 +11,17 @@ export const MAX_TEXT = 500;
 
 const copyFile = () => new File(Paths.document, 'tags.json');
 
+// The phone has had the laptop's tags at least once (a saved copy, or an answer since). Until then "no tags" only
+// means "not asked yet": Needs tags must not list every Mine song (review 2026-11-10, catch 3).
+let known = false;
+
 function load(): Tag[] {
   try {
     const file = copyFile();
-    return file.exists ? JSON.parse(file.textSync()) : [];
+    if (!file.exists) return [];
+    const saved = JSON.parse(file.textSync());
+    known = true;
+    return saved;
   } catch {
     return [];
   }
@@ -27,6 +34,7 @@ const listeners = new Set<() => void>();
 
 function keep(next: Tag[]) {
   copy = next;
+  known = true;
   try {
     const file = copyFile();
     if (!file.exists) file.create();
@@ -273,6 +281,9 @@ const subscribe = (listener: () => void) => {
 
 /** Every tag as the phone shows it (the copy with what's waiting on top), for code outside React. */
 export const allTagsNow = () => tagsWithPending(copy, pendingNow() as Change[]);
+
+/** False only on a fresh install until the laptop's tags first arrive. */
+export const useTagsKnown = () => useSyncExternalStore(subscribe, () => known);
 
 /** Every tag, live: the session's counter. */
 export function useAllTags(): ShownTag[] {

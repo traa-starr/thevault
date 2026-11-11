@@ -24,7 +24,7 @@ import { draftGoesOnChange, listIsOpen, seekRelease, shuffleAfterTap, shuffleWor
 import { ratingStore, useRating } from './ratingStore';
 import { session, useSession, useSessionCount } from './sessionStore';
 import { layers, pullCloses, slideController, type Nav } from './sheetCore';
-import { jumpToTag, ReservedLine, TagList, usePassedTag } from './Tagging';
+import { HoldMenu, jumpToTag, ReservedLine, TagList, usePassedTag } from './Tagging';
 import { sayAside, tagLine, useTagLine, useTags } from './tagStore';
 import { C, coveredBelow, R, S, T } from './theme';
 import { VersionsChip, VersionsToast } from './Versions';
@@ -350,8 +350,9 @@ export function FullPlayer() {
           Not mine alone. On a Sort card, nothing. The row keeps its height either way */}
       <View style={s.quiet}>
         {inSession ? (
-          <Tap style={s.verdict} radius={14} onPress={session.notMine} disabled={out} accessibilityLabel="Not mine">
-            <Text style={[s.verdictWord, out && s.verdictOff]}>Not mine</Text>
+          // the same quiet pill as Sort's buttons (wave 3)
+          <Tap style={[s.sessionPill, out && s.sessionPillOff]} radius={18} onPress={session.notMine} disabled={out} accessibilityLabel="Not mine">
+            <Text style={[s.sessionPillWord, out && s.verdictOff]}>Not mine</Text>
           </Tap>
         ) : sorting ? null : (
           <>
@@ -454,15 +455,18 @@ export function FullPlayer() {
         {comparing || !shownId ? <View style={s.action} /> : (
           <Action icon="lines" word={`Lines · ${tags.length}`} on={linesOpen} onPress={() => tagLine.toggleList(shownId)} label={linesOpen ? 'Hide lines' : 'Show lines'} />
         )}
-        {inSession ? <Action icon="next" word="Next song" onPress={leavingCompare(player.next)} /> : <Action icon="queue" word="Queue" onPress={() => player.open('queue')} />}
+        {/* in a session, Next song is the main action: the one lit slot besides Tag */}
+        {inSession ? <Action icon="next" word="Next song" on onPress={leavingCompare(player.next)} /> : <Action icon="queue" word="Queue" onPress={() => player.open('queue')} />}
       </View>
       <UndoToast inPlayer />
       <VersionsToast />
+      <HoldMenu tags={tags} songTitle={song?.title ?? ''} time={shown} />
     </Animated.View>
   );
 }
 
-/** The session's top row: Close on the left, "N of M tagged" on the right. */
+/** The session's top row: Close on the left, "N of M tagged" on the right, and a thin amber line along the row's
+ * bottom for how far along the session is (wave 3). Drawn inside the row, so nothing below moves. */
 function SessionTop() {
   const { tagged, of } = useSessionCount();
   return (
@@ -471,9 +475,14 @@ function SessionTop() {
         <Text style={s.word}>Close</Text>
       </Tap>
       <Text style={s.sessionCount}>{tagged.toLocaleString('en-US')} of {of.toLocaleString('en-US')} tagged</Text>
+      <View style={s.sessionTrack} pointerEvents="none">
+        <View style={[s.sessionBar, { width: `${sessionShare(tagged, of) * 100}%` }]} />
+      </View>
     </View>
   );
 }
+/** The share of the session done, 0 to 1 (a session of none is 0, never a division by zero). */
+export const sessionShare = (tagged: number, of: number) => (of > 0 ? Math.min(Math.max(tagged / of, 0), 1) : 0);
 
 /** Up next with one row moved to its slot. */
 const withRowAt = (rows: string[], id: string, slot: number) => {
@@ -704,7 +713,12 @@ const s = StyleSheet.create({
   word: { color: C.dim, fontSize: 15, paddingHorizontal: 8, paddingVertical: 13, textAlign: 'center' },
   sessionTop: { marginTop: -44, marginHorizontal: -8, height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sessionClose: { minWidth: 64, height: 44, justifyContent: 'center' },
-  sessionCount: { ...T.meta, fontSize: 15, paddingRight: 8, fontVariant: ['tabular-nums'] },
+  sessionCount: { ...T.meta, fontSize: 15, color: C.text, paddingRight: 8, fontVariant: ['tabular-nums'] },
+  sessionTrack: { position: 'absolute', left: 8, right: 8, bottom: 0, height: 2, borderRadius: 1, backgroundColor: C.line, overflow: 'hidden' },
+  sessionBar: { height: 2, backgroundColor: C.accent },
+  sessionPill: { height: 36, paddingHorizontal: 16, justifyContent: 'center', borderRadius: 18, backgroundColor: C.raised, marginLeft: 10 },
+  sessionPillOff: { opacity: 0.5 },
+  sessionPillWord: { color: C.text, fontSize: 15, fontWeight: '600' },
   art: { flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', paddingVertical: 4 },
   lines: { alignSelf: 'stretch', flex: 1 },
   titleBox: { height: 58, justifyContent: 'center', marginTop: 8 },

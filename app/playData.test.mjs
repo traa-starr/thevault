@@ -181,7 +181,7 @@ ok('a force quit after 0:30 loses nothing: the line was handed over the moment i
   r.start('a');
   r.play(PLAY_COUNTS_AFTER);
   assert.equal(r.lines.length, 1); // emit is the outbox's save, which writes its file before returning
-  assert.match(source('./outbox.ts'), /export function addPlayChange[\s\S]*?save\(pending\);[\s\S]*?if \(!paused\) flush\(\);/);
+  assert.match(source('./outbox.ts'), /export function addPlayChange[\s\S]*?save\(pending\);[\s\S]*?if \(playSendsNow\(data, !paused\)\) flush\(\);/);
 });
 
 // ---------- counts: the laptop's log is the truth, the phone lays its unsent plays on top ---------------------------
@@ -349,10 +349,12 @@ ok('1,395 songs: both rows worked out in well under 50 ms', () => {
   assert.ok(each < 50, `${each.toFixed(1)} ms`);
 });
 
-ok('a song from Not played in a while starts at 0:30, or a third in when it is short', () => {
-  assert.equal(rediscoverStart(214), 30);
-  assert.equal(rediscoverStart(null), 30);
-  assert.equal(rediscoverStart(45), 15);
+ok('a song from Not played in a while starts at 0, whatever its length (owner 2026-11-11), and Home hands the player no other start', () => {
+  for (const length of [214, null, 45, 0, 1200]) assert.equal(rediscoverStart(length), 0);
+  const home = readFileSync(new URL('./Home.tsx', import.meta.url), 'utf8');
+  assert.ok(home.includes('play(rows.forgotten, song, rediscoverStart(song.length) || undefined)'), 'the row plays through the tested start');
+  // no start handed over: the player loads the song from its beginning (loadOrder with no second)
+  assert.equal(/play\(rows\.\w+, song, (?!rediscoverStart)/.test(home), false, 'no other Home row jumps in either');
 });
 
 // ---------- the fresh-eyes review's catches (docs/board/wave1-review.md) ---------------------------------------------
@@ -399,7 +401,7 @@ ok('review 4, 6: plays alone never raise the waiting line, and Home\'s rows only
   assert.match(source('./Notices.tsx'), /if \(!changes\) return null;/);
   const home = source('./Home.tsx');
   assert.match(home, /const inView = showing && sheet === 'none';/);
-  assert.match(home, /useEffect\(\(\) => \{\s*if \(inView\) setPlays\(playStore\.all\(\)\);\s*\}, \[inView, fresh\]\);/);
+  assert.match(home, /useEffect\(\(\) => \{\s*if \(!inView\) return;\s*setPlays\(playStore\.all\(\)\);\s*setDay\(dayOf\(Date\.now\(\)\)\);\s*\}, \[inView, fresh\]\);/);
   assert.ok(!home.includes('usePlays'), 'not live: a play counted while I look at Home moves nothing');
 });
 
@@ -420,8 +422,8 @@ ok('a play in the outbox never makes Library fetch or redraw, and never counts a
 });
 
 ok('locked: a counted play waits on the phone (no send, no backup call) until the app is opened', () => {
-  assert.match(source('./phoneBackup.ts'), /soon\(\) \{\s*if \(away\) return;/);
-  assert.match(source('./outbox.ts'), /if \(!paused\) flush\(\);/);
+  assert.match(source('./phoneBackup.ts'), /soon\(\) \{\s*if \(away \|\| soon !== undefined\) return;/);
+  assert.match(source('./outbox.ts'), /if \(playSendsNow\(data, !paused\)\) flush\(\);/);
 });
 
 console.log(`\n${n} checks passed`);

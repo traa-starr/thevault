@@ -3,13 +3,13 @@
 // until it has asked the laptop for the old one, so an empty phone can't overwrite the copy it needs.
 import { File, Paths } from 'expo-file-system';
 import { useSyncExternalStore } from 'react';
+import { BACKUP_WITHIN_MS, choicesKey, HEALTH_GOOD_MS } from './energy';
 import { onOutbox, pendingNow, restoreChanges } from './outbox';
 import { player } from './playerStore';
 import type { Change } from './playOrder';
 import { loadNotSure, saveNotSure } from './sortData';
 
 const TIMEOUT_MS = 10000;
-const SOON_MS = 3000;
 const EVERY_MS = 5 * 60 * 1000;
 // player files copied as they are: the last song and spot, and the two display settings
 const LAST_PLAY = 'last-play.json';
@@ -63,6 +63,7 @@ let lastSent = '';
 let soon: ReturnType<typeof setTimeout> | undefined;
 let every: ReturnType<typeof setInterval> | undefined;
 let busy = false;
+let healthAt = 0; // when the laptop last said which version it runs (0: ask before the next backup)
 let away = false; // the app is in the background
 const listeners = new Set<() => void>();
 
@@ -143,14 +144,18 @@ async function send() {
   if (!url || busy) return;
   busy = true;
   try {
-    let health: { server?: unknown };
-    try {
-      health = await call('/health');
-    } catch {
-      return; // laptop off: Library says so already. The next open, change or timer tries again
+    // the laptop's version: asked on open, on a retry tap and every few minutes, not before every backup
+    if (Date.now() - healthAt >= HEALTH_GOOD_MS || state.outOfDate) {
+      let health: { server?: unknown };
+      try {
+        health = await call('/health');
+      } catch {
+        return; // laptop off: Library says so already. The next open, change or timer tries again
+      }
+      healthAt = Date.now();
+      const outOfDate = !(typeof health.server === 'number' && health.server >= NEEDS_SERVER);
+      if (outOfDate !== state.outOfDate) update({ outOfDate });
     }
-    const outOfDate = !(typeof health.server === 'number' && health.server >= NEEDS_SERVER);
-    if (outOfDate !== state.outOfDate) update({ outOfDate });
     try {
       if (state.waiting) await fetchBack();
       const body = JSON.stringify(gather());
@@ -162,7 +167,13 @@ async function send() {
       });
       lastSent = body;
       if (state.saveFailed) update({ saveFailed: false });
-    } catch {
+    } catch (e) {
+      // the laptop didn't answer at all (off, or out of reach since its version was asked): nothing to say here,
+      // Library says so; the version is asked again next time
+      if (!String(e instanceof Error ? e.message : e).startsWith('Server said')) {
+        healthAt = 0;
+        return;
+      }
       // the laptop answered but didn't take it (older code, a full disk): say so, and try again later.
       // A fresh install keeps waiting and sends nothing.
       if (!state.saveFailed) update({ saveFailed: true });
@@ -177,6 +188,7 @@ export const phoneBackup = {
   start(serverUrl: string) {
     url = serverUrl;
     away = false;
+    healthAt = 0;
     clearInterval(every);
     every = setInterval(send, EVERY_MS);
     send();
@@ -187,24 +199,39 @@ export const phoneBackup = {
     clearInterval(every);
     every = undefined;
     clearTimeout(soon);
+    soon = undefined; // this send covers it; the next choice after coming back starts its own minute
     away = true;
     send();
   },
 
-  /** Something phone-only changed: a copy goes in a few seconds. */
+  /** A choice of mine joined or left the outbox: a copy goes within a minute. One already on its way covers this
+   * change too, so a run of choices makes one backup, not one each. */
   soon() {
-    if (away) return; // locked: a play counted mid-listen waits for the next open (no network while locked)
-    clearTimeout(soon);
-    soon = setTimeout(send, SOON_MS);
+    if (away || soon !== undefined) return; // locked: it waits for the next open (no network while locked)
+    soon = setTimeout(() => {
+      soon = undefined;
+      send();
+    }, BACKUP_WITHIN_MS);
   },
 
   dismiss: () => update({ restored: null }),
 
   /** Ask the laptop again now: a tap on the out-of-date or not-saved line. */
-  retry: () => send(),
+  retry: () => {
+    healthAt = 0;
+    return send();
+  },
 };
 
-onOutbox(() => phoneBackup.soon());
+// A choice of mine joining or leaving the outbox: a copy goes soon. A play is not a choice (it is safe in the outbox
+// and on its way to the laptop already): it used to cost a backup each, two more network calls a song (2026-11-11).
+let choicesWas = choicesKey(pendingNow());
+onOutbox(() => {
+  const choices = choicesKey(pendingNow());
+  if (choices === choicesWas) return;
+  choicesWas = choices;
+  phoneBackup.soon();
+});
 
 const subscribe = (listener: () => void) => {
   listeners.add(listener);

@@ -20,6 +20,7 @@ const PAIRS = [
   { name: 'side-search-results', page: 'wall.html', steps: ["act('tab', { tab: 'search' })", "act('q', { q: 'beat' })"], app: 'search-results-mini-player' },
   { name: 'side-player', page: 'deal.html', steps: ["act('play', { id: 0 })"], app: 'player-art-dark' },
   { name: 'side-player-lines', page: 'deal.html', steps: ["act('play', { id: 0 })", "act('tags')"], app: 'player-30-tags' },
+  { name: 'side-cards', page: 'deal.html', steps: ["act('deck')"], app: 'cards' },
 ];
 
 const browser = await chromium.launch({ channel: 'msedge', headless: true });

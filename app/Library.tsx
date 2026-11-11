@@ -9,8 +9,9 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } f
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Hidden from './Hidden';
 import { Icon } from './Icon';
-import { CHIPS, chipSongs, keepIfSame, linesByRow, nextSort, rowLayout, sortSongs, type Chip, type SortBy } from './libraryCore';
+import { CHIPS, chipSongs, keepIfSame, linesByRow, nextSort, rowLayout, sortSongs, taggedOnceKnown, type Chip, type SortBy } from './libraryCore';
 import { takeLibraryAsk, takeSeed, useLibraryAsk, useSeed } from './nav';
+import { inSongList } from './energy';
 import { loadSongList, offline, saveSongList, useOffline } from './offline';
 import { flush, useOutbox } from './outbox';
 import { LaptopLine, RestoreNotice, WaitingLine } from './Notices';
@@ -19,7 +20,7 @@ import { playStore } from './playStore';
 import { ratingStore, useRatings } from './ratingStore';
 import { session } from './sessionStore';
 import { SongRow } from './SongRow';
-import { useAllTags } from './tagStore';
+import { useAllTags, useTagsKnown } from './tagStore';
 import { tint } from './Tagging';
 import { Tap } from './Tap';
 import { C, S, T } from './theme';
@@ -133,8 +134,9 @@ export default function Library({ url }: { url: string }) {
   }, [url, attempt]);
 
   // the outbox has just emptied, so the laptop now holds what it held. A play isn't a choice: it never asks for the
-  // list again (the list would come every song, and redraw Library under the music)
-  const waiting = pending.length > 0;
+  // list again (the list would come every song, and redraw Library under the music). Nor does a tagged line: the
+  // song list doesn't carry tags, so fetching it again after every tag was a wasted call (2026-11-11)
+  const waiting = pending.some(inSongList);
   const wasWaiting = useRef(waiting);
   useEffect(() => {
     if (wasWaiting.current && !waiting) setAttempt((n) => n + 1);
@@ -162,9 +164,11 @@ export default function Library({ url }: { url: string }) {
   const allTags = useAllTags();
   const linesWas = useRef<Map<string, number> | null>(null);
   const lines = useMemo(() => (linesWas.current = keepIfSame(linesWas.current, linesByRow(allTags, (id) => families.get(id) ?? id))), [allTags, families]);
+  // a fresh install hasn't had the laptop's tags yet: until it has, no song is said to need them
+  const tagsKnown = useTagsKnown();
   const base = useMemo(
-    () => chipSongs(sorted, only, { rating: (id) => ratings.get(id), grouped: (id) => families.has(id), tagged: (id) => lines.has(id) }),
-    [sorted, only, families, ratings, lines],
+    () => chipSongs(sorted, only, { rating: (id) => ratings.get(id), grouped: (id) => families.has(id), tagged: taggedOnceKnown(tagsKnown, lines) }),
+    [sorted, only, families, ratings, lines, tagsKnown],
   );
   // Unsorted is a chip only while something is still unsorted (sorting is done; it comes back if new songs arrive)
   const anyUnsorted = useMemo(() => (songs ?? []).some((song) => song.mine !== 'mine' && !song.sorted), [songs]);
@@ -180,6 +184,11 @@ export default function Library({ url }: { url: string }) {
 
   const { reachable, stored } = useOffline();
   const laptopOff = reachable === false;
+  // the list fetch failed, and something else has since reached the laptop (it's back on): ask for the list again, so
+  // the "Laptop not reachable" line clears by itself
+  useEffect(() => {
+    if (failed && reachable === true) setAttempt((n) => n + 1);
+  }, [reachable]);
   const canPlay = (song: Song) => offline.has(song.id) || (!laptopOff && song.where === 'laptop');
   // what plays: the Library list as it stands (chips and sort)
   const playable = useMemo(() => base.filter(canPlay), [base, laptopOff, stored]);
@@ -306,7 +315,8 @@ export default function Library({ url }: { url: string }) {
   taps.current = { tap: (song) => (selecting ? tick(song) : open(song, false)), hold };
   const tapRow = useCallback((song: Song) => taps.current.tap(song), []);
   const holdRow = useCallback((song: Song) => taps.current.hold(song), []);
-  /** A row's second line: its date, how much is tagged, and where the file is. */
+  /** A row's second line: its date, how much is tagged, and where the file is when that isn't this phone (a song on
+   * this phone gets the phone mark after the line instead of words). */
   const metaOf = (song: Song) => {
     const tagged = lines.get(song.id) ?? 0;
     const played = sort === 'plays' ? plays.get(song.id)?.n ?? 0 : 0;
@@ -315,7 +325,7 @@ export default function Library({ url }: { url: string }) {
       song.date,
       played ? (played === 1 ? '1 play' : `${number(played)} plays`) : '',
       tagged ? (tagged === 1 ? '1 line' : `${number(tagged)} lines`) : '',
-      offline.has(song.id) ? 'On this phone' : WHERE[song.where],
+      offline.has(song.id) ? '' : WHERE[song.where],
     ].filter(Boolean).join(' · ');
   };
   // everything a row draws besides its song: rows redraw when one of these changes, and only then
@@ -353,7 +363,7 @@ export default function Library({ url }: { url: string }) {
       {!selecting ? <RestoreNotice /> : null}
       <WaitingLine />
       <LaptopLine />
-      {failed && songs ? (
+      {(failed || laptopOff) && songs ? (
         <Pressable onPress={() => setAttempt(attempt + 1)}>
           <Text style={s.offline}>Laptop not reachable: songs on this phone still play. Tap to try again.</Text>
         </Pressable>
@@ -413,11 +423,12 @@ export default function Library({ url }: { url: string }) {
             initialNumToRender={14}
             maxToRenderPerBatch={20}
             windowSize={15}
-            ListEmptyComponent={<Text style={s.empty}>{CHIP_EMPTY[only]}</Text>}
+            ListEmptyComponent={<Text style={s.empty}>{only === 'untagged' && !tagsKnown ? 'Lines are still loading' : CHIP_EMPTY[only]}</Text>}
             renderItem={({ item }) => (
               <SongRow
                 song={item}
                 meta={metaOf(item)}
+                onPhone={offline.has(item.id)}
                 rating={ratings.get(item.id)}
                 off={!canPlay(item)}
                 disabled={!selecting && item.where !== 'laptop' && !offline.has(item.id)}

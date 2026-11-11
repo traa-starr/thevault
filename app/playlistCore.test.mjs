@@ -252,7 +252,7 @@ const make = (lengths = {}, startPoint = 0) => {
     list.emit();
     assert.deepEqual(rates, [REPORT_MS.locked], 'asked once, not on every report');
     list.next(); // the song ends, or Next on the lock screen: the next one must find 0:15 before any sound
-    assert.equal(rates.at(-1), REPORT_MS.open, 'full rate while it finds its start spot');
+    assert.equal(rates.at(-1), REPORT_MS.finding, 'full rate while it finds its start spot');
     await list.load();
     list.currentTime = 15.2;
     list.hear();
@@ -264,10 +264,26 @@ const make = (lengths = {}, startPoint = 0) => {
     engine.setQuiet(false); // unlocked
     assert.equal(rates.at(-1), REPORT_MS.open);
     assert.ok(rates.length <= 5, `the rate changes only when it has to (${rates})`);
+    // on screen (2026-11-11): once a second, and twice a second only while the next song finds its start spot
+    assert.deepEqual([REPORT_MS.open, REPORT_MS.finding, REPORT_MS.locked], [1000, 500, 2000]);
+    const before = rates.length;
+    list.emit();
+    list.emit();
+    assert.equal(rates.length, before, 'on screen: asked once, not on every report');
+    list.next();
+    assert.equal(rates.at(-1), REPORT_MS.finding, 'on screen too, a song finding its start spot reports at full rate');
+    await list.load();
+    list.currentTime = 15.2;
+    list.hear();
+    list.emit();
+    await flush();
+    list.emit();
+    assert.equal(rates.at(-1), REPORT_MS.open, 'found: back to once a second');
   }
   // the energy counter keeps counting playing time at the slow rate
   {
     assert.equal(GAP_MS.locked, 3 * REPORT_MS.locked, 'energy.ts and playlistCore.ts in step');
+    assert.equal(GAP_MS.open, 3 * REPORT_MS.open, 'on screen too');
     let now = 1000;
     const out = [];
     const meter = energyMeter((sample) => out.push(sample), () => now);
@@ -283,7 +299,7 @@ const make = (lengths = {}, startPoint = 0) => {
     assert.equal(total, 600000, '10 locked minutes counted');
     assert.ok(reports / 10 <= 31, `about 30 wake-ups a minute, was 120 (${reports / 10})`);
   }
-  console.log('ok  locked: reports every 2 s (30 a minute, was 120), full rate while a song finds its start spot; old build unchanged');
+  console.log('ok  reports every 2 s locked (30 a minute, was 120) and every 1 s on screen (60, was 120), full rate while a song finds its start spot; old build unchanged');
 }
 
 console.log('playlistCore: all start-spot checks pass');

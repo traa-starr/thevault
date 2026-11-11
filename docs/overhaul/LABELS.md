@@ -26,7 +26,7 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 
 ## Cards.tsx
 - {…} left here
-- ← not mine · mine → · up: not sure
+- {…} of {…} sorted
 - + Version
 - All done here
 - Back
@@ -42,7 +42,6 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - not sure
 - Not sure
 - Not sure pile done
-- sorted ·
 - Undo
 
 ## Frame.tsx
@@ -129,6 +128,7 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Laptop not reachable
 - Laptop not reachable: songs on this phone still play. Tap to try again.
 - Library
+- Lines are still loading
 - Loading songs…
 - Main
 - Mine
@@ -144,7 +144,6 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Nothing archived
 - Nothing left unsorted
 - On the laptop
-- On this phone
 - Order: {…}
 - Phone storage full: {…} Mine songs not on this phone
 - Saving to phone: {…} of {…}
@@ -232,12 +231,14 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Cloud only
 - File missing
 - Finds the lines you tagged, then titles. Works with the laptop off.
+- Laptop not reachable
+- Laptop not reachable: songs on this phone still play. Tap to try again.
 - Loading songs…
 - more songs match: type more words to narrow
 - No recent searches
 - No song or line has “{…}”
+- No songs are saved on this phone yet. Tap to try again.
 - On the laptop
-- On this phone
 - Recent
 - Search
 - Search lines and titles
@@ -246,6 +247,7 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 ## SongRow.tsx
 - Archived
 - Favorite
+- On this phone
 
 ## Sort.tsx
 - {…} songs
@@ -322,6 +324,10 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Undo
 - version picker
 - Versions ·
+
+## cardsCore.ts
+- not mine
+- not sure
 
 ## compareStore.ts
 - Can't play

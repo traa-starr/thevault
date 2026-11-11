@@ -17,8 +17,10 @@ import { setKeyboard } from './fakes/keyboard';
 
 const FIX = (globalThis as any).FIX;
 
-// the laptop, answered from the fixture (its tags are the ones in the phone's tag file unless the fixture says otherwise)
+// the laptop, answered from the fixture (its tags are the ones in the phone's tag file unless the fixture says otherwise).
+// `laptopOff`: every call fails the way a real phone's does with the laptop off, so the line shown is the app's own
 (globalThis as any).fetch = async (url: string) => {
+  if (FIX.laptopOff) throw new TypeError('Network request failed');
   const path = String(url).replace(/^https?:\/\/[^/]+/, '').split('?')[0];
   const body = path === '/songs' ? { songs: FIX.songs ?? [] } : path === '/tags' ? { tags: FIX.tags ?? JSON.parse(FIX.files?.['tags.json'] ?? '[]') } : (FIX.routes?.[path] ?? {});
   return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };

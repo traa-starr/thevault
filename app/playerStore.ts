@@ -13,7 +13,7 @@ import { note } from './pressLog';
 import { onRated, ratingStore } from './ratingStore';
 import { meter } from './meter';
 import { timing, type Path } from './timings';
-import { redrawFor, SPOT_EVERY_MS } from './energy';
+import { changedKeys, redrawFor, SPOT_EVERY_MS } from './energy';
 import { hang } from './hangWatch';
 import { closeQueue, openSheet, type Sheet } from './sheetCore';
 import { currentId, eyeSetting, jumpTo, moveBy, shownLength, SORT_START_SEC, startSpot, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setFlag, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
@@ -141,10 +141,12 @@ state = { ...state, buttonsHidden: eye.hidden() };
 let appOpen = true; // false while locked or in the background: nobody is looking at the screens
 
 const update = (changes: Partial<State>) => {
-  state = { ...state, ...changes };
-  // locked or in the background, a report that only moves the clock draws nothing (battery, 2026-11-09)
+  const changed = changedKeys(state, changes);
+  if (changed.length) state = { ...state, ...changes };
   if (changes.wanted) startStallWatch(); // anything that starts the sound wakes the stuck-song watch (it sleeps while paused)
-  if (!redrawFor(appOpen, Object.keys(changes))) return;
+  // a report that changes nothing draws nothing (2026-11-11); locked or in the background, neither does one that
+  // only moves the clock (battery, 2026-11-09)
+  if (!changed.length || !redrawFor(appOpen, changed)) return;
   meter.count('redraws');
   listeners.forEach((listener) => listener());
 };
@@ -288,7 +290,7 @@ function onTrack(index: number) {
   if (!own || !ownMoves.length) ahead = null;
   let restarted = false; // adding a song in front restarts this one from 0:00: it finds its spot again
   // the lock screen's Next or Previous (a song's own end is not a tap): timed from now, under its own name
-  // the phone's own length (the shown one can be the laptop's, up to 2 s off) and reports come every 0.5 s. A song that
+  // the phone's own length (the shown one can be the laptop's, up to 2 s off) and reports come every 1 s. A song that
   // never loaded moved on by itself (a bad song): not a tap either
   const length = phoneLength || state.duration;
   const ended = !everLoaded || (length > 0 && state.time >= length - 2.5);

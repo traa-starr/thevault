@@ -74,6 +74,14 @@ export function keepIfSame<K, V>(was: Map<K, V> | null, now: Map<K, V>): Map<K, 
   return was;
 }
 
+/** A search result's row, by the file of the song a tap would play (a line on a version plays that version, not its
+ * Main). `off`: can't play right now (dimmed). `disabled`: can't be tapped at all (cloud only or missing, and not on
+ * this phone). `where`: where the laptop has the file ('laptop', 'cloud', 'gone'); unknown counts as on the laptop. */
+export const resultState = (where: string | null | undefined, onPhone: boolean, laptopOff: boolean) => ({
+  off: !onPhone && (laptopOff || (where ?? 'laptop') !== 'laptop'),
+  disabled: !onPhone && (where ?? 'laptop') !== 'laptop',
+});
+
 // ---------- Home's new rows (NEXT 2026-11-10 C) ------------------------------------------------------------------------
 export const HOME_ROW = 12;
 /** A song counts as "most played" from this many plays: one play is only "recently played". */
@@ -94,18 +102,71 @@ export type HomeFacts = ChipFacts & {
   versions: (id: string) => number;
 };
 
-/** Home's five new rows. `songs`: the ones that may show (one row per family, not Archived, playable right now), so a
- * card never leads to a wait. Each row is the top of what its "See all" opens in Library, in the same order.
+/** Every song that could sit in each of Home's five new rows, before the page is laid out (`homePage` picks the
+ * cards). `songs`: the ones that may show (one row per family, not Archived, playable right now), so a card never
+ * leads to a wait. Every card is in the list its "See all" opens in Library.
  * Recently added goes by the song's own date (the only date there is); a song with no date is left out. */
-export function homeRows<S extends Listed>(songs: readonly S[], facts: HomeFacts, limit = HOME_ROW): Record<HomeRowKey, S[]> {
+export function homeRows<S extends Listed>(songs: readonly S[], facts: HomeFacts): Record<HomeRowKey, S[]> {
   const newest = sortSongs(songs, 'date');
-  const size = (song: S) => facts.versions(song.id);
   return {
-    added: newest.filter((song) => !!song.date).slice(0, limit),
-    most: sortSongs(songs.filter((song) => (facts.plays.get(song.id)?.n ?? 0) >= MOST_PLAYED_FROM), 'plays', facts.plays).slice(0, limit),
-    favorites: chipSongs(newest, 'fire', facts).slice(0, limit),
-    untagged: chipSongs(newest, 'untagged', facts).slice(0, limit),
-    // the biggest group first: the one with most to compare
-    versions: newest.filter((song) => size(song) >= 2).sort((a, b) => size(b) - size(a)).slice(0, limit),
+    added: newest.filter((song) => !!song.date),
+    most: sortSongs(songs.filter((song) => (facts.plays.get(song.id)?.n ?? 0) >= MOST_PLAYED_FROM), 'plays', facts.plays),
+    favorites: chipSongs(newest, 'fire', facts),
+    untagged: chipSongs(newest, 'untagged', facts),
+    versions: newest.filter((song) => facts.versions(song.id) >= 2),
   };
+}
+
+/** Before the phone has ever had the laptop's tags (a fresh install, first open) nothing is known to need tags: every
+ * Mine song would count as untagged and the row would lie (review 2026-11-10, catch 3). */
+export const taggedOnceKnown = (known: boolean, lines: ReadonlyMap<string, number>) => (id: string) => !known || lines.has(id);
+
+// ---------- Home's rows open on different songs (owner, 2026-11-11) -----------------------------------------------------
+/** How many cards of a row show before I scroll it: a song sits among these in one row only. */
+export const HOME_FRONT = 5;
+export type HomePageKey = 'recent' | 'forgotten' | HomeRowKey;
+/** Home's rows from the top. Ordered: the order means something (when I heard it, its date, its plays) and is kept.
+ * The others have no order of their own and are shuffled once a day. */
+export const HOME_PAGE: readonly { key: HomePageKey; ordered: boolean }[] = [
+  { key: 'recent', ordered: true },
+  { key: 'forgotten', ordered: false },
+  { key: 'added', ordered: true },
+  { key: 'most', ordered: true },
+  { key: 'favorites', ordered: false },
+  { key: 'untagged', ordered: false },
+  { key: 'versions', ordered: false },
+];
+
+const mix = (text: string) => {
+  let h = 7;
+  for (let i = 0; i < text.length; i++) h = (Math.imul(h, 31) + text.charCodeAt(i)) >>> 0;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  return (h ^ (h >>> 16)) >>> 0;
+};
+/** The same order all day, another one tomorrow, and a different one for each row. */
+export function dailyShuffle<S extends { id: string }>(songs: readonly S[], day: string, row: string): S[] {
+  return songs
+    .map((song) => ({ song, key: mix(`${day}/${row}/${song.id}`) }))
+    .sort((a, b) => a.key - b.key || (a.song.id < b.song.id ? -1 : 1))
+    .map((one) => one.song);
+}
+
+/** The cards of every Home row. Going down the page, a song already among the first 5 cards of a row above is "up
+ * front". An ordered row leaves those songs out and keeps its order; a shuffled row puts them after its other songs.
+ * So no song opens two rows, unless a row has nothing else to show (then it shows what it has, not a blank).
+ * `day`: the local day (YYYY-MM-DD); the page is the same all day. */
+export function homePage<S extends { id: string }>(lists: Partial<Record<HomePageKey, readonly S[]>>, day: string, limit = HOME_ROW, front = HOME_FRONT): Record<HomePageKey, S[]> {
+  const upFront = new Set<string>();
+  const out = {} as Record<HomePageKey, S[]>;
+  for (const { key, ordered } of HOME_PAGE) {
+    const all = ordered ? [...(lists[key] ?? [])] : dailyShuffle(lists[key] ?? [], day, key);
+    const others = all.filter((song) => !upFront.has(song.id));
+    const cards = (!others.length ? all : ordered ? others : [...others, ...all.filter((song) => upFront.has(song.id))]).slice(0, limit);
+    cards.slice(0, front).forEach((song) => upFront.add(song.id));
+    out[key] = cards;
+  }
+  return out;
 }

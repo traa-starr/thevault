@@ -83,13 +83,18 @@ for (const f of chosen) {
     await page.waitForTimeout(120);
   }
   await page.waitForTimeout(f.wait ?? 480); // a sheet that grew out of the mini player has landed
-  // `drag: [x, fromY, toY]`: a finger pulls from one spot to another and holds there, so the shot is mid-gesture
+  // `drag: [x, fromY, toY]` (or `[fromX, fromY, toX, toY]`): a finger pulls from one spot to another and holds there,
+  // so the shot is mid-gesture. `release: true`: it lets go first, and the shot is taken once the throw has landed
   if (f.drag) {
-    const [x, from, to] = f.drag;
-    await page.mouse.move(x, from);
+    const [x1, y1, x2, y2] = f.drag.length === 4 ? f.drag : [f.drag[0], f.drag[1], f.drag[0], f.drag[2]];
+    await page.mouse.move(x1, y1);
     await page.mouse.down();
-    await page.mouse.move(x, to, { steps: 8 });
+    await page.mouse.move(x2, y2, { steps: 8 });
     await page.waitForTimeout(80);
+    if (f.release) {
+      await page.mouse.up();
+      await page.waitForTimeout(450);
+    }
   }
   // `check`: something only a real draw can prove (a flick through the whole list). It returns what went wrong
   if (f.check) {

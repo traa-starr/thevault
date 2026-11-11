@@ -7,7 +7,7 @@
 // The model can't stand in for the phone (LESSONS): the phone's hang watch and my thumb judge the flick itself.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { CHIPS, chipSongs, HOME_ROW, HOME_ROWS, homeRows, keepIfSame, linesByRow, MOST_PLAYED_FROM, nextSort, ROW_HEIGHT, rowLayout, rowsInView, SORTS, sortSongs } from './libraryCore.ts';
+import { CHIPS, chipSongs, dailyShuffle, HOME_FRONT, HOME_PAGE, HOME_ROW, HOME_ROWS, homePage, homeRows, keepIfSame, linesByRow, MOST_PLAYED_FROM, nextSort, ROW_HEIGHT, rowLayout, rowsInView, SORTS, sortSongs, taggedOnceKnown } from './libraryCore.ts';
 import { S } from './theme.ts';
 
 let n = 0;
@@ -115,7 +115,7 @@ ok('a chip with no songs is an empty list with its own plain line, never a blank
   const library = source('./Library.tsx');
   const words = library.slice(library.indexOf('const CHIP_EMPTY'), library.indexOf('const SORT_WORD'));
   for (const chip of [...CHIPS, 'unsorted']) assert.ok(new RegExp(`\\b${chip}: '[^']{8,}'`).test(words), `${chip} has a line to show when empty`);
-  assert.ok(library.includes('ListEmptyComponent={<Text style={s.empty}>{CHIP_EMPTY[only]}</Text>}'));
+  assert.ok(library.includes("ListEmptyComponent={<Text style={s.empty}>{only === 'untagged' && !tagsKnown ? 'Lines are still loading' : CHIP_EMPTY[only]}</Text>}"));
 });
 
 // ---------- B: the flick ------------------------------------------------------------------------------------------------
@@ -161,7 +161,12 @@ ok('the phone runs this: one fixed row height from the tested numbers, the title
   assert.ok(library.includes('sortSongs(songs ?? [], sort, plays)') && library.includes('chipSongs(sorted, only,'), 'Library shows what the tested rules give');
   const row = code('./SongRow.tsx');
   assert.ok(/row: \{ height: ROW_HEIGHT,/.test(row), 'a row is exactly the tested height');
-  assert.ok(row.includes('style={[s.title, playing && s.playing, off && s.off]} numberOfLines={1}>') && row.includes('<Text style={s.meta} numberOfLines={1}>'), 'title and second line: one line each, cut with …');
+  assert.ok(row.includes('style={[s.title, marked && s.searched, playing && s.playing, off && s.off]} numberOfLines={1}>') && row.includes('<Text testID="song-meta" style={s.meta} numberOfLines={1}>'), 'title and second line: one line each, cut with …');
+  // the phone mark (owner 2026-11-11: it replaced the words "On this phone"): after the second line, never squeezed
+  assert.ok(row.includes('{onPhone ? <PhoneMark /> : null}') && /phone: \{[^}]*flexShrink: 0/.test(row) && /meta: \{[^}]*flexShrink: 1/.test(row), 'the words give way, the mark does not');
+  assert.ok(row.includes('accessibilityLabel="On this phone"'), 'VoiceOver still says it');
+  assert.ok(library.includes("offline.has(song.id) ? '' : WHERE[song.where]") && library.includes('onPhone={offline.has(item.id)}'), 'no words for a song on this phone, the mark instead');
+  assert.ok(!/['"`]On this phone['"`]/.test(library + code('./SearchScreen.tsx')), 'the words are gone from every row');
   assert.ok(/words: \{ flex: 1, minWidth: 0,/.test(row), 'only the words give way to a long title');
   assert.ok(row.includes('export const SongRow = memo(Row)'), 'a row redraws only when what it shows changes');
   assert.equal(ROW_HEIGHT, S.row);
@@ -185,7 +190,14 @@ ok('line counts: a version\'s lines count for its row, and the same counts give 
 // ---------- C: Home's new rows ------------------------------------------------------------------------------------------
 // what may show: one row per family, not Archived (playable is the screen's part)
 const POOL = LIB.songs.filter((song) => LIB.ratings.get(song.id) !== 'shelved');
-const ROWS = homeRows(POOL, LIB.facts);
+const LISTS = homeRows(POOL, LIB.facts);
+const DAY = '2026-11-11';
+// the two rows above them, as Home hands them over: 12 heard lately, 12 never heard
+const RECENT = POOL.filter((song) => LIB.plays.has(song.id)).sort((a, b) => LIB.plays.get(b.id).last - LIB.plays.get(a.id).last).slice(0, 12);
+const FORGOTTEN = POOL.filter((song) => song.mine === 'mine' && !LIB.plays.has(song.id)).slice(0, 12);
+const ALL_LISTS = { recent: RECENT, forgotten: FORGOTTEN, ...LISTS };
+const page = (day = DAY, lists = ALL_LISTS) => homePage(lists, day);
+const ROWS = page();
 
 ok('each new Home row follows its rule, holds at most 12, and has no Archived song', () => {
   assert.deepEqual(HOME_ROWS.map((row) => row.title), ['Recently added', 'Most played', 'Favorites', 'Needs tags', 'Versions to compare']);
@@ -196,24 +208,101 @@ ok('each new Home row follows its rule, holds at most 12, and has no Archived so
     assert.ok(list.every((song) => LIB.ratings.get(song.id) !== 'shelved'), `${row.title}: nothing Archived`);
   }
   assert.ok(ROWS.added.every((song) => !!song.date), 'Recently added: only songs with a date');
-  assert.deepEqual(ids(ROWS.added), ids(sortSongs(POOL, 'date').filter((song) => song.date)).slice(0, 12));
   assert.ok(ROWS.most.every((song) => LIB.plays.get(song.id).n >= MOST_PLAYED_FROM), 'Most played: 2 plays or more');
-  for (let i = 1; i < ROWS.most.length; i++) assert.ok(LIB.plays.get(ROWS.most[i - 1].id).n >= LIB.plays.get(ROWS.most[i].id).n);
   assert.ok(ROWS.favorites.every((song) => LIB.ratings.get(song.id) === 'fire'));
   assert.ok(ROWS.untagged.every((song) => song.mine === 'mine' && !LIB.lines.has(song.id)), 'Needs tags: Mine, no line tagged');
   assert.ok(ROWS.versions.every((song) => LIB.families.get(song.id) >= 2), 'Versions to compare: groups of 2 or more');
-  for (let i = 1; i < ROWS.versions.length; i++) assert.ok(LIB.families.get(ROWS.versions[i - 1].id) >= LIB.families.get(ROWS.versions[i].id), 'the biggest group first');
 });
 
-ok('"See all" lands on the row\'s own list: each row is the top of that chip in that order (Versions aside: biggest group first on Home)', () => {
+// LESSONS 2026-11-11: three rows opened with the same songs and read as one list
+const front = (rows, key) => ids(rows[key]).slice(0, HOME_FRONT);
+/** Every "row:song" that sits among the first 5 cards of a row and of a row above it. */
+const repeatsUpFront = (rows) => {
+  const seen = new Set();
+  const twice = [];
+  for (const { key } of HOME_PAGE) {
+    const cards = front(rows, key);
+    twice.push(...cards.filter((id) => seen.has(id)).map((id) => `${key}:${id}`));
+    cards.forEach((id) => seen.add(id));
+  }
+  return twice;
+};
+
+ok('no song sits in the first 5 cards of two Home rows: the full library over a week of days, and every row offered the same songs', () => {
+  for (let d = 9; d < 16; d++) assert.deepEqual(repeatsUpFront(page(`2026-11-${String(d).padStart(2, '0')}`)), []);
+  // the worst overlap there is: every row offered the very same 40 songs
+  const same = POOL.slice(0, 40);
+  const rows = page(DAY, Object.fromEntries(HOME_PAGE.map(({ key }) => [key, same])));
+  assert.deepEqual(repeatsUpFront(rows), []);
+  for (const { key } of HOME_PAGE) assert.ok(rows[key].length >= HOME_FRONT, `${key} still has its cards`);
+  // the check itself can fail: the lists laid out with no rule do repeat
+  const naive = Object.fromEntries(HOME_PAGE.map(({ key }) => [key, same.slice(0, 12)]));
+  assert.ok(repeatsUpFront(naive).length > 0);
+});
+
+ok('the top row wins, and the rows whose order means something keep it: Recently added and Most played only leave out songs already up front', () => {
+  assert.deepEqual(ids(ROWS.recent), ids(RECENT), 'Recently played is the top row: untouched');
+  const upFront = new Set([...front(ROWS, 'recent'), ...front(ROWS, 'forgotten')]);
+  assert.deepEqual(ids(ROWS.added), ids(LISTS.added.filter((song) => !upFront.has(song.id)).slice(0, 12)), 'Recently added: newest first, minus the songs up front above it');
+  front(ROWS, 'added').forEach((id) => upFront.add(id));
+  assert.deepEqual(ids(ROWS.most), ids(LISTS.most.filter((song) => !upFront.has(song.id)).slice(0, 12)), 'Most played: most plays first, minus the songs up front above it');
+  for (let i = 1; i < ROWS.most.length; i++) assert.ok(LIB.plays.get(ROWS.most[i - 1].id).n >= LIB.plays.get(ROWS.most[i].id).n);
+  // a song heard lately that is also my most played and my newest shows once, in Recently played
+  const top = { id: 'top', title: 'top', date: '2026-11-01', mine: 'mine' };
+  const rows = homePage({ recent: [top], most: [top, ...LISTS.most], added: [top, ...LISTS.added] }, DAY);
+  assert.deepEqual(ids(rows.recent), ['top']);
+  assert.ok(!ids(rows.most).includes('top') && !ids(rows.added).includes('top'));
+});
+
+ok('the rows with no order of their own (Not played in a while, Favorites, Needs tags, Versions) are the same all day and change the next day', () => {
+  const tomorrow = page('2026-11-12');
+  for (const key of ['forgotten', 'favorites', 'untagged', 'versions']) {
+    assert.deepEqual(ids(page()[key]), ids(ROWS[key]), `${key}: the same all day`);
+    assert.notDeepEqual(ids(tomorrow[key]), ids(ROWS[key]), `${key}: different tomorrow`);
+    assert.notDeepEqual(ids(ROWS[key]), ids(ALL_LISTS[key]).slice(0, 12), `${key}: not simply the first 12 of its list`);
+  }
+  assert.deepEqual([...ids(ROWS.forgotten)].sort(), [...ids(FORGOTTEN)].sort(), 'Not played in a while: the songs its own rule picked, in the day\'s order');
+  // two rows shuffled on the same day don't come out in the same order
+  assert.notDeepEqual(ids(dailyShuffle(POOL.slice(0, 30), DAY, 'favorites')), ids(dailyShuffle(POOL.slice(0, 30), DAY, 'untagged')));
+  // a week shows far more Favorites than one fixed dozen would
+  const week = new Set(Array.from({ length: 7 }, (_, d) => ids(page(`2026-11-${10 + d}`).favorites)).flat());
+  assert.ok(week.size > 24, `${week.size} different Favorites in a week`);
+});
+
+ok('few songs: a row never goes blank or loses its heading because its songs are up front elsewhere (3, 6 and 12 songs)', () => {
+  for (const count of [3, 6, 12]) {
+    const few = POOL.slice(0, count);
+    const rows = homePage(Object.fromEntries(HOME_PAGE.map(({ key }) => [key, few])), DAY);
+    const upFront = new Set();
+    for (const { key, ordered } of HOME_PAGE) {
+      assert.ok(rows[key].length > 0, `${count} songs, ${key}: still drawn`);
+      assert.equal(new Set(ids(rows[key])).size, rows[key].length, 'no song twice in one row');
+      // a repeat only shows up front once a row has run out of other songs
+      const others = few.filter((song) => !upFront.has(song.id)).length;
+      const repeats = front(rows, key).filter((id) => upFront.has(id)).length;
+      if (ordered) assert.equal(repeats > 0, others === 0, `${count} songs, ${key}`);
+      else assert.equal(repeats, Math.max(0, Math.min(HOME_FRONT, rows[key].length) - others), `${count} songs, ${key}: its other songs come first`);
+      front(rows, key).forEach((id) => upFront.add(id));
+    }
+  }
+});
+
+ok('1,395 songs: the whole page laid out in well under 50 ms, and Home lays it out only when a list or the day changes', () => {
+  const began = performance.now();
+  for (let i = 0; i < 10; i++) homePage({ recent: RECENT, forgotten: FORGOTTEN, ...homeRows(POOL, LIB.facts) }, `2026-11-${10 + i}`);
+  const each = (performance.now() - began) / 10;
+  assert.ok(each < 50, `${each.toFixed(1)} ms`);
+  const home = code('./Home.tsx');
+  assert.ok(home.includes('useMemo(() => homePage({ recent, forgotten, ...more }, day), [recent, forgotten, more, day])'), 'not per redraw');
+  // the day turns over only when Home comes back into view, never under my thumb at midnight
+  assert.ok(/if \(!inView\) return;\s*setPlays\(playStore\.all\(\)\);\s*setDay\(dayOf\(Date\.now\(\)\)\);/.test(home));
+  assert.equal(home.match(/dayOf\(Date\.now\(\)\)/g).length, 2, 'the day is read at first draw and on coming back, nowhere else');
+});
+
+ok('"See all" lands on the row\'s own list: every card is in the chip and order it opens', () => {
   for (const row of HOME_ROWS) {
-    const all = chipSongs(sortSongs(POOL, row.sort, LIB.plays), row.chip, LIB.facts);
-    const list = ROWS[row.key];
-    if (row.key === 'versions') assert.deepEqual([...ids(list)].sort(), ids(all).filter((id) => ids(list).includes(id)).sort(), 'the same groups');
-    else if (row.key === 'added') assert.deepEqual(ids(list), ids(all.filter((song) => song.date)).slice(0, list.length));
-    else if (row.key === 'most') assert.deepEqual(ids(list), ids(all).slice(0, list.length), 'Most played order in Library starts with Home\'s row');
-    else assert.deepEqual(ids(list), ids(all).slice(0, list.length), row.title);
-    assert.ok(list.every((song) => all.some((one) => one.id === song.id)), `${row.title}: every card is in the list See all opens`);
+    const all = new Set(ids(chipSongs(sortSongs(POOL, row.sort, LIB.plays), row.chip, LIB.facts)));
+    assert.ok(ROWS[row.key].every((song) => all.has(song.id)), `${row.title}: every card is in the list See all opens`);
   }
   const home = code('./Home.tsx');
   assert.ok(home.includes('seeAll={() => openLibrary({ chip: row.chip, sort: row.sort })}'), 'Home asks for the tested chip and order');
@@ -225,18 +314,29 @@ ok('"See all" lands on the row\'s own list: each row is the top of that chip in 
 
 ok('a fresh install (no plays, no Favorites, no lines, no groups, no dates): Recently added, Most played, Favorites and Versions hide; nothing to show at all hides every row', () => {
   const bare = { rating: () => null, grouped: () => false, tagged: () => false, plays: new Map(), versions: () => 1 };
-  const fresh = homeRows(LIB.songs.map((song) => ({ ...song, date: null })), bare);
+  const fresh = homePage(homeRows(LIB.songs.map((song) => ({ ...song, date: null })), bare), DAY);
   assert.deepEqual([fresh.added.length, fresh.most.length, fresh.favorites.length, fresh.versions.length], [0, 0, 0, 0]);
   assert.equal(fresh.untagged.length, 12, 'Needs tags is the one row a fresh library can fill (Mine songs, none tagged)');
-  const empty = homeRows([], bare);
-  assert.deepEqual(Object.values(empty).map((list) => list.length), [0, 0, 0, 0, 0]);
+  const empty = homePage(homeRows([], bare), DAY);
+  assert.deepEqual(Object.values(empty).map((list) => list.length), [0, 0, 0, 0, 0, 0, 0]);
   const home = code('./Home.tsx');
   assert.ok(/function Row\([^)]*\) \{\s*if \(!songs\.length\) return null;/.test(home), 'a row with nothing in it draws nothing, heading included');
-  assert.ok(home.includes('{HOME_ROWS.map((row) => (') && home.includes('songs={more[row.key]}'), 'Home draws the tested rows');
+  assert.ok(home.includes('{HOME_ROWS.map((row) => (') && home.includes('songs={rows[row.key]}'), 'Home draws the tested rows');
   assert.ok(home.includes("homeRows(playable.filter((song) => ratings.get(song.id) !== 'shelved')"), 'only songs that can play now, never an Archived one');
   // one play is "recently played", not "most played"
   const once = homeRows(LIB.songs, { ...bare, plays: new Map([[LIB.songs[0].id, { n: 1, last: 5 }]]) });
   assert.equal(once.most.length, 0);
+});
+
+ok('review catch 3: before the phone has ever had the laptop\'s tags, nothing is listed as needing tags (Home row and Library chip)', () => {
+  const mine = POOL.filter((song) => song.mine === 'mine');
+  const lines = new Map([[mine[0].id, 2]]);
+  const unknown = { ...LIB.facts, tagged: taggedOnceKnown(false, lines) };
+  assert.equal(homeRows(POOL, unknown).untagged.length, 0);
+  assert.equal(chipSongs(POOL, 'untagged', unknown).length, 0);
+  const known = { ...LIB.facts, tagged: taggedOnceKnown(true, lines) };
+  assert.equal(chipSongs(POOL, 'untagged', known).length, mine.length - 1, 'once known: every Mine song but the tagged one');
+  for (const file of ['./Home.tsx', './Library.tsx']) assert.ok(code(file).includes('tagged: taggedOnceKnown(tagsKnown, lines)'), `${file} asks whether the tags are known`);
 });
 
 console.log(`\n${n} library and Home row checks passed`);

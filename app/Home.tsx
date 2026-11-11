@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Tile } from './Art';
 import { Icon } from './Icon';
-import { HOME_ROWS, homeRows, keepIfSame, linesByRow, type HomeRowKey } from './libraryCore';
+import { HOME_ROWS, homePage, homeRows, keepIfSame, linesByRow, taggedOnceKnown, type HomeRowKey } from './libraryCore';
 import { openLibrary, openSearch, openSort } from './nav';
 import { LaptopLine, RestoreNotice, WaitingLine } from './Notices';
 import { loadSongList, offline, useOffline } from './offline';
@@ -19,7 +19,7 @@ import { pickable, withPending } from './playOrder';
 import { playStore } from './playStore';
 import { ratingStore, useRatings } from './ratingStore';
 import { session } from './sessionStore';
-import { useAllTags } from './tagStore';
+import { useAllTags, useTagsKnown } from './tagStore';
 import { tint } from './Tagging';
 import { Tap } from './Tap';
 import { C, coveredBelow, R, S, T } from './theme';
@@ -109,8 +109,12 @@ export default function Home({ url, setup, about, showing }: Props) {
   // each time Home comes back into view (a tab tap, the player closing, the song list arriving).
   const inView = showing && sheet === 'none';
   const [plays, setPlays] = useState(playStore.all);
+  // the day the shuffled rows go by: it turns over when Home comes back into view, never while I look at it
+  const [day, setDay] = useState(() => dayOf(Date.now()));
   useEffect(() => {
-    if (inView) setPlays(playStore.all());
+    if (!inView) return;
+    setPlays(playStore.all());
+    setDay(dayOf(Date.now()));
   }, [inView, fresh]);
   const laptopOff = reachable === false;
   const canPlay = (song: LibSong) => offline.has(song.id) || (!laptopOff && song.where === 'laptop');
@@ -119,7 +123,6 @@ export default function Home({ url, setup, about, showing }: Props) {
   const mains = useMemo(() => all.filter((song) => (families.get(song.id) ?? (fresh ? null : song.main) ?? song.id) === song.id), [all, families, fresh]);
   const playable = useMemo(() => mains.filter(canPlay), [mains, laptopOff, stored]);
   const mine = useMemo(() => playable.filter((song) => song.mine === 'mine'), [playable]);
-  const day = dayOf(Date.now());
   // one card per family, like every other list: a played version shows as its Main
   const recent = useMemo(() => {
     const byId = new Map(all.map((song) => [song.id, song]));
@@ -132,17 +135,20 @@ export default function Home({ url, setup, about, showing }: Props) {
   // Mine, not Archived, playable now: never a song I'd have to wait for
   const forgotten = useMemo(() => notPlayedInAWhile(mine.filter((song) => ratings.get(song.id) !== 'shelved'), plays, Date.now()), [mine, ratings, plays, day]);
 
-  // the five new rows: a family's Main, not Archived, playable now. Each is the top of what its See all opens
+  // the five new rows: a family's Main, not Archived, playable now. Every card is in the list its See all opens
   const allTags = useAllTags();
+  const tagsKnown = useTagsKnown();
   const linesWas = useRef<Map<string, number> | null>(null);
   const lines = useMemo(() => (linesWas.current = keepIfSame(linesWas.current, linesByRow(allTags, (id) => families.get(id) ?? id))), [allTags, families]);
   const versionsOf = (id: string) => (families.has(id) ? versions.members(id).length : 1);
   const more = useMemo(
     () => homeRows(playable.filter((song) => ratings.get(song.id) !== 'shelved'), {
-      rating: (id) => ratings.get(id), grouped: (id) => families.has(id), tagged: (id) => lines.has(id), plays, versions: versionsOf,
+      rating: (id) => ratings.get(id), grouped: (id) => families.has(id), tagged: taggedOnceKnown(tagsKnown, lines), plays, versions: versionsOf,
     }),
-    [playable, ratings, families, lines, plays],
+    [playable, ratings, families, lines, plays, tagsKnown],
   );
+  // the page: no song opens two rows (the top row wins), and the rows with no order of their own change by day
+  const rows = useMemo(() => homePage({ recent, forgotten, ...more }, day), [recent, forgotten, more, day]);
   const moreNote: Record<HomeRowKey, (song: LibSong) => string> = {
     added: (song) => song.date ?? '',
     most: (song) => `${(plays.get(song.id)?.n ?? 0).toLocaleString('en-US')} plays`,
@@ -152,7 +158,7 @@ export default function Home({ url, setup, about, showing }: Props) {
   };
 
   /** A card: that song now, the rest of its row after it. Like a Library row: it plays whatever else is going on;
-   * only the 0:30 start is dropped while Compare or Sort has the sound (as a search result's start is). */
+   * only a start point is dropped while Compare or Sort has the sound (as a search result's start is). */
   const play = (row: LibSong[], song: LibSong, at?: number) => {
     if (!canPlay(song)) return player.showMessage(NOT_HERE);
     const now = player.now();
@@ -197,23 +203,23 @@ export default function Home({ url, setup, about, showing }: Props) {
               <Text style={s.favoritesWord}>Favorites</Text>
             </Tap>
           </View>
-          <Row title="Recently played" songs={recent} note={lastPlayed(plays)} onPlay={(song) => play(recent, song)} />
+          <Row title="Recently played" songs={rows.recent} note={lastPlayed(plays)} onPlay={(song) => play(rows.recent, song)} />
           <Row
             title="Not played in a while"
-            songs={forgotten}
+            songs={rows.forgotten}
             note={(song) => [year(song), plays.get(song.id)?.last ? ago(plays.get(song.id)!.last, now) : ''].filter(Boolean).join(' · ')}
-            onPlay={(song) => play(forgotten, song, rediscoverStart(song.length))}
+            onPlay={(song) => play(rows.forgotten, song, rediscoverStart(song.length) || undefined)}
           />
           {HOME_ROWS.map((row) => (
             <Row
               key={row.key}
               small
               title={row.title}
-              songs={more[row.key]}
+              songs={rows[row.key]}
               note={moreNote[row.key]}
               // a group's card opens its versions (Compare is there); every other card plays
               does={row.key === 'versions' ? 'Versions of' : 'Play'}
-              onPlay={(song) => (row.key === 'versions' ? versions.openVersions(song.id) : play(more[row.key], song))}
+              onPlay={(song) => (row.key === 'versions' ? versions.openVersions(song.id) : play(rows[row.key], song))}
               seeAll={() => openLibrary({ chip: row.chip, sort: row.sort })}
             />
           ))}
