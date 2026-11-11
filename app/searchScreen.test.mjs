@@ -158,7 +158,9 @@ ok('the time it reports is the search\'s own, with the tag count, as before', ()
 ok('a tap plays the row\'s own song from its line\'s second, whatever the results are by then; one tap is enough', () => {
   const screen = code('./SearchScreen.tsx');
   // the row hands over its song and its line, never a row number that a newer list could point elsewhere
-  assert.ok(screen.includes('onPress={() => play(item, hit, query)}') && screen.includes('onPress={(song) => play(song, undefined, query)}'));
+  assert.ok(screen.includes('onPress={() => play(item, hit, text)}') && screen.includes('onPress={(song) => play(song, undefined, text)}'));
+  // the recent search kept is what the box shows (text), not the results' copy of it, which can be a letter behind
+  assert.ok(!screen.includes(', query)}'));
   assert.ok(!/\bindex\b/.test(screen.slice(screen.indexOf('renderItem'))), 'no row numbers in a result row');
   assert.ok(screen.includes('hit?.tag.at_sec') && screen.includes("hit!.tag.at_sec, 'search'"), 'it starts at the tagged second');
   assert.ok(screen.includes('keyboardShouldPersistTaps="handled"'), 'the first tap plays; it is not spent closing the keyboard');
@@ -222,7 +224,7 @@ ok('recent searches survive a restart (the file) and a wipe or a broken file sta
   const screen = code('./SearchScreen.tsx');
   assert.ok(/recents\.add\(words\);/.test(screen) && screen.indexOf('recents.add(words)') > screen.indexOf('showMessage(NOT_HERE)'), 'kept only when a result is tapped and can play');
   assert.ok(!/recents\.add\(/.test(screen.replace('recents.add(words);', '')), 'never while typing');
-  assert.ok(screen.includes('onPress={() => setText(words)}'), 'tapping a recent search fills the box; it doesn\'t play anything');
+  assert.ok(screen.includes('onPress={() => (setText(words), box.current?.focus())}'), 'tapping a recent search fills the box and keeps the keyboard up; it doesn\'t play anything');
 });
 
 console.log(`\n${n} search screen checks passed`);

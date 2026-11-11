@@ -4,7 +4,7 @@
 import { useSyncExternalStore } from 'react';
 import { loadSongList } from './offline';
 import { addPlayChange, newId, onOutbox, onSent, pendingNow } from './outbox';
-import { playsFrom, playsWithPending, playTracker, type Played, type PlayLine } from './playLog';
+import { listWithTaken, playsFrom, playsWithPending, playTracker, type Played, type PlayLine } from './playLog';
 import type { Change } from './playOrder';
 
 type Listed = { id: string; plays?: number | null; last_heard?: string | null };
@@ -49,7 +49,7 @@ export const plays = playTracker({ now: Date.now, newId, emit: (line: PlayLine) 
 export const playStore = {
   /** A fresh song list from the laptop, asked for at `asked`. */
   setBase(songs: Listed[], asked: number) {
-    base = playsWithPending(playsFrom(songs), taken.filter((one) => one.at > asked).map((one) => one.change), Date.now());
+    base = listWithTaken(playsFrom(songs), base, taken.filter((one) => one.at > asked).map((one) => one.change), Date.now());
     changed();
   },
   of: (id: string): Played | null => all().get(id) ?? null,

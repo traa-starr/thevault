@@ -1,39 +1,39 @@
 # REPORT
-**Step:** Overhaul wave 1: the new frame, Home and player, 2026-11-10. Built by Fable 5 in one session.
+**Step:** Overhaul wave 2: Library, search screen, fuller Home, server that stays up, 2026-11-10. Built by Fable 5 over two sessions (the first stopped on the limit during the fresh-eyes review; this one re-ran the review on Sonnet and finished step 6).
 
-**Verified by running:** `/verify` 21/21 PASS in 45 s (new: `frame` 32 checks, `playData` 34, `labels` 4; `test_server` plays 28). Screenshots: 92 of 92 drawn, plus 4 side-by-side with the mockups (`side-*.png`). `expo export` builds (1,241 modules); publish went out. `status` on the real library: "Plays: 0 of 0 songs".
+**Verified by running (this session):** `/verify` 24/24 PASS in 45 s, after the fixes. `check_repo` clean. Publish went out. Real kill proof for D: stopped the real server process, answering again in 4 s; log line `keeper: server stopped after 311 min (exit code -1). Starting it again in 2 s.` `doctor`: "Server stays up: on" PASS (overall PASS, 1 warning: scan is 9 days old). `playData` test now 35 checks (E).
 
 **Phone timings:**
 ```
 Search: typical 7 ms, slow end 13 ms, worst 15 ms (179 times), about 23 tags
-Energy while playing, app code build 23, per minute. Plays: 34 from the phone's copy, 0 streamed
-  open (1 min): wake-ups 204, redraws 263.3, network calls 1.5, file writes 27.4. not enough yet (1 of 5 min)
+Energy while playing, app code 2026-11-10T23:07:48, per minute. Plays: 10 from the phone's copy, 0 streamed
+  open (5 min): wake-ups 157, redraws 167.2, network calls 13.4, file writes 4.8. FAIL (reports over 130, redraws over 135, net over 6)
   locked: none yet
-Hang watch (screen stuck over 2 s), app code build 23: watched 6 min on screen. PASS (quiet)
-Tap to first sound, app code build 23 (18 of 564 samples; older code not judged)
-  library: typical 237 ms, slow end 368 ms, worst 368 ms (14 times); over 1 s: 0. PASS
-  previous: typical 271 ms ... not enough yet (4 of 5)
-  session, sort, lockscreen, search, restore: none yet
+Hang watch (screen stuck over 2 s), app code 2026-11-10T23:07:48: watched 7 min on screen. PASS (quiet)
+Mine songs on the phone: 671 of 671 (the phone said so at 2026-11-10T23:15:54+00:00)
+Tap to first sound, app code 2026-11-10T23:07:48 (20 of 590 samples; older code not judged). Pass: typical within 2x Sort, none over 1 s
+  session: typical 181 ms, slow end 237 ms, worst 237 ms (18 times); over 1 s: 0. PASS
+  previous: typical 192 ms, slow end 200 ms, worst 200 ms (2 times); over 1 s: 0. not enough yet (2 of 5)
+  sort, library, lockscreen, search, restore: none yet
 ```
-These are the old code's numbers: the new code has none until I use it. Locked wake-ups (~30 expected) still not measured.
-**Phone update:** `published 2026-11-10 07:52 UTC` (close and reopen the app), server started (it was stopped) on the new code; the session then went idle mid-wrap and a second session finished STATUS and found the server stopped again, restarted it (RUNNING). Then `full rebuild` for check 4 only (`app/package.json` gained two packages; steps in `overhaul/REBUILD.md`).
+These are from the first session's mid-build publish, not tonight's. **The open-screen energy line is a FAIL** (5 min of data): not looked into, see Decisions 1.
 
-**Needs the phone:** the 4 "I prove" lines of NEXT. Extra for chat to walk: (a) play a song past 0:30, skip one at 0:10, go to Library and back: only the first is in Recently played; `python server\vault_cli.py plays E:\VaultLibrary` shows it. (b) Tag a line with the keyboard up: the field stays visible. (c) Tap Lines: the list takes the art's place, nothing below moves.
+**Phone update:** `published 20261111-040359` (UTC; close and reopen the app). No server code changed this session; the server restarted itself on the current code during the kill proof.
 
-**Changed:** new `app/` Home, Frame, Icon, Art, theme, tileColor, native, nativePieces, playLog, playStore + 3 tests; rewritten App, Player, nav; touched Library, Tagging, Notices, outbox, phoneBackup, playerStore, playOrder, sheetCore, sortData, ratingStore, Versions, Sort/Cards/Hidden (background only); `server/` store, songs, server, cli, test; `tools/shots` (fixtures, `side.mjs`); build workflow (prints Xcode version); docs: board x2, DESIGN-SYSTEM, LABELS, REBUILD, COMMANDS, MAP, ROADMAP, DECISIONS.
+**Needs the phone:** the 4 "I prove" lines of NEXT. Extra for chat to walk: (a) Library's Shuffle pill: tap its top and bottom edge, it still takes. (b) Search, tap a recent search: the keyboard stays up. (c) Type fast and tap a result straight away, Cancel, open search: the recent search is the whole word. (d) Library rows with a heart, "Versions" or a plays count: is the cut second line ("On t…") OK or ugly (catch 14).
 
-**Done when:** A pass (wipe + restore test; `status` and new `plays` command). B pass (200 rounds through tabs, 3,687 taps; swipe-down = down button from 6 openers; mid-close shots). C, D pass (shots of Home x8, player dark / light / no art / long titles, mini on each tab, side by side). E pass for SF Symbols and glass (tests both ways, publish builds, REBUILD updated, standard runner); **native tab bar not taken** (below). `/verify` pass; `check_repo` clean. I prove 1-4: not run (for chat).
+**Changed (this session):** `app/` Library.tsx, SearchScreen.tsx, playLog.ts, playStore.ts, playData.test.mjs, searchScreen.test.mjs; new `docs/board/wave2-review.md`; REPORT, STATUS, DECISIONS. Not mine, appeared mid-session (chat's): `docs/CHAT-INSTRUCTIONS.md`, one DECISIONS row, `.claude/agents/fresh-eyes.md`, `docs/pending-agents/`. Wave 2's build itself is in the last commit.
 
-**Plan I chose:** all 6 lines ticked. Board `board/wave1-frame.md`; defaults in use for its 3 owner questions (amber; day-one row; Mine / Not mine as two quiet words).
+**Done when:** A pass (test in `/verify`; search shots drawn last session). B pass (1,395-row test; chip shots drawn) with the review's note that the test proves the row maths, not the phone's real list: check 3 settles it. C pass (rules + empty-rows test; Home full and empty shots). D pass for kill-and-back and `doctor`; **off leaves nothing scheduled: not run this session** (text-checked by `test_keepalive.py` only; running off then on was not worth risking the server before publish). `/verify`, `check_repo`, publish: pass. I prove 1-4: not run (for chat).
 
-**Fresh-eyes review** (`board/wave1-review.md`, written before any fix): 15 catches. Fixed 9: replay after a list ends never counted (1), Compare time credited as one play (2), laptop's 6-decimal times maybe unreadable on the phone (3), "1 play waiting" line pushing Home down (4), blank Library with no address (5), rows moving under the thumb at 0:30 (6), versions doubling in Recently played (7), Home taps dead during Compare (8), tile colour stuck (11), laptop line not refreshed (14). Not taken, reason checked in the code: 9 (a count can read +1 for the length of one song-list fetch; the next list corrects it; ratings share the pattern), 10 (the typing field's place doesn't depend on screen height: the art is the only stretchy row and it lifts away whole), 12 (under a second), 13 (by design), 15 (playStore can't load on the laptop; its maths is tested, its wiring isn't).
+**Plan I chose:** all 6 lines ticked. Step 6 as run: review on Sonnet (general-purpose, given only NEXT, LESSONS, the diff, 34 changed-screen shots), catches in the file before any fix, E, `/verify`, publish. No new shots taken: the three fixes change no pixel.
 
-**Not done:** native tab bar: it needs the app moved onto a navigation package and can't run on today's build; the drawn bar is the same on both and can't reload the player. Stretch: none started. My own find mid-build: the first tint let grey text drop to 3.1:1 on bright songs; the test caught it, now 4.6:1 worst case.
+**Fresh-eyes review** (`board/wave2-review.md`): 19 catches (4 wrong, 3 test gaps, 12 rough). Fixed 3: Shuffle's touch was 36 pt, now 44 (1); a fast result tap could save a half word as the recent search (10); tapping a recent search now keeps the box in focus (11). Proved 1: the real server restarts (9). Left as built: Home rows only show songs that play right now, so a row can hide while its chip has songs (2); Versions row is biggest group first, its See all is newest first (4); order word cycles on tap (5); quieter than the mockup (19). The rest are for chat and the phone: 3, 6, 7, 8, 12-18. **E:** done (wave 1 catch 9). A song list that arrives while a play is being sent now gives the right count whether the laptop listed before or after counting it; tested both ways.
 
-**Decisions needed:** (1) accent amber or coral: default amber. (2) "Not played in a while" on day one is a different dozen never-played Mine songs each day: default keep. (3) Mine / Not mine as two small words beside the eye: default keep; say if you want the eye gone now sorting is done. (4) Session's Next is now "Next song" in the action row plus the pill's Next (was a big button): default keep.
+**Not done:** Stretch: none started. Off-then-on not run for real (above). Catch 3 (Needs tags shows every Mine song until tags first load after a wipe) and 14 (cut second line) not fixed: both need a look decision.
 
-**Proposed next step:** wave 2: Library and the search screen in Wall's style (art tiles on rows, filter chips, search as its own screen from the round button).
+**Decisions needed:** (1) Energy FAIL with the screen open (wake-ups 157, redraws 167, network 13 a minute on wave 2's code): look into it at the start of wave 3 (default), or now. (2) An older Windows job "StartVault" still opens the server in a window on a timer; the new "Vault server" job replaces it. Default: I leave it; recommend you delete it in Task Scheduler (it now just opens a window saying the port is in use). (3) Catch 14: drop "On this phone" from Library rows and only say where a song is when it is *not* on the phone (recommended), or keep. Default keep.
 
-**Pitch:** a waveform strip for the seek bar made once on the laptop (DESIGN-NOTES Tech 1): tag dots on a real shape is the one thing no benchmark app has.
-
-**Odd in how we work:** NEXT said "tab bar ... if it can host B" but REBUILD already said native tabs need a navigation rewrite; the two docs disagreed and I had to pick. Also `/next` tells me to hold fixes for the review file, which cost a 7 minute idle wait: the review could run while docs are written.
+**Proposed next step:** wave 3 (Sort as swipe cards, tagging), starting with the energy FAIL.
+**Pitch:** make the laptop-off shots fail the song-list fetch like a real phone does, so they show the "Laptop not reachable" line I'd really see (catch 16 was the stand-in, not the app).
+**Odd in how we work:** chat's new `fresh-eyes` agent file landed after this session started, so it wasn't on my list; I ran the review as a general agent set to Sonnet (201k Sonnet tokens, 2.6 min, no Fable spent on it). I told it to write the file after the diff and again after the shots, so a cut-off can't lose the catches twice.

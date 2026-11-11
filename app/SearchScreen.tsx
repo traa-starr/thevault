@@ -168,7 +168,7 @@ export default function SearchScreen({ url, showing }: { url: string; showing: b
                 </Pressable>
               </View>
               {recent.map((words) => (
-                <Pressable key={words} style={(p) => [s.recentRow, tint(p)]} onPress={() => setText(words)}>
+                <Pressable key={words} style={(p) => [s.recentRow, tint(p)]} onPress={() => (setText(words), box.current?.focus())}>
                   <Icon name="search" size={16} color={C.faint} />
                   <Text style={s.recentWords} numberOfLines={1}>{words}</Text>
                 </Pressable>
@@ -194,9 +194,9 @@ export default function SearchScreen({ url, showing }: { url: string; showing: b
             const hit = found.hitOf.get(item.id);
             const disabled = item.where !== 'laptop' && !offline.has(item.id);
             return hit ? (
-              <LineRow song={item} hit={hit} stems={found.stems} typed={found.typed} rating={ratings.get(item.id)} off={!canPlay(item)} disabled={disabled} onPress={() => play(item, hit, query)} />
+              <LineRow song={item} hit={hit} stems={found.stems} typed={found.typed} rating={ratings.get(item.id)} off={!canPlay(item)} disabled={disabled} onPress={() => play(item, hit, text)} />
             ) : (
-              <SongRow song={item} meta={detail(item)} rating={ratings.get(item.id)} off={!canPlay(item)} disabled={disabled} playing={playingSong?.id === item.id} onPress={(song) => play(song, undefined, query)} />
+              <SongRow song={item} meta={detail(item)} rating={ratings.get(item.id)} off={!canPlay(item)} disabled={disabled} playing={playingSong?.id === item.id} onPress={(song) => play(song, undefined, text)} />
             );
           }}
         />

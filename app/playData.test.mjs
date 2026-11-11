@@ -3,7 +3,7 @@
 // and what Home's two rows show. The code under test is the code the phone runs (playLog.ts).
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { A_WHILE_DAYS, dayOf, notPlayedInAWhile, playsFrom, playsWithPending, playTracker, PLAY_COUNTS_AFTER, recentlyPlayed, rediscoverStart, ROW_SONGS } from './playLog.ts';
+import { A_WHILE_DAYS, dayOf, listWithTaken, notPlayedInAWhile, playsFrom, playsWithPending, playTracker, PLAY_COUNTS_AFTER, recentlyPlayed, rediscoverStart, ROW_SONGS } from './playLog.ts';
 
 let n = 0;
 const ok = (name, fn) => {
@@ -236,6 +236,26 @@ ok('sent, then listed: the count is the same before, during and after (never dou
   const after = flat(playsWithPending(playsFrom(lap.songs(['a', 'b'])), [], NOW));
   assert.equal(after, before);
   assert.equal(after, 'a:1@2026-11-10T20:00:00.000Z b:1@2026-11-10T20:05:00.000Z');
+});
+
+ok('a song list asked while a play is on its way: right whether the laptop listed before or after counting it', () => {
+  const lap = laptop();
+  lap.take([change('a', '2026-11-09T20:00:00.000Z')]);
+  const sending = [change('a', '2026-11-10T20:00:00.000Z'), change('b', '2026-11-10T20:05:00.000Z')];
+  const listedBefore = playsFrom(lap.songs(['a', 'b'])); // the list left the laptop first
+  lap.take(sending);
+  const listedAfter = playsFrom(lap.songs(['a', 'b'])); // the laptop counted the plays first (wave 1 review, catch 9)
+  const known = playsWithPending(listedBefore, sending, NOW); // what the phone holds once the laptop says "taken"
+  const want = 'a:2@2026-11-10T20:00:00.000Z b:1@2026-11-10T20:05:00.000Z';
+  assert.equal(flat(known), want);
+  assert.equal(flat(listWithTaken(listedBefore, known, sending, NOW)), want);
+  assert.equal(flat(listWithTaken(listedAfter, known, sending, NOW)), want);
+  // two plays of one song on their way, the list caught only the first: one is added, not two
+  const two = [change('c', '2026-11-10T20:10:00.000Z'), change('c', '2026-11-10T20:20:00.000Z')];
+  lap.take(two.slice(0, 1));
+  const half = playsFrom(lap.songs(['c']));
+  assert.equal(flat(listWithTaken(half, playsWithPending(new Map(), two, NOW), two, NOW)), 'c:2@2026-11-10T20:20:00.000Z');
+  assert.match(source('./playStore.ts'), /base = listWithTaken\(playsFrom\(songs\), base, /);
 });
 
 ok('a wipe and a restore: counts come back from the laptop, unsent plays from the backup, and a second restore changes nothing', () => {

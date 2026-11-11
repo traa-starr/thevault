@@ -1,0 +1,33 @@
+# Wave 2 fresh-eyes review
+
+Read: NEXT.md, LESSONS.md, the whole wave 2 code diff. 34 of the shots listed (search, Library, Home, side by side). Ran: nothing. Nothing edited.
+
+1. **wrong** - `Library.tsx` `s.shuffle` / `Tap`. The Shuffle pill is 36 pt high with a margin and no extra touch area (the Tap piece has none), so its touch target is 36 pt, under NEXT's 44 pt bar, though the comment says "a 36 pill inside a 44 touch". Sure that nothing widens it; Likely it is felt on the phone.
+2. **wrong** - `Home.tsx` `more` rows use `playable`, so a Mine song that is cloud-only or missing is left out of "Needs tags", "Favorites" and "Versions to compare", while "See all" (Library chip) lists it. A row can hide while its chip has songs, or the row's cards are not the top of the chip. NEXT says each row is the top of what "See all" opens. Likely.
+3. **wrong** - `Home.tsx` / `libraryCore.ts` `homeRows` "Needs tags". It decides from the phone's tag copy (`useAllTags`). Before tags have loaded (fresh wipe, first open), every Mine song counts as untagged, so the row shows 12 songs that may well have lines. Same in Library's Needs tags chip count. Maybe.
+4. **wrong** - `homeRows` "Versions to compare" is sorted biggest group first, but its "See all" opens Library's Versions chip in Newest order, so the first cards do not match the first rows after the tap (the test admits it, comparing only as sets). Sure, small.
+5. **rough** - `Library.tsx` the order control is one word that cycles Newest, A to Z, Most played on each tap and shows the current order, not the next. Going back to Newest from A to Z takes two taps, and it is not obvious a tap changes it. Likely.
+6. **rough** - `Library.tsx` `FlatList key={`${sort}/${only}`}`. Every chip tap throws away and rebuilds the whole list (up to 1,395 rows) and scroll goes to the top; on a phone this can show a blank beat after a chip tap. Maybe.
+7. **test gap** - `library.test.mjs` "a fast flick ... none dropped" tests only the arithmetic of `rowsInView`/`rowLayout`, not the real list. The one real draw (`library-1395-flick` shot check) is a browser stand-in, not the phone's list. Done-when B says "test scrolling the full model"; the claim "no dropped rows on the phone" is not proved.
+8. **test gap** - `searchScreen.test.mjs` ("a tap plays the row's own song", "one place", "recents ... never while typing") mostly check that the source text contains a string. They would pass with a broken tap. The result-tap-while-typing race and the keyboard gap are not run, only grepped. Done-when A asks for results and timing matching today's search; that part is genuinely proved (frozen copy compared), the rest is not.
+9. **test gap** - `test_keepalive.py` proves "kill the server, back in a minute" with a pretend sleeping process, and `server_on.ps1`/`server_off.ps1` are only text-checked (never run). Nothing proves the real `vault_cli.py serve` starts under `pythonw`, that the off command's process-matching pattern (`vault_cli\.py"?\s+serve\s`) matches the real command line, or that the job registers without admin. Done-when D asks for exactly that.
+10. **rough** - `SearchScreen.tsx` `recents.add(words)` saves the deferred `query`, which can lag a keystroke behind what the box shows when a result is tapped fast, so the saved recent can be a half word. Maybe.
+11. **rough** - `SearchScreen.tsx` tapping a recent search fills the box but does not focus it, so the keyboard may not be up after the tap. Maybe.
+12. **rough** - `SearchScreen.tsx` title-only results pass an inline `onPress` to the `memo` row, so the memo never saves a redraw while typing; harmless at today's list size. Maybe.
+13. **rough** - `LineRow` is disabled by the Main row's file state, though the line may be on a version that can play. Maybe.
+
+14. **rough** - shots `library-all`, `library-order-most-played`, `library-select-mode`. When a row has a Versions chip, heart, plays count or line count, the second line is cut mid-word ("1 line · On t…", "3 plays · 30 lines · On this p…") and the title shrinks hard ("this is the one where ..."). The "where the file is" part, which tells a cloud-only song apart, is the first thing lost. Sure (visible).
+15. **rough** - shot `search-title-70-chars` / `search-version-line-on-main`. A title match shows the plain title with no bold on the matched word, while a tagged-line match bolds it, so two kinds of result look unlike each other. Sure.
+16. **rough** - shots `library-laptop-off`, `search-laptop-off`. Rows turn dim but no line says the laptop is off (Library draws `LaptopLine` yet it doesn't show in the shot; search has none). The owner sees grey songs that won't play with no reason. Maybe.
+17. **rough** - shot `search-before-songs`. With text typed and no song list yet it says "Loading songs…" with no end: if the laptop never answers and no saved list exists it never changes to a failure line. Maybe.
+18. **rough** - shot `search-empty-recents`. "Cancel" (right edge ~727), "Clear" (~740) and the row edge (~748) don't line up on the right. Minor, Sure.
+19. **rough** - shots `side-*`. Mockup search has a big "Search" title and "Try a line" example chips, and matched words in amber; the app has neither title nor chips, and bold white. Mockup Library default is Mine with a big Shuffle; app starts at All with a small Shuffle. Probably chosen on purpose (quiet amber), but it is a visible gap from the mockup. Maybe.
+
+## After the review (same session, catches above written first)
+- **Fixed:** 1 (Shuffle's touch is now 44: 4 pt more above and below), 10 (the recent search saved is what the box shows), 11 (tapping a recent search keeps the box in focus).
+- **Proved for real:** 9. Killed the real server process (the one the off command's pattern finds): answering again in 4 s, log line "keeper: server stopped ... Starting it again in 2 s." The Windows job "Vault server" is registered and running under the no-window Python. Not re-run this session: off then on (so "without admin" rests on the job existing).
+- **Left as built, on purpose:** 2 (Home only shows songs that play right now, so a card never leads to a wait: the code's own rule), 4 (biggest group first; board), 5, 19 (quiet look, owner's wave 1 defaults).
+- **Not a wave 2 change:** 16 for Library: the "Laptop not reachable" line shows when the list fetch fails, which the shot's stand-in doesn't do. Search has no such line: for chat.
+- **For chat / the phone checks:** 3, 6, 7, 8, 12, 13, 14, 15, 17, 18.
+
+Shots: 34 looked at, 6 with a problem (catches 14-19). Not looked at: search-results, library-chip-* (except needs-tags/empty), library-1395 below the top, library-see-all-most-played, home-* beyond the six listed.

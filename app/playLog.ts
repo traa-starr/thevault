@@ -95,6 +95,23 @@ export function playsWithPending(base: PlayMap, pending: readonly { kind: string
   return out;
 }
 
+/** A fresh song list, plus the plays the laptop took while that list was on its way (`taken`). The list may or may not
+ * hold them already, so the phone's own count (`known`: the last list plus everything the laptop has taken since)
+ * settles it: a taken play is added only while the list is still behind `known`. Never doubled, never dipping. */
+export function listWithTaken(list: PlayMap, known: PlayMap, taken: readonly { kind: string; data: unknown }[], now: number): Map<string, Played> {
+  const out = new Map(list);
+  for (const change of taken) {
+    if (change.kind !== 'play_add') continue;
+    const data = change.data as PlayLine;
+    if (data.end) continue;
+    const was = out.get(data.song_id) ?? { n: 0, last: 0 };
+    const behind = was.n < (known.get(data.song_id)?.n ?? 0); // false: the list already counted it
+    // "last heard" is true either way (the laptop took this play), so it never goes back
+    out.set(data.song_id, { n: was.n + (behind ? 1 : 0), last: Math.max(was.last, Math.min(ms(data.started_at), now)) });
+  }
+  return out;
+}
+
 export const ROW_SONGS = 12;
 const DAY_MS = 24 * 3600 * 1000;
 /** Heard within this many days: not "a while" yet. */

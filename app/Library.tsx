@@ -43,6 +43,8 @@ const CHIP_EMPTY: Record<Chip, string> = {
 const SORT_WORD: Record<SortBy, string> = { date: 'Newest', title: 'A to Z', plays: 'Most played' };
 
 const TIMEOUT_MS = 10000;
+/** The Shuffle pill is 36 high: 4 more above and below makes its touch the full 44. */
+const SHUFFLE_SLOP = { top: 4, bottom: 4 };
 const WHERE: Record<string, string> = { laptop: 'On the laptop', cloud: 'Cloud only', gone: 'File missing' };
 
 const number = (n: number) => n.toLocaleString('en-US');
@@ -335,7 +337,7 @@ export default function Library({ url }: { url: string }) {
           <View style={s.headerRight}>
             {/* Shuffle grows to the left when it says its pool, so Tag songs never moves */}
             {playable.length ? (
-              <Tap style={[s.shuffle, shuffleOn && s.shuffleOn]} filled={shuffleOn} radius={18} onPress={tapShuffle} accessibilityLabel={shuffleOn ? `Shuffle on, ${shuffleWords({ on: true, pool: playingPool })}` : 'Shuffle off'}>
+              <Tap style={[s.shuffle, shuffleOn && s.shuffleOn]} filled={shuffleOn} radius={18} hitSlop={SHUFFLE_SLOP} onPress={tapShuffle} accessibilityLabel={shuffleOn ? `Shuffle on, ${shuffleWords({ on: true, pool: playingPool })}` : 'Shuffle off'}>
                 <Icon name="shuffle" size={16} color={shuffleOn ? C.onAccent : C.text} />
                 <Text style={[s.shuffleWord, shuffleOn && s.shuffleWordOn]}>{shuffleOn ? `Shuffle: ${shuffleWords({ on: true, pool: playingPool })}` : 'Shuffle'}</Text>
               </Tap>
