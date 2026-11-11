@@ -120,7 +120,7 @@ Runs alongside Phase 3. 2.7 passed 2026-11-10: overhaul app code may start. Owne
   (lock-screen Shortcut), laptop address in the Keychain, haptics *(rebuild installed 2026-11-10; address restored on 2nd reinstall; locked wake-ups to confirm in `timings`)*
 - [ ] O.4 Overhaul build from the picked mockup, in waves (confirmed 2026-11-10): 1 frame (tabs + mini player that grows
   into the player) + Home + player; 2 Library + search; 3 Sort as swipe cards (tucked away) + tagging; 4 the rest
-  *(wave 1 phone-verified 2026-11-10, 7 of 7; design system `docs/overhaul/DESIGN-SYSTEM.md`. Wave 2 built 2026-11-10, unproven on the phone: search screen, Library with chips and tiles, Home's five auto rows, the server that stays up)*
+  *(wave 1 phone-verified 2026-11-10, 7 of 7; design system `docs/overhaul/DESIGN-SYSTEM.md`. Wave 2 phone-verified 2026-11-11, 7 of 8 + 3 notes (server-after-restart pending): search screen, Library with chips and tiles, Home's five auto rows, the server that stays up)*
 - [ ] O.5 Overhaul native pieces (glass, native tabs, SF Symbols, Live Activity) in their own full rebuild, list in
   `docs/overhaul/REBUILD.md` *(SF Symbols and glass phone-verified 2026-11-10 after the rebuild;
   native tabs dropped, DECISIONS; Live Activity last)*
@@ -129,7 +129,7 @@ Runs alongside Phase 3. 2.7 passed 2026-11-10: overhaul app code may start. Owne
 
 ## Parked, no date (I can promote any of these)
 lyrics notebook · BPM/key · optional rename (confirm + undo log) · Siri, Shortcuts, lock-screen "play the song
-with that line" · widgets · Whisper draft tags · "similar meaning" search section · always-on home server · paid Apple account.
+with that line" · widgets · Whisper draft tags · "similar meaning" search section · always-on home server · paid Apple account · offload songs from the phone (e.g. Archived live only on the laptop; owner 2026-11-11).
 
 ## Decisions to raise, one step before each blocks
 | Before | Call | Note |

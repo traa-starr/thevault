@@ -109,3 +109,14 @@ My phone results, one line each (written by chat). Measured results stay in REPO
 - Check 6 Tag field stays above the keyboard: pass.
 - Check 7 Lines take the art's place, nothing moves: pass.
 - Result: 7 of 7 pass (4 NEXT + 3 extras), 1 note (search bar and round button open Library until wave 2, expected).
+
+## Overhaul wave 2 review, 2026-11-11
+- Check 1 Search (round button + Home box: keyboard up, tagged line finds and plays, recent searches when empty): pass.
+- Check 2 Recent searches (tap keeps keyboard; fast type + tap saves the whole word): pass.
+- Check 3 Library (Wall look, fast flick, every chip right, long titles not cut into the next row): pass.
+- Check 4 Shuffle pill top and bottom edge both take: pass.
+- Check 5 Library second line cut ("On t…", catch 14): note. Owner: replace "On this phone" with a tiny phone-outline icon (thin upright rectangle). New idea: offload some songs from the phone back to the laptop only (e.g. Archived), so not every song sits on the phone (parked).
+- Check 6 Home new rows + See all lands on the right chip + plain labels: pass, 2 notes. (a) "Not played in a while" starts songs at 0:30; owner wants the beginning. (b) The first songs on several rows are the same songs, so it reads like 3 rows of one list; owner wants each row shuffled so it shows different options.
+- Check 7 Old "StartVault" window job: owner chose Code deletes it next step and proves the server still starts.
+- Check 8 Server up after a laptop restart (no "Laptop not reachable" in Library): pending, owner restarting.
+- Result so far: 7 of 7 answered pass (3 notes, 1 call), check 8 pending.

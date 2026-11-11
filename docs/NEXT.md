@@ -1,47 +1,44 @@
-# NEXT: Overhaul wave 2: Library, search screen, fuller Home, server that stays up
+# NEXT: Overhaul wave 3: wave 2 fix-ups, quiet open screen, Sort as swipe cards, tagging
 Format: goal
-Written by chat, 2026-11-10.
+Written by chat, 2026-11-11.
 Effort: high
-Log: Wave 1 review 7 of 7 pass (Home, player, tabs + freeze, rebuild icons + glass, play counting, tag field over keyboard, Lines). Native tab bar dropped: the drawn bar has the glass and can't reload the player (chat). Wave 1 defaults kept: amber accent, "Not played in a while" rotates daily, Mine / Not mine as two quiet words, "Next song" in the session action row (chat-default, owner can change). Home v2 auto rows go in wave 2; "My projects" row waits for ROADMAP 6.1 (chat). Server starts itself and restarts if it stops (chat-default, frame check) (logged by chat)
-Size: wave 2 of 4 (O.4) plus Home v2's rows (they reuse wave 1's play data and Library's data) plus the always-on server (laptop only, small). No rebuild: everything ships by publish. Ordered so a short session still ships A-B. 5 goals.
-Queue after this: wave 3 Sort as Deal swipe cards (tucked away) + tagging session + tag editing; wave 4 Queue, versions, settings, whole-app pass, Live Activity spike last. Promo ends 11-16.
-Read: `docs/LESSONS.md`; `docs/overhaul/DESIGN-SYSTEM.md`; `docs/overhaul/LABELS.md`; `spike/mockups/wall.html` (Library and search views) + `app.css` (the spec); `docs/board/overhaul-mockups.md` "Tabs" and proposed checks 2 and 5; `docs/overhaul/TEARDOWN.md` Library + search rows only; last 4 DECISIONS rows; `server/schedule_backup.ps1` (how we already schedule a laptop job); files you touch.
+Log: Wave 2 review 7 of 8 pass + 3 notes (check 8 pending at writing). "On this phone" becomes a tiny phone-outline icon (owner). Not played in a while plays from 0:00 (owner). Home rows show different songs: a song in only one row's first 5 cards, top row wins; unordered rows shuffle daily; Recently added and Most played keep order, skip songs already up front (owner + chat-default). Code deletes the old StartVault job (owner). Energy FAIL looked into first (chat). Review catches 3, 13, 15, 16, 17, 18 fixed here; 6, 7, 8, 12 left (chat). Offload idea parked (owner) (logged by chat)
+Size: wave 3 of 4 (O.4) plus wave 2's notes and catches plus the open-screen energy FAIL. No rebuild: ships by publish. A first so a short session still ships what I'll notice. 4 goals.
+Queue after this: wave 4 (Queue, versions, settings, whole-app pass, Live Activity spike last). Promo ends 11-16. Then my 3.7 searches at ~50 tags.
+Read: `docs/LESSONS.md`; `docs/overhaul/DESIGN-SYSTEM.md`; `docs/overhaul/LABELS.md`; `spike/mockups/deal.html` (the swipe card) + `app.css`; `docs/board/overhaul-mockups.md` Sort part; `docs/overhaul/TEARDOWN.md` Sort + tagging rows; `docs/board/wave2-review.md` catches 3, 13, 15-18; last 8 DECISIONS rows; files you touch.
 
 ## Goal
-A. **Search as its own screen (O.4 wave 2).** The round search button and Home's "Search" box open a search screen as in `wall.html`: box focused with the keyboard up, results as I type (today's search engine and timing unchanged), recent searches when the box is empty, tap a result to play. Fixes the wave 1 note: both now just open Library.
-B. **Library in Wall's style (O.4 wave 2).** Art tiles on rows, Favorite / Archived marks, filter chips (All, Mine, Favorites, Archived, Needs tags), sort order kept. 1,395 rows scroll smooth; long titles never cut into the next row.
-C. **Fuller Home (owner, queue 4).** Under today's rows add: Recently added, Most played, Favorites, Needs tags (Mine with no tags), Versions to compare (groups with 2+ versions). Each row hides when empty; a row's "See all" opens Library with the matching chip. Plain titles only.
-D. **Server that stays up (frame check).** The laptop server starts by itself when I log in and comes back on its own if it stops, no window to keep open. One command turns it on (like nightly backup), one turns it off; `doctor` says if it's running. Update `COMMANDS.md`.
-E. **Small fixes from wave 1's fresh-eyes review** that are still worth it (catch 9: a count reading +1 during one list fetch), if the fix is under an hour.
+A. **Wave 2 fix-ups (owner notes).** Library rows: a tiny phone-outline icon (thin upright rectangle) replaces the words "On this phone", so the second line stops getting cut. "Not played in a while" plays from the beginning. Home rows show different songs (rule in Log). The old Windows job `StartVault` is gone; run off then on for real and prove the server still starts at log-in. Review catches 3 (Needs tags before tags load), 13, 15 (title matches bold like line matches), 16 (search says when the laptop is off; laptop-off shots fail the fetch like a real phone), 17 (Loading songs ends in a plain fail line), 18 (right edges line up).
+B. **Quiet with the screen open.** Energy with the app open read 157 wake-ups, 167 redraws, 13 network calls a minute (ceiling 130 / 135 / 6). Find what wakes it with every song on the phone and bring it under, with a model test holding the ceiling. Read `timings` yourself at the start and at `/wrap`, so I never run it.
+C. **Sort as Deal's swipe card (O.4 wave 3).** Sort's screen becomes the swipe card from `deal.html`, still tucked away behind Sort's entry, not on Home. What a swipe or tap does stays as built (Mine / Not mine, play, next).
+D. **Tagging session and tag editing in the new style (O.4 wave 3).** Same look as wave 1-2 (design system, plain labels); what saves and how stays as built.
 
 ## The bar
-- Board meets first (line 1: search is a new screen; Home gains rows). One short meeting, notes to `docs/board/wave2.md`, defaults for any owner question.
-- List how A-C could break before building (LESSONS included): search under the keyboard, a result tap while typing, Library fast-scroll with art loading, a chip with 0 songs, Home on a fresh wipe with every row empty. Each one a test or a changed-screen shot.
-- Controls: instant pressed look, 44 pt, no swallowed tap, nothing shifts. Plain labels (LABELS.md).
-- Screenshots only of changed screens, checked by a subagent, plus side by side with `wall.html`.
-- One fresh-eyes review (new screens): catches written to `docs/board/wave2-review.md` before any fix. It may run in the background while you write docs; don't sit idle waiting for it.
+- Board meets first for C-D (new screens). One short meeting, notes to `docs/board/wave3.md`, defaults for any owner question.
+- List how A-D could break before building (LESSONS included: Home repeats, laptop checks that a phone copy would pass). Each one a test or a changed-screen shot.
+- Controls: instant pressed look, 44 pt, no swallowed tap, nothing shifts; a swipe never also counts as a tap. Plain labels.
+- Screenshots only of changed screens, checked by a subagent, plus side by side with `deal.html` for C.
+- One fresh-eyes review (the `fresh-eyes` agent): catches to `docs/board/wave3-review.md` before any fix; may run in the background.
 - Two failed fixes on a goal: write it up, move on. REPORT under 40 lines with "Odd in how we work:".
 
 ## Done when
 Code proves:
-- A: test that search results and timing match today's search for the same words; shots of the search screen empty, typing, results, no results.
-- B: test scrolling the full 1,395-song model with no dropped rows; shots of every chip, a 70-character title, a 30-tag song.
-- C: test that each row's songs follow its rule and empty rows hide (fresh-wipe model); shots of Home full and empty.
-- D: kill the server process, it's back within a minute (log line); `doctor` shows it running; off command leaves nothing scheduled.
+- A: test that no song repeats in Home rows' first 5 cards (when a row has others) and unordered rows change by day; test Not played in a while starts at 0; shot of a Library row with heart + Versions + plays and the icon, nothing cut; `StartVault` absent; off then on run for real, server answering after; laptop-off shots show the real "Laptop not reachable" line on Library and search.
+- B: model test with the open-screen ceiling passes; `timings` read and quoted in REPORT (open, and locked if data exists).
+- C-D: tests that each swipe and tap does what Sort's does today; shots of the card (start, mid-swipe, last song), tagging session and tag edit.
 - `/verify` all PASS under 1 min; `check_repo.py` clean; publish goes out.
-I prove (after publish, server started by itself):
-1. Restart the laptop, log in, don't open anything: the phone plays a song. 
-2. Round search button and Home's Search box: keyboard up straight away, type a line I tagged, tap the song, it plays. Empty box shows my recent searches.
-3. Library: looks like Wall, flick fast top to bottom, every chip shows the right songs, nothing cut or jumpy.
-4. Home: new rows make sense (Recently added, Most played, Favorites, Needs tags, Versions to compare), "See all" lands on the right chip, every label plain.
+I prove:
+1. Home: the rows open on different songs; Not played in a while starts from the top; Library rows show the phone icon and the second line isn't cut.
+2. Laptop off (`server_off`, exact line in COMMANDS), then search and Library: each says the laptop isn't reachable; turn it back on and it clears.
+3. Sort: swipe through 10 songs as cards, each swipe does the right thing, nothing double-counts, it feels quick.
+4. Tagging: run a short session and edit a tag on a song; it saves and looks like the rest of the app. Then listen locked 10 min (for B's locked numbers).
 
 ## Stretch (only if every goal is met and budget is left)
-1. Waveform spike (REPORT's pitch, DESIGN-NOTES Tech 1): in `spike/` only, make waveform shapes for 20 songs on the laptop, measure time and size for all 1,393, a 10-line memo. No app code.
-2. Wave 3 start: the swipe-card Sort screen from `deal.html`, behind Sort's current entry, nothing removed.
+1. Waveform spike (DESIGN-NOTES Tech 1): `spike/` only, shapes for 20 songs, time and size for all, a 10-line memo. No app code.
 
 ## Limits
 - No rebuild: if a piece needs one, write it in `overhaul/REBUILD.md` and leave it.
-- Search engine, rating, tagging and steady-screen rules stay as built; this changes look and movement, not what a tap does.
-- No "My projects" row (waits for 6.1). No Line pieces.
-- If it runs long: E waits, then C's Versions row.
+- Search engine, rating, tagging rules, play counting and steady-screen rules stay as built; this changes look, movement and the noted fixes only.
+- No offload work (parked, hard to undo). No "My projects" row (6.1).
+- If it runs long: D waits, then C. A and B ship first.
 - My music is read-only; the repo is public (fake names in shots and tests, no laptop address or Tailscale names).
