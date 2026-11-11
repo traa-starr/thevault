@@ -120,3 +120,10 @@ My phone results, one line each (written by chat). Measured results stay in REPO
 - Check 7 Old "StartVault" window job: owner chose Code deletes it next step and proves the server still starts.
 - Check 8 Server up after a laptop restart (no "Laptop not reachable" in Library): pending, owner restarting.
 - Result so far: 7 of 7 answered pass (3 notes, 1 call), check 8 pending.
+
+## Overhaul wave 3 review, 2026-11-11
+- Check 3 Sort cards: not run (owner has no unsorted songs, so Sort shows no cards). Stays pending until new songs arrive.
+- Check 1 Home + Library (rows differ, Not played in a while from 0:00, phone icon, second line whole): pass.
+- Check 2 Laptop off (search + Library say not reachable, clears after server_on): pass.
+- Check 4 Tagging session + hold-menu half sheet + Change words / Delete / Undo: pass.
+- Result: 3 of 3 run pass, 0 notes; check 3 (Sort cards) waits for new songs. B's open-screen numbers: owner listening, Code reads `timings` at wave 4's start.
