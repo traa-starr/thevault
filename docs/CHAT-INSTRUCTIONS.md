@@ -121,6 +121,29 @@ needs a reason on the `Size:` line. Order goals by what matters most for my next
 still ships the important part. Groundwork for the next phase is spike and memo only: no app code until I choose.
 **Every goal NEXT carries `## The bar`** (between Goal and Done when), short, because Fable follows one plain line as well as a list (Fable trim, 2026-11-10). Outcomes and limits, never how. Keep to these lines and add one only for a lesson this step can repeat: board first if the `BOARD.md` test says so; list how it could break and turn each into a test or screenshot before building (LESSONS included); controls: instant press, 44 pt, no swallowed tap, nothing shifts; screenshots only of changed screens, checked by a subagent so images stay out of Code's context; one fresh-eyes review (the `fresh-eyes` agent, Sonnet, never general-purpose: that runs on Fable; give it only NEXT, LESSONS, the diff and the shots) for new screens or risky logic, catches written down before any fix (drop it if it catches nothing twice running); two failed fixes on a goal = write it up and move on; REPORT under 40 lines with "Odd in how we work:". No separate self-review: the fresh-eyes review does that job better.
 **Fable budget:** Size by what fits one Code session (about 150k context, one 5-hour window), most important goal first. Don't make Code re-read what NEXT can say in one line: quote the 1-3 rules it needs instead of pointing at a whole doc. No new mockups or re-designs unless the goal is design.
+**Fable session (owner, 2026-11-12): one per big piece, built to finish inside one 5-hour window.** Both exported
+Fable sessions (waves 3 and 4) hit the cap before wrap. Where the budget went, and the rule for each:
+- *One long context.* 4-6 goals in one conversation: every step re-reads everything so far, so late steps cost the most.
+  Rule: `Clear between goals: yes`. After each goal Code checkpoints and stops; I type `/clear` then `/next`.
+- *Meetings inside the build.* Wave 4 ran 7 helpers (4 board seats, a research agent, a screenshot check, fresh-eyes) and
+  their reports landed in Fable's context; helpers also spend the same 5-hour pool. Rule: board, research and
+  fresh-eyes run on Opus before or after, never in a Fable session.
+- *Reading to find its way.* 15-16 files read before the first edit, both times. Rule: the kit's code map, and NEXT
+  quotes the 1-3 rules needed.
+- *Everything redrawn.* 157 screenshots made for a change to 4 screens. Rule: shots of the changed screens only.
+- *Detective work.* Wave 3 spent a large part tracing what kept the screen awake. Rule: Opus finds causes first; Fable
+  gets the cause, not the hunt.
+- *Old tests breaking.* Both sessions stopped to fix older tests that pinned exact old behaviour. Rule: Opus writes the
+  new tests in the kit (failing on purpose); Fable makes them pass.
+- *Shell friction.* Quoting and heredoc errors cost retries both times. Rule: change files with the Edit tool; helper
+  scripts go in a file, never typed inline.
+- *No handoff at the cap.* Wave 3's "create handoff report" came after the cap. Rule: a checkpoint (STATUS plan ticks plus
+  2 lines) after every goal, so the cap never needs a handoff.
+So Fable only builds. Before it, on Opus or Sonnet or in chat: decisions, board, a mockup I've checked on the phone (the
+spec), the code map, the new tests, the shot list, causes of any bug. A Fable NEXT says `Model: fable` and
+`Clear between goals: yes`, has 2-4 goals ordered so each finished one ships on its own, no stretch, no memos, runs only
+the tests for files it touched and `/verify` once at the end, and a short `/wrap`. Fresh-eyes and fix-ups are the next
+Opus NEXT.
 Recipe format keeps the old shape: `## Parts` a, b, c, a **Stop line**, then `## Phone check`.
 Code's `/wrap` doesn't print phone checks; it states the phone update (none / publish / full rebuild) and marks each
 Done when line pass / fail / not run. You walk the checks at `Review.`

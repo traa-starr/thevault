@@ -86,7 +86,8 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 ## Phase 5: Sources and BandLab (Checkpoint 5). "Everything is in here"
 *Render folder (promoted 2026-11-11, owner, DECISIONS)*
 - [x] 5.0a Render folder on the Desktop for new mixdowns, plus a desktop icon: one double-click brings what's new into the Vault, Sort and the phone. No timer, no watching iCloud *(built 2026-11-11; phone checks at Review)*
-- [ ] 5.0b iCloud tidy plan: now the Vault knows what's mine, decide how the iCloud copies are stored (memo first; the Vault never writes in iCloud) *(memo `ICLOUD-OPTIONS.md` 2026-11-11: waits for my pick)*
+- [ ] 5.0b iCloud tidy plan: now the Vault knows what's mine, decide how the iCloud copies are stored (memo first; the Vault never writes in iCloud) *(memo `ICLOUD-OPTIONS.md` 2026-11-11: waits for my pick. Organizing beyond cloud-only waits for 5.0c and a moved-file test; how is in `ICLOUD-ORGANIZE.md`)*
+- [ ] 5.0c Second copy of the library's audio (3.2 GB on E:; today its only other copy is iCloud). Before any iCloud moving (frame check 2026-11-12)
 *BandLab*
 - [ ] 5.1 Test one export: format, title, revision access (method from G2)
 - [ ] 5.2 Watch the `BandLab Exports` folder and copy into the library, leaving the original alone
@@ -127,6 +128,9 @@ Runs alongside Phase 3. 2.7 passed 2026-11-10: overhaul app code may start. Owne
 - [ ] O.5 Overhaul native pieces (glass, native tabs, SF Symbols, Live Activity) in their own full rebuild, list in
   `docs/overhaul/REBUILD.md` *(SF Symbols and glass phone-verified 2026-11-10 after the rebuild;
   native tabs dropped, DECISIONS; Live Activity dropped 2026-11-11, owner)*
+
+- [ ] O.6 One world (owner, 2026-11-12): every screen is busy with options. Inventory every control (`overhaul/INVENTORY.md`), then one design where each job has one home, the song is the centre, and rare options live one gesture away, in a sheet, in Settings or on the laptop desk (like Compare: hidden, easy, never leaves the screen). Hidden songs leave Library for Settings; Library chips in a sensible order. Design by Fable, I pick on the phone, built in waves
+- [ ] O.7 Laptop desk: the server's own page in the laptop browser, from a desktop icon: hidden songs (search, folder, play, restore) and laptop-only counts. Admin that the phone doesn't need lives here
 
 **Done when:** I use the redesigned app daily and it doesn't feel a step down from my benchmark apps.
 

@@ -1,23 +1,24 @@
 # Status
 
-**Phase 2 closed 2026-11-10. Phase 3 (search) and the design overhaul (O.4) are open.** Updated 2026-11-11 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 2 closed 2026-11-10. Phase 3 (search) and the design overhaul (O.4) are open.** Updated 2026-11-12 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 **In progress:** none.
-**Next up:** me: commit, then `Review.` in chat (phone: no update needed).
-**Current task:** Render folder button, guard fix, iCloud plan (NEXT): built, phone checks at Review.
+**Next up:** me: commit and push, new Code session, `/effort high`, `/next`.
+**Current task:** Calm the app, part 1 (NEXT): Hidden to Settings, laptop desk, chips, inventory, iCloud groundwork.
 
 ## Done
-- Render folder + `Send to Vault` icon (5.0a), guard fix, `/verify` 53 s, iCloud memo (5.0b) built 2026-11-11. Review `board/render-review.md`.
+- Render step reviewed 2026-11-12 (no phone walk, owner): work matches NEXT, fresh-eyes 7 of 8 fixed. Phone checks moved to next review.
+- Render folder + `Send to Vault` icon (5.0a), guard fix, `/verify` 53 s, iCloud memo (5.0b) built 2026-11-11.
 - Wave 4 reviewed 2026-11-11: 6 of 6 pass, 0 notes (incl. 7-min open listen, wave 2 check 8). Results `PHASE-2-RESULTS.md`.
 - Overhaul wave 4 built 2026-11-11: Queue, Versions, Compare restyled; Settings screen; whole-app pass; doctor's StartVault line; two memos (`NEW-SONGS-OPTIONS.md`, `LIVE-ACTIVITY-OPTIONS.md`). Review `board/wave4-review.md`.
 - Wave 3 reviewed 2026-11-11: 3 of 3 run pass, 0 notes; Sort cards check waits for new songs. Results `PHASE-2-RESULTS.md`.
 - Waves 1-2 built and reviewed 2026-11-10/11. Phase 2 closed 2026-11-10 (wipe check). Phase 1 closed 2026-11-07: 1,395 songs, whole catalogue sorted.
 
 ## Queue
-1. Now: Review of the render folder step (4 phone checks).
-2. Then: my 20 acceptance searches (3.7) at ~50 tags, and revisit E (3.4, 3.5).
-3. Then: my pick from the iCloud memo (5.0b).
-4. "My projects" Home row waits for ROADMAP 6.1. Offload songs from the phone: parked.
-5. Parked: A-Z strip, split the 638 set, waveform spike. MP3 phone copies (523): fix if the timings blame them.
+1. Now: Calm the app, part 1 (Opus). Then Review: 8 phone checks (render 4 + calm 4).
+2. One world (O.6): Review + world map in chat, Opus Fable kit (board, one mockup I check, code map, shot list), ONE Fable build session, Opus fresh-eyes after.
+3. 3.7: my 20 searches at ~50 tags (tag count in next REPORT), then E (3.4, 3.5).
+4. iCloud: my pick (5.0b), audio second copy (5.0c) before any moving.
+5. Parked: A-Z strip, split the 638 set, waveform spike, offload songs, MP3 phone copies, "My projects" row (6.1).
 
 ## Open questions
 - Fable promo ends 2026-11-16 (owner). Next step is the last full build session on it.
@@ -26,5 +27,7 @@
 - `SAVE ME` (mine?), 26 date-only names, `Untitled...` files: display names wait for the release system (ROADMAP 6.1).
 
 ## Checks pending
-- Render folder step: 4 checks in REPORT (also closes wave 3's Sort cards check 3).
-- My pick from `ICLOUD-OPTIONS.md` (1 phone only, recommended).
+- Render folder step: 4 checks (in last REPORT, copied here): new renders in, Sort cards, play from Recently added, "Nothing new". Also closes wave 3's Sort cards check.
+- Calm part 1: 4 checks in its REPORT.
+- My pick from `ICLOUD-OPTIONS.md` (1 phone only, recommended); what organizing iCloud means to me.
+- Signature feature for Fable (chat asked 2026-11-12).
