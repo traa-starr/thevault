@@ -127,3 +127,12 @@ My phone results, one line each (written by chat). Measured results stay in REPO
 - Check 2 Laptop off (search + Library say not reachable, clears after server_on): pass.
 - Check 4 Tagging session + hold-menu half sheet + Change words / Delete / Undo: pass.
 - Result: 3 of 3 run pass, 0 notes; check 3 (Sort cards) waits for new songs. B's open-screen numbers: owner listening, Code reads `timings` at wave 4's start.
+
+## Wave 4 review (2026-11-11)
+- Check 1 Queue (player + mini player, one tick, swipe lands back): pass.
+- Check 2 Versions (play two, Compare, set Main, new look): pass.
+- Check 3 Settings (gear on Home, address right, still connected after close/reopen): pass.
+- Check 4 Whole app (nothing looks older, Delete apart from Cancel): pass.
+- Check 5 Open-screen listen (7 min open and playing, screen on): done; Code reads the `timings` open line next session.
+- Check 6 Wave 2 check 8 (laptop restart, touch nothing, Library has no "not reachable" line): pass.
+- Result: 6 of 6 pass, 0 notes. Sort cards (wave 3 check 3) still waits for new songs: comes with the render-folder step.

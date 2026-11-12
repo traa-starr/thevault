@@ -84,6 +84,9 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 **Done when:** I group real versions in one tap, and a correction stays corrected after a re-scan.
 
 ## Phase 5: Sources and BandLab (Checkpoint 5). "Everything is in here"
+*Render folder (promoted 2026-11-11, owner, DECISIONS)*
+- [ ] 5.0a Render folder on the Desktop for new mixdowns, plus a desktop icon: one double-click brings what's new into the Vault, Sort and the phone. No timer, no watching iCloud
+- [ ] 5.0b iCloud tidy plan: now the Vault knows what's mine, decide how the iCloud copies are stored (memo first; the Vault never writes in iCloud)
 *BandLab*
 - [ ] 5.1 Test one export: format, title, revision access (method from G2)
 - [ ] 5.2 Watch the `BandLab Exports` folder and copy into the library, leaving the original alone
@@ -123,7 +126,7 @@ Runs alongside Phase 3. 2.7 passed 2026-11-10: overhaul app code may start. Owne
   *(wave 1 phone-verified 2026-11-10, 7 of 7; design system `docs/overhaul/DESIGN-SYSTEM.md`. Wave 2 phone-verified 2026-11-11, 7 of 8 + 3 notes (server-after-restart pending): search screen, Library with chips and tiles, Home's five auto rows, the server that stays up. Wave 3 phone-verified 2026-11-11, 3 of 3 run (fix-ups, laptop-off line, tagging); Sort cards check waits for new songs. Wave 4 built 2026-11-11 (Queue, Versions, Compare, Settings, whole-app pass), phone checks pending)*
 - [ ] O.5 Overhaul native pieces (glass, native tabs, SF Symbols, Live Activity) in their own full rebuild, list in
   `docs/overhaul/REBUILD.md` *(SF Symbols and glass phone-verified 2026-11-10 after the rebuild;
-  native tabs dropped, DECISIONS; Live Activity last)*
+  native tabs dropped, DECISIONS; Live Activity dropped 2026-11-11, owner)*
 
 **Done when:** I use the redesigned app daily and it doesn't feel a step down from my benchmark apps.
 

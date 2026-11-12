@@ -59,7 +59,7 @@ player. iOS's own tab bar would need the whole app moved onto a navigation packa
 | Piece | Gain | Risk | Notes |
 |---|---|---|---|
 | Native tab bar | Real iOS tabs: the system's press feel, the tab bar that shrinks on scroll | Medium | Not taken in wave 1 (above). Worth another look only if the drawn tab bar feels wrong in the hand |
-| Live Activity (lock screen / Dynamic Island card) | Now-playing with my own buttons (Tag, Favorite) on the lock screen | High | It's a second mini-app inside the app (a widget target). A free Apple ID gets few app slots and SideStore must sign both parts every 7 days; may not work sideloaded at all. The lock-screen controls I have already work. Try last, on a throwaway build first |
+| ~~Live Activity (lock screen / Dynamic Island card)~~ **Dropped 2026-11-11 (owner): lock-screen controls already do the job** | Now-playing with my own buttons (Tag, Favorite) on the lock screen | High | It's a second mini-app inside the app (a widget target). A free Apple ID gets few app slots and SideStore must sign both parts every 7 days; may not work sideloaded at all. The lock-screen controls I have already work. Try last, on a throwaway build first |
 
 Order a senior engineer would pick: Live Activity as its own experiment after the overhaul ships, on a throwaway build. Each mockup's "Design system and native pieces" page says
 which of these that direction needs.
