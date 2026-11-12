@@ -21,6 +21,8 @@
     python server/vault_cli.py plays <library folder>                        the play log: totals, most played, the latest plays; read-only
     python server/vault_cli.py timings <library folder>                      the phone's search and Next timings (typical, slow end); read-only
     python server/vault_cli.py search-data <library folder>                  every tag with its song title as JSON (for tools/search/accept.mjs); read-only
+    python server/vault_cli.py renders <library folder> [--pause]            bring new mixdowns from the render folder into Sort (the desktop icon runs this)
+    python server/vault_cli.py renders-setup <library folder> <render folder> save where the render folder is (in the library) and make the desktop icon
 """
 import shutil
 import json
@@ -47,6 +49,9 @@ from vault_server.tags import tags_by_song  # noqa: E402
 from vault_server.updates import publish  # noqa: E402
 from vault_server.timings import timings_report  # noqa: E402
 from vault_server.lengths import length_counts  # noqa: E402
+from vault_server.renders import NoRenderFolder, bring_in, make_icon, render_folder, save_render_folder, words  # noqa: E402
+
+ICON = 103  # which built-in Windows picture the desktop icon shows (imageres.dll): the music note
 
 
 def print_result(result):
@@ -54,17 +59,73 @@ def print_result(result):
         print(f"{k}: {v}")
 
 
+def run_renders(folder, pause=False):
+    """The desktop icon's job: what's new in the render folder goes into Sort. The window stays until a key is pressed."""
+    try:
+        lib = open_library(folder)
+        try:
+            where = render_folder(lib.root)
+            if where is None:
+                raise NoRenderFolder("The render folder isn't set up yet. Run renders-setup once. Nothing was changed.")
+            print(f"Looking in {where} ...")
+            out = bring_in(lib, where)
+        finally:
+            lib.close()
+        print(words(out))
+        code = 0
+        if out["new"] or out["updated"] or out["moved"]:
+            try:  # song lengths for the cards, and phone copies of anything already Mine; the server does it too
+                run_autocopy_once(Path(folder).resolve(), log=lambda *a, **k: None, wait=5)
+            except Busy:
+                pass  # the server is making copies right now, and will reach these
+            except Exception as e:  # the songs are in; only the extras didn't happen
+                print(f"(Song lengths and phone copies didn't run now: {e}. The server makes them by itself.)")
+    except (NoRenderFolder, LibraryMissing) as e:
+        print(e)
+        code = 2
+    except (Busy, FfprobeMissing) as e:
+        print(f"Stopped: {e} Nothing new was lost: click again in a minute.")
+        code = 2
+    except Exception as e:  # the window must say something, never just vanish
+        print(f"Something went wrong, nothing in the render folder was touched: {e!r}")
+        code = 2
+    if pause:
+        import msvcrt
+        print()
+        print("Press any key to close.")
+        msvcrt.getwch()
+        return 0  # already paused: the icon's own "pause on failure" is for crashes before this point
+    return code
+
+
+def setup_renders(folder, where):
+    """Saves the render folder in the library's settings file, makes the folder if it isn't there, makes the icon."""
+    lib = open_library(folder)
+    lib.close()
+    where = Path(where).resolve()
+    where.mkdir(parents=True, exist_ok=True)  # the folder itself only; nothing is ever written inside it
+    save_render_folder(lib.root, where)
+    print(f"Render folder saved in the library: {where}")
+    print(f"Desktop icon: {make_icon(lib.root, Path(__file__).resolve().parent.parent, sys.executable, ICON)}")
+    return 0
+
+
 def main(argv):
     for stream in (sys.stdout, sys.stderr):  # a song name with an emoji mustn't stop a command halfway
-        stream.reconfigure(errors="replace")
+        if hasattr(stream, "reconfigure"):  # a test's captured output has none
+            stream.reconfigure(errors="replace")
     if len(argv) < 3 or argv[1] not in ("init", "check", "import-sorting", "scan", "apply-sorting", "songs", "mains", "import", "fingerprint", "serve", "doctor",
-                                        "backup", "pull-cloud", "publish", "tags", "copies", "timings", "search-data", "ratings", "status", "plays"):
+                                        "backup", "pull-cloud", "publish", "tags", "copies", "timings", "search-data", "ratings", "status", "plays", "renders", "renders-setup"):
         print(__doc__)
         return 1
     cmd, folder = argv[1], argv[2]
-    if cmd in ("scan", "apply-sorting", "pull-cloud") and len(argv) < 4:
+    if cmd in ("scan", "apply-sorting", "pull-cloud", "renders-setup") and len(argv) < 4:
         print(__doc__)
         return 1
+    if cmd == "renders":
+        return run_renders(folder, pause="--pause" in argv[3:])
+    if cmd == "renders-setup":
+        return setup_renders(folder, argv[3])
     try:
         if cmd == "backup":
             ok, words = run_backup(folder, *argv[3:4])

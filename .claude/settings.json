@@ -3,7 +3,8 @@
     "deny": [
       "Edit(//c/Users/illus/iCloudDrive/**)",
       "Edit(//c/Users/illus/Documents/Image-Line/FL Studio/Projects/**)",
-      "Edit(//e/vault-dummy-protected/**)"
+      "Edit(//e/vault-dummy-protected/**)",
+      "Edit(//c/Users/illus/Desktop/Vault Renders/**)"
     ]
   },
   "hooks": {

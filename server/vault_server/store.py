@@ -536,11 +536,28 @@ class Store:
                        cloud_only=excluded.cloud_only, status='present', last_seen=excluded.last_seen""",
                 (path, file_key, folder, name, size, mtime, int(cloud_only), stamp, stamp))
 
-    def mark_missing(self, stamp):
-        """Anything this scan didn't see is marked, never removed, so a file that comes back picks up where it was."""
+    def mark_missing(self, stamp, under=None):
+        """Anything this scan didn't see is marked, never removed, so a file that comes back picks up where it was.
+        `under`: only places inside this folder (a music scan never marks the render folder's songs gone)."""
         with self.conn:
-            self.conn.execute("UPDATE sources SET status='missing_at_source' WHERE last_seen < ?", (stamp,))
-            self.conn.execute("""UPDATE files SET status = CASE WHEN EXISTS (SELECT 1 FROM sources s
+            if under is None:
+                self.conn.execute("UPDATE sources SET status='missing_at_source' WHERE last_seen < ?", (stamp,))
+            else:
+                prefix = str(under).rstrip("\\/") + os.sep
+                self.conn.execute("UPDATE sources SET status='missing_at_source' WHERE last_seen < ? AND substr(path, 1, ?) = ?",
+                                  (stamp, len(prefix), prefix))
+            self._file_status()
+
+    def mark_paths_missing(self, paths):
+        """These places are gone (the render folder's own look). Marked, never removed."""
+        if not paths:
+            return
+        with self.conn:
+            self.conn.executemany("UPDATE sources SET status='missing_at_source' WHERE path=?", [(p,) for p in paths])
+            self._file_status()
+
+    def _file_status(self):
+        self.conn.execute("""UPDATE files SET status = CASE WHEN EXISTS (SELECT 1 FROM sources s
                                      WHERE s.file_key = files.file_key AND s.status = 'present')
                                  THEN 'present' ELSE 'missing_at_source' END""")
 

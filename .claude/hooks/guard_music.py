@@ -13,12 +13,13 @@ ROOTS = [
     r"C:\Users\illus\iCloudDrive",
     r"C:\Users\illus\Documents\Image-Line\FL Studio\Projects",
     r"E:\vault-dummy-protected",
+    r"C:\Users\illus\Desktop\Vault Renders",  # new mixdowns: the Vault only reads them
 ]
 # Loose on purpose: catches ~, $env:USERPROFILE, short names and wildcard spellings.
-FRAGMENTS = ("icloud", "image-line", "vault-dummy-protected")
+FRAGMENTS = ("icloud", "image-line", "vault-dummy-protected", "vault renders", "vault_renders", "vault-renders", "vaultrenders")
 
 VERBS = (
-    "rm|rmdir|rd|del|erase|mv|move|ren|rename|cp|copy|xcopy|robocopy|touch|mkdir|md|tee|"
+    "rm|rmdir|rd|del|unlink|erase|mv|move|ren|rename|cp|copy|xcopy|robocopy|touch|mkdir|md|tee|"
     "truncate|dd|ln|mklink|chmod|chown|attrib|icacls|takeown|shred|sdelete|fsutil|"
     "remove-item|ri|move-item|mi|rename-item|rni|copy-item|set-content|sc|add-content|ac|"
     "clear-content|clc|out-file|new-item|ni|set-item|clear-item|set-itemproperty|"
@@ -26,18 +27,30 @@ VERBS = (
 )
 WRITE_PATTERNS = [
     re.compile(rf"(?<![\w./\\$-])(?:{VERBS})(?![\w-])"),
-    re.compile(r"\bsed\s+(?:-\w+\s+)*-i"),
+    re.compile(r"\bsed\b[^|;&\n]*\s-(?:i|-in-place)"),
     re.compile(r"\bopen\([^)]*,\s*(?:mode\s*=\s*)?['\"][rbt]*[wax+]"),
     re.compile(r"\.open\(\s*(?:mode\s*=\s*)?['\"][rbt]*[wax+]"),
     re.compile(
-        r"\.(?:write_text|write_bytes|unlink|rmdir|rename|replace|touch|mkdir)\("
+        r"\.(?:write_text|write_bytes|replace|touch)\("
+        r"|\.(?:unlink|rmdir|rename|mkdir|writefile|appendfile|copyfile|rm|cp|truncate|symlink|utimes)(?:sync)?\("
         r"|\b(?:os\.(?:remove|unlink|rename|replace|rmdir|removedirs|makedirs|mkdir|utime|truncate)"
         r"|shutil\.(?:move|rmtree|copy\w*))\("
     ),
     re.compile(r"\[(?:system\.)?io\.(?:file|directory)\]::(?:write|append|delete|move|copy|create|replace)"),
     re.compile(r"\bfs(?:promises)?\.(?:write|append|unlink|rm|rename|copy|mkdir|truncate|cp)"),
 ]
-OPAQUE = re.compile(r"(?:^|\s)-e(?:nc?|ncodedcommand)?\s|frombase64string|\biex\b|invoke-expression|\beval\b|base64\s+(?:-d|--decode)")
+# Hidden content always blocks: an encoded PowerShell command (any short form of -EncodedCommand), eval, base64 decoding.
+HIDDEN = re.compile(
+    r"\b(?:powershell|pwsh)(?:\.exe)?\b[^|;&\n]*\s-e(?:c|n\w*)?\s"
+    r"|frombase64string|\biex\b|invoke-expression|\beval\b|base64\s+(?:-d|--decode)"
+)
+# A bare -e flag passes only on a read-only tool (grep -E, echo -e) and only with no write command and no output into a
+# file. On anything else (sed, perl, ruby, node...) -e can carry code that writes in ways no pattern sees: it blocks.
+DASH_E = re.compile(r"(?:^|\s)-e(?:nc?|ncodedcommand)?\s")
+READ_ONLY_E = {"grep", "egrep", "fgrep", "rg", "echo", "select-string", "sls", "findstr"}
+QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
+# Output into a file: > or >> that isn't 2>&1, >$null, >/dev/null or >nul (and not => or ->).
+INTO_FILE = re.compile(r"(?<![-=])>{1,2}\s*(?!&|\$null\b|/dev/null\b|nul\b)\S")
 SCRIPT = re.compile(r"[\w:./\\~-]+\.(?:py|ps1|sh|bash|js|mjs|cjs|ts|bat|cmd)\b")
 SELF_FILES = ("guard_music.py", "test_guard_music.py")  # they name the paths without writing to them
 
@@ -57,6 +70,17 @@ def mentions_locked(norm):
 
 def has_write(norm):
     return any(p.search(norm) for p in WRITE_PATTERNS)
+
+
+def dash_e_read_only(norm):
+    """Every part of the line (between | ; & and new lines) that holds a -e starts with a read-only tool."""
+    for part in re.split(r"[|;&\n]", norm):  # quotes kept: bash -c "perl -e ..." must still be seen
+        if DASH_E.search(part):
+            words = part.split()
+            tool = words[0].rsplit("/", 1)[-1] if words else ""
+            if tool.removesuffix(".exe") not in READ_ONLY_E:
+                return False
+    return True
 
 
 def redirects_into_locked(norm):
@@ -83,8 +107,14 @@ def inside_root(path, cwd):
 
 def check_command(command, cwd):
     norm = normalize(command)
-    if OPAQUE.search(norm) and not re.search(r"\bpython3?\s+-c\b", norm):
+    inline_python = re.search(r"\bpython3?\s+-c\b", norm)
+    if HIDDEN.search(norm) and not inline_python:
         block("command hides its content (encoded/eval), so it can't be checked")
+    if DASH_E.search(norm) and not inline_python:
+        if not dash_e_read_only(norm):
+            block("a -e flag on a tool that can run code or write, so it can't be checked")
+        if has_write(norm) or INTO_FILE.search(QUOTED.sub("q", norm)):
+            block("command with a -e flag also writes or sends output into a file")
     if redirects_into_locked(norm):
         block("redirects output into a locked folder")
     if mentions_locked(norm) and has_write(norm):

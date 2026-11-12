@@ -6,6 +6,7 @@ thing written is the fingerprint record, by a scan, in the library. Music folder
 import http.client
 import json
 import os
+import socket
 import sqlite3
 import subprocess
 import sys
@@ -16,6 +17,7 @@ from .backup import BACKUP_DIR, check_backup
 from .importer import mine_without_phone_copy
 from .library import MARKER_NAME, REPO_ROOT, LibraryMissing, LibraryRefused
 from .scanner import changed_files, fingerprint, listing, scan
+from .renders import render_folder, render_line
 from .server import LOOPBACK, PORT, SERVER_LEVEL, connect_readonly, start_servers, stop_servers, tailscale_info
 from .store import now
 
@@ -78,8 +80,20 @@ def check_tailscale(address):
     return FAIL, "not connected, so the phone can't reach the laptop. Open Tailscale and connect."
 
 
+def _listening(address, port, wait=0.5):
+    """Whether anything takes a connection here. On this laptop a server answers in well under a millisecond, while
+    Windows takes about 2 s to say "refused" for a port nobody listens on, so a short wait answers sooner."""
+    try:
+        socket.create_connection((address, port), timeout=wait).close()
+        return True
+    except OSError:
+        return False
+
+
 def probe(address, port):
     """How many songs a server at this address lists. None if nothing is listening; 'odd' if the answer isn't ours."""
+    if address == LOOPBACK and not _listening(address, port):
+        return None
     c = http.client.HTTPConnection(address, port, timeout=10)
     try:
         c.request("GET", "/songs")
@@ -180,8 +194,11 @@ def run_test(script, runner=subprocess.run):
     return (PASS, "passes.") if p.returncode == 0 else (FAIL, f"FAILED. Run: python {Path(script).relative_to(REPO_ROOT)}")
 
 
-def check_scan_age(conn, today=None):
-    latest = conn.execute("SELECT MAX(last_seen) FROM sources").fetchone()[0]
+def check_scan_age(conn, today=None, renders=None):
+    """The music scan's age. A render folder click (`renders`: its folder) refreshes its own songs only, so it doesn't count."""
+    skip = str(renders).rstrip("/\\") + os.sep if renders else None
+    latest = (conn.execute("SELECT MAX(last_seen) FROM sources WHERE substr(path, 1, ?) <> ?", (len(skip), skip)) if skip
+              else conn.execute("SELECT MAX(last_seen) FROM sources")).fetchone()[0]
     if not latest:
         return WARN, "no scan yet."
     when = datetime.strptime(latest, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
@@ -253,10 +270,11 @@ def run_doctor(root, port=PORT, tailscale=tailscale_info, runner=subprocess.run,
         try:
             conn = connect_readonly(root)
             try:
-                line("Scan age", check_scan_age(conn))
+                line("Scan age", check_scan_age(conn, renders=render_folder(root)))
                 line("Songs", check_no_place(conn))
                 line("Music fingerprint", check_fingerprint(root, conn))
                 line("Phone copies", check_phone_copies(conn, root))
+                line("Render folder", render_line(root))
             finally:
                 conn.close()
         except (LibraryMissing, LibraryRefused, sqlite3.Error) as e:

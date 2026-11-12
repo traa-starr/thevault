@@ -85,8 +85,8 @@ songs being known. Sources and BandLab complete the library. Finishing songs onl
 
 ## Phase 5: Sources and BandLab (Checkpoint 5). "Everything is in here"
 *Render folder (promoted 2026-11-11, owner, DECISIONS)*
-- [ ] 5.0a Render folder on the Desktop for new mixdowns, plus a desktop icon: one double-click brings what's new into the Vault, Sort and the phone. No timer, no watching iCloud
-- [ ] 5.0b iCloud tidy plan: now the Vault knows what's mine, decide how the iCloud copies are stored (memo first; the Vault never writes in iCloud)
+- [x] 5.0a Render folder on the Desktop for new mixdowns, plus a desktop icon: one double-click brings what's new into the Vault, Sort and the phone. No timer, no watching iCloud *(built 2026-11-11; phone checks at Review)*
+- [ ] 5.0b iCloud tidy plan: now the Vault knows what's mine, decide how the iCloud copies are stored (memo first; the Vault never writes in iCloud) *(memo `ICLOUD-OPTIONS.md` 2026-11-11: waits for my pick)*
 *BandLab*
 - [ ] 5.1 Test one export: format, title, revision access (method from G2)
 - [ ] 5.2 Watch the `BandLab Exports` folder and copy into the library, leaving the original alone

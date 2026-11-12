@@ -92,6 +92,16 @@ def main():
     check("a scan that stops leaves the record alone", stopped and json.loads((root / doctor.RECORD_NAME).read_text())["finished"] == good["finished"])
     lib.close()
 
+    # the render folder (5.0a): not set up, then moved away, then there
+    from vault_server import renders
+    check("render folder not set up is a warning", line(run(root)[1], "Render folder").startswith("WARN  Render folder: not set up"))
+    mixes = tmp / "mixdowns"
+    renders.save_render_folder(root, mixes)
+    check("render folder not there is a warning", line(run(root)[1], "Render folder").startswith("WARN  Render folder: not found"))
+    mixes.mkdir()
+    (mixes / "a.wav").write_bytes(b"x")
+    check("render folder found says so", line(run(root)[1], "Render folder").startswith("PASS  Render folder: found") and "(1 audio files)" in line(run(root)[1], "Render folder"))
+
     # everything fine
     check("no backup yet is a warning", line(run(root)[1], "Backup").startswith("WARN"))
     backup.run_backup(root, tmp / "backups")
@@ -99,7 +109,7 @@ def main():
     servers = server.start_servers(root, [server.LOOPBACK], 0)
     code, out = run(root, port=servers[0].server_port)
     check("all good: every line passes", code == 0 and all(x.startswith("PASS") for x in out[:-1]) and out[-1].startswith("Overall: PASS"), str(out))
-    check("all eight checks plus the fingerprint and phone copies are there", len(out) == 11, str(out))
+    check("all eight checks plus the fingerprint, phone copies and render folder are there", len(out) == 12, str(out))
     check("the server line shows the running version", f"version {server.SERVER_LEVEL}" in line(out, "Server"), str(out))
     doctor.SERVER_LEVEL = server.SERVER_LEVEL + 1  # this code is newer than what's running
     code, out = run(root, port=servers[0].server_port)
@@ -152,6 +162,16 @@ def main():
     check("a fresh scan passes", doctor.check_scan_age(conn)[0] == doctor.PASS)
     later = datetime.now(timezone.utc) + timedelta(days=doctor.SCAN_OLD_DAYS + 1)
     check("an old scan warns", doctor.check_scan_age(conn, later)[0] == doctor.WARN)
+    conn.close()
+    # a render click refreshes only its own songs: an old music scan still warns
+    from vault_server.library import open_library
+    lib = open_library(root)
+    mixes = tmp / "mix-age"
+    lib.store.upsert_source(str(mixes / "a.wav"), "src:x|1", "mix-age", "a.wav", 1, 0.0, False, "2999-01-01T00:00:00.000000Z")
+    lib.close()
+    conn = server.connect_readonly(root)
+    check("a render click doesn't hide an old music scan", doctor.check_scan_age(conn, later, renders=mixes)[0] == doctor.WARN
+          and doctor.check_scan_age(conn, later)[0] == doctor.PASS)
     conn.close()
 
     # Mine songs without a phone copy (the server makes them; doctor says how many are still missing)

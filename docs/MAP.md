@@ -23,6 +23,7 @@ From the interview and read-only scans, 2026-10-31. No Tailscale hostnames or IP
 | Older songs' projects | Reaper / another PC | Out of scope for now |
 | Other artist's projects | `C:\Users\illus\Downloads\CHE` | Excluded |
 | Dummy lock-test folder | `E:\vault-dummy-protected` | Safe to delete, but the guard test expects the path |
+| New mixdowns (render folder) | `C:\Users\illus\Desktop\Vault Renders` (Desktop is local, not synced) | **Locked** (only read). Export here; the `Send to Vault` desktop icon brings new ones into Sort. Location saved in `vault-settings.json` in the library; duplicates seen in `render-duplicates.json`. Added 2026-11-11 |
 | Untethered (other project) | `C:\Users\illus\Desktop\untethered\Untethered` | Read-only reference |
 | Vault library + database | `E:\VaultLibrary` (created 2026-10-31) | One folder, database and audio together; marker `VAULT-LIBRARY-MARKER.json`, `audio/`, `phone/`, `vault.db`, `journal.jsonl`, `write.lock`, my sorting file, `phone-backup.json` (the phone's own bits, outside the journal, 2026-11-06). Found by a marker file, not the drive letter. E: is an external USB drive |
 | Phone copies on the phone | The app's own Documents folder: `phone-copies/`, `phone-copies.json`, `song-list.json` (2026-11-06) | Mine songs for laptop-off play. Rebuilt by downloading again; a wipe loses them (6.2) |

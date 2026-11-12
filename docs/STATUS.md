@@ -1,18 +1,19 @@
 # Status
 
-**Phase 2 closed 2026-11-10. Phase 3 (search) and the design overhaul (O.4) are open.** Updated 2026-11-11 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 2 closed 2026-11-10. Phase 3 (search) and the design overhaul (O.4) are open.** Updated 2026-11-11 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 **In progress:** none.
-**Next up:** me: commit and push, new Code session, `/effort high`, `/next`.
-**Current task:** Render folder button, guard fix, iCloud plan (NEXT).
+**Next up:** me: commit, then `Review.` in chat (phone: no update needed).
+**Current task:** Render folder button, guard fix, iCloud plan (NEXT): built, phone checks at Review.
 
 ## Done
+- Render folder + `Send to Vault` icon (5.0a), guard fix, `/verify` 53 s, iCloud memo (5.0b) built 2026-11-11. Review `board/render-review.md`.
 - Wave 4 reviewed 2026-11-11: 6 of 6 pass, 0 notes (incl. 7-min open listen, wave 2 check 8). Results `PHASE-2-RESULTS.md`.
 - Overhaul wave 4 built 2026-11-11: Queue, Versions, Compare restyled; Settings screen; whole-app pass; doctor's StartVault line; two memos (`NEW-SONGS-OPTIONS.md`, `LIVE-ACTIVITY-OPTIONS.md`). Review `board/wave4-review.md`.
 - Wave 3 reviewed 2026-11-11: 3 of 3 run pass, 0 notes; Sort cards check waits for new songs. Results `PHASE-2-RESULTS.md`.
 - Waves 1-2 built and reviewed 2026-11-10/11. Phase 2 closed 2026-11-10 (wipe check). Phase 1 closed 2026-11-07: 1,395 songs, whole catalogue sorted.
 
 ## Queue
-1. Now: render folder + desktop icon (5.0a), guard fix, `/verify` speed, iCloud memo (5.0b).
+1. Now: Review of the render folder step (4 phone checks).
 2. Then: my 20 acceptance searches (3.7) at ~50 tags, and revisit E (3.4, 3.5).
 3. Then: my pick from the iCloud memo (5.0b).
 4. "My projects" Home row waits for ROADMAP 6.1. Offload songs from the phone: parked.
@@ -25,4 +26,5 @@
 - `SAVE ME` (mine?), 26 date-only names, `Untitled...` files: display names wait for the release system (ROADMAP 6.1).
 
 ## Checks pending
-- Sort cards (wave 3 check 3): comes with the render-folder step's phone checks.
+- Render folder step: 4 checks in REPORT (also closes wave 3's Sort cards check 3).
+- My pick from `ICLOUD-OPTIONS.md` (1 phone only, recommended).

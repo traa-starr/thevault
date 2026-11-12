@@ -136,7 +136,7 @@ def scan(lib, root):
         if full_hash:
             _carry_verdict(store, _location_key(path, st.st_size), key)
     if not failed and not errors:  # a partial look can't say a file is gone
-        store.mark_missing(stamp)
+        store.mark_missing(stamp, under=root)  # only the music folders: the render folder has its own look
     return {"files per folder": per_folder, "artist subfolders skipped": len(others), "cloud-only": cloud_count,
             "new files": new, "could not read": failed + [str(e) for e in errors]}
 
