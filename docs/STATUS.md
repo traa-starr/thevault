@@ -1,9 +1,9 @@
 # Status
 
-**Phase 2 closed 2026-11-10. Phase 3 (search) and the design overhaul (O.4) are open.** Updated 2026-11-12 by Code. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
+**Phase 2 closed 2026-11-10. Phase 3 (search) and the design overhaul (O.4) are open.** Updated 2026-11-12 by chat. How we work: `WORKFLOW.md`. Build order: `BATCH-PLAN.md`. Design: `BLUEPRINT.md`. My commands: `COMMANDS.md`.
 **In progress:** none.
-**Next up:** me: commit, close and reopen the app (update published), then `Review.` in chat.
-**Current task:** Calm the app, part 1: built, waiting for Review.
+**Next up:** me: commit and push, new Code session, `/effort high`, `/next` (Opus).
+**Current task:** Fable kit: world map, one mockup, build kit; find the heat (NEXT.md).
 
 ## Done
 - Calm part 1 built 2026-11-12: Library chips without Mine, Hidden songs in Settings (search, folders, play, Restore), laptop desk (`Vault Desk` icon), moved files keep their song (scanner fixed), `overhaul/INVENTORY.md` (158 controls), `ICLOUD-ORGANIZE.md`. Review `board/calm-1-review.md` (7 of 9 fixed).
@@ -13,11 +13,12 @@
 - Phase 2 closed 2026-11-10 (wipe check). Phase 1 closed 2026-11-07: 1,395 songs, whole catalogue sorted.
 
 ## Queue
-1. Now: Review: 8 phone checks (render 4 + calm 4), and chat and I place every control from INVENTORY (the world map).
-2. One world (O.6): Opus Fable kit (board, one mockup I check, code map, shot list), ONE Fable build session, Opus fresh-eyes after.
-3. 3.7: my 20 searches at ~50 tags (33 today), then E (3.4, 3.5).
-4. iCloud: my picks from `ICLOUD-ORGANIZE.md`: audio second copy (5.0c) before any moving.
-5. Parked: A-Z strip, split the 638 set, waveform spike, offload songs, MP3 phone copies, "My projects" row (6.1).
+1. Now (Opus): Fable kit: world map, mockup, build kit, heat cause.
+2. Review: mockup + heat + the 8 deferred checks; chat writes the Fable NEXT.
+3. ONE Fable session builds the map (before the promo ends 2026-11-16), then Opus fresh-eyes.
+4. 3.7: my 20 searches at ~50 tags (33 today), then E (3.4, 3.5).
+5. iCloud: my picks from `ICLOUD-ORGANIZE.md`: audio second copy (5.0c) before any moving.
+6. Parked: A-Z strip, split the 638 set, waveform spike, offload songs, MP3 phone copies, "My projects" row (6.1).
 
 ## Open questions
 - Fable promo ends 2026-11-16 (owner).
@@ -27,7 +28,8 @@
 - Board, for the redesign: a hidden song tapped while another plays replaces it (as now) or asks first?
 
 ## Checks pending
+- Heat with the app open (owner note 2026-11-12): 15-min open listen after the kit step.
 - Render folder step: 4 checks: new renders in, Sort cards, play from Recently added, "Nothing new". Also closes wave 3's Sort cards check.
-- Calm part 1: 4 checks in REPORT (Library chips, Hidden songs in Settings, desk restore, hide again).
+- Calm part 1: 4 checks (Library chips, Hidden songs in Settings, desk restore, hide again; deferred 2026-11-12) 
 - My picks from `ICLOUD-ORGANIZE.md` (second audio copy; how to organize) and `ICLOUD-OPTIONS.md` (1 phone only, recommended).
 - Signature feature for Fable (chat asked 2026-11-12).

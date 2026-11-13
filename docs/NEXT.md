@@ -1,47 +1,37 @@
-# NEXT: Calm the app, part 1: Hidden leaves Library, laptop desk, inventory, iCloud groundwork
+# NEXT: Fable kit: world map, one mockup, build kit; find the heat
 Format: goal
 Written by chat, 2026-11-12.
-Effort: high (Opus; Fable comes back at 4 pm for the design work this step prepares)
-Log: Render step's 4 phone checks move to the next review with this step's (owner). Library chips: Mine drops while nothing is unsorted, new order (chat-default). Hidden leaves Library for Settings, plus a laptop desk page (owner idea, chat-default details). O.6 One world, O.7 laptop desk added. Audio backup before any iCloud moving (frame check). Fable plan (owner + chat) (logged by chat)
-Size: everything Code can do without me before the Fable design session: the two calm-down moves I asked for (Library chips, Hidden out of Library + laptop desk), the inventory Fable designs from, and the groundwork so iCloud organizing is safe when I pick. 6 goals; publish only, no rebuild.
-Queue after this: Review (8 checks) + chat and I place every control from INVENTORY (the world map). Then Opus: the Fable kit (board, one clickable mockup I check on the phone, code map, shot list). Then ONE Fable session builds the locked mockup. Then Opus: fresh-eyes and fix-ups. 3.7 when tags reach ~50.
-Read: `docs/LESSONS.md`; last 8 DECISIONS rows; ROADMAP O.6, O.7, 5.0b, 5.0c; `docs/ICLOUD-OPTIONS.md`; `docs/overhaul/DESIGN-SYSTEM.md` "Lists and chips"; files you touch.
+Effort: high (Opus). Fable is not used here: this step is everything Fable needs before its one build session.
+Log: Review deferred again; the 8 phone checks (render 4 + calm 4) are walked at the next review with this step's (owner). Phone warm behind the camera with the app open, battery drain, mild (owner note). Opus drafts the world map into the mockup instead of a separate chat placement session; the owner judges the mockup on the phone (chat-default, promo ends 2026-11-16). Heat cause found on Opus before Fable (chat-default) (logged by chat)
+Size: the whole Fable kit plus the heat hunt, so the next review can approve the mockup and the step after is the one Fable session. 4 goals; publish only if D changes app code.
+Queue after this: Review (mockup + heat + the 8 deferred checks); chat writes the Fable NEXT from the kit. Then ONE Fable session (Model: fable, clear between goals). Then Opus fresh-eyes and fix-ups. Promo ends 2026-11-16.
+Read: `docs/LESSONS.md`; last 6 DECISIONS rows; ROADMAP O.6; `docs/overhaul/INVENTORY.md`; `docs/overhaul/DESIGN-SYSTEM.md`; CHAT-INSTRUCTIONS "Fable session" (the kit list only); files you touch.
 
 ## Goal
-A. **Library chips (O.6).** While nothing is unsorted, All and Mine are the same list, so Mine goes. Order: All · Unsorted (only while something is) · Favorites · Needs tags · Versions · Archived. Mine comes back only alongside Unsorted. The Hidden line at the bottom of Library goes.
-B. **Hidden songs live in Settings (O.6).** A "Hidden songs · 815" row in Settings opens the list: a search field (title and folder), a folder filter (chips or a short picker, one line), the count of what's shown. Tap a row: it plays (streams, nothing saved, same as Sort did). Restore stays on each row and the song is back in Library within seconds. Fast with all 815 (fixed-height rows).
-C. **Laptop desk (O.7).** The server's own page in the laptop's browser, opened by a desktop icon `Vault Desk` (same style as `Send to Vault`): the hidden songs with search, folder filter, play in the browser, Restore. Counts at the top (mine, hidden, unsorted, tags, last scan, last render click). Restore uses the same change route the phone uses (journal, manual choice wins); no new kind of write.
-D. **Inventory (O.6 groundwork), `docs/overhaul/INVENTORY.md`.** Every screen and sheet, every control on it: what it does, how often I'd likely use it (daily / weekly / rare, marked as a guess), and where it could live (on screen / one gesture away / a sheet / Settings / desk / gone), marked as a suggestion only. A count of controls per screen at the top. Screenshots of every screen saved for Fable (checked by a subagent, not read into your context). No building from it.
-E. **Moved files stay the same song (5.0b groundwork).** Test with fake files in a temp folder: a file renamed, moved to a subfolder, and moved to another scanned folder keeps its song, verdict, tags, rating, versions and phone copy after a scan. If any fails, fix the scanner (server code only).
-F. **One memo, `docs/ICLOUD-ORGANIZE.md`, under 50 lines, read-only.** (1) Second copy of the library's audio (3.2 GB on E:, today only in iCloud): 2-3 places, what a senior engineer would pick; this comes before any moving. (2) How I organize iCloud without loosening the music guard: 2-3 ways (my hands from a move list the Vault prints / a mover script Code writes into `spike/` that only I run, with a dry run and an undo list / one I didn't think of), the pick, and which guard rules stay exactly as they are. (3) What E's result means for each way.
+A. **World map (O.6), `docs/overhaul/WORLD-MAP.md`.** Every one of the 158 controls in INVENTORY gets one home: on screen / one gesture away / a sheet / Settings / desk / gone. The song is the centre; rare options sit one gesture away like Compare (hidden, easy, never leaves the screen). Counts per screen before and after; each daily screen (Home, Library, Player, Sort) at about half its controls or fewer. Mark every move that changes something I likely use daily. Board meeting first; the board also names ONE idea that makes the app feel like The Vault, not a Spotify / YouTube Music clone, and the map uses it.
+B. **One clickable mockup from the map, opened on my phone.** Home, Library, Player, Sort, Settings, plus the sheets and gestures the map creates, tappable. A short "what moved where" list on the page. Mockup only, no app code. My taste: haptics, big controls (44 pt), minimal and out of the way, plain labels.
+C. **Fable build kit, `docs/overhaul/FABLE-KIT.md`.** Code map (which file holds each screen and control the map changes, under 60 lines); the shot list (changed screens only); how it could break (LESSONS included), each tied to a test or a shot; the build split into 2-4 goals, each shipping on its own, most important first. New tests for the map's logic written now and failing on purpose; old tests that pin behaviour the map changes are listed (or updated to the map). Fable only makes them pass.
+D. **Heat with the app open.** Find the cause, don't guess: read the open-screen energy lines in `timings`, list everything that runs while the app is open and playing (timers, polling, animations, keep-awake, list redraws, pull to refresh, the Hidden count), and measure what you can. Small and safe fix: build it, test it, publish. Anything bigger: write the cause and the fix plan into FABLE-KIT for Fable or the next Opus step.
 
 ## The bar
-- Board first (new screens: B, C): one meeting, notes to `docs/board/calm-1.md`.
-- List how A-C could break before building (LESSONS included); each a test or a screenshot.
-- Controls: instant press, 44 pt, no swallowed tap, nothing shifts. Screenshots only of changed screens, checked by a subagent.
-- One `fresh-eyes` review (Sonnet) of B, C and E: catches to `docs/board/calm-1-review.md` before any fix.
-- Two failed fixes on a goal: write it up and move on. REPORT under 40 lines with "Odd in how we work:".
+- Board first for A (notes `docs/board/world-map.md`).
+- D: cause before fix; a fix gets a test or a measured number. Two failed fixes: write it up and move on.
+- Screenshots only of the mockup and changed screens, checked by a subagent.
+- One `fresh-eyes` review (Sonnet) only if D changes app code. REPORT under 40 lines with "Odd in how we work:".
 
 ## Done when
 Code proves:
-- A: chip test: no unsorted songs gives All, Favorites, Needs tags, Versions, Archived; one unsorted song adds Unsorted and Mine; no Hidden line in Library (shot).
-- B: Hidden test on 815 fake songs: search by title and by folder narrows the list; filter + search together; restore removes it from Hidden and adds it to Library. Shots: Settings, Hidden empty search, Hidden searched, Hidden filtered.
-- C: server test: the desk page loads, lists hidden songs, a restore lands in the journal like the phone's; the page sends no laptop address or song paths outside the laptop. Icon on the Desktop; `doctor` has a desk line.
-- D: INVENTORY exists, every screen in the app has a row group, shots saved.
-- E: moved-file tests pass (3 cases above), music folders never touched (temp folder only).
-- F: memo exists, under 50 lines, with picks. `/verify` all PASS; `check_repo.py` clean; publish goes out.
+- A: WORLD-MAP lists all 158 controls with a home each (count matches INVENTORY), before/after counts per screen, daily screens at about half or fewer.
+- B: mockup opens on the phone (the link or exact steps in REPORT); every screen in A's list is in it; shots checked.
+- C: FABLE-KIT exists with all five parts; the new tests run and fail for the right reason; `/verify` otherwise PASS.
+- D: the cause named with the evidence (a line from timings or a measurement); if fixed: test pass, publish goes out. `check_repo.py` clean.
 I prove:
-1. Library: chips read All, Favorites, Needs tags, Versions, Archived; no Mine; no Hidden line at the bottom.
-2. Settings, Hidden songs: type part of a name, the list narrows; pick a folder; tap a row, it plays; Restore one, it's in Library.
-3. Laptop: double-click `Vault Desk`, search, restore one; on the phone it's in Library (pull to refresh at most).
-4. Hide that song again from the phone; refresh the desk: it's back in its hidden list.
-
-## Stretch (only if every goal is met and budget is left)
-1. 3.7 groundwork: the script that re-runs my 20 searches, with an empty 20-line file for me. Say in REPORT how many tags exist today.
+1. Mockup on the phone: tap through Home, Library, Player, Sort, Settings. Each daily screen feels calmer; I find Compare, Hidden songs and tag editing each within one gesture. Pass / notes.
+2. Heat: play a song with the app open, screen on, 15 min, starting from a cool phone. Not warm behind the camera; battery % before and after.
 
 ## Limits
-- First: copy `docs/pending-skills/next-SKILL.md` over `.claude/skills/next/SKILL.md` (checkpoint after each goal, Edit tool, changed-screen shots only); it applies from this step on. Delete nothing else.
-- Look changes only where A-C need them; the big redesign is Fable's next step (O.6). Home, player, Sort, tagging unchanged.
-- Never write inside iCloud Drive, FL Studio Projects or `Vault Renders`. E uses a temp folder only. F is read-only (names and sizes); song names go to `spike/output/` only. No moving tool built.
-- No rebuild; if one is needed, write it in `overhaul/REBUILD.md` and stop that goal.
-- The repo is public: fake names in tests and shots, no laptop address, no real song names in docs.
+- No app redesign code: the mockup is a page, not the app. Only D may touch app code, and only for the heat.
+- Never write inside iCloud Drive, FL Studio Projects or `Vault Renders`.
+- No rebuild; if D needs one, write it in `overhaul/REBUILD.md` and stop D.
+- The repo is public: fake song names in the mockup, tests and shots; no laptop address.
+- If the session runs long: A and B first (they block my phone check), then D, then C.

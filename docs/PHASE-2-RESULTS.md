@@ -136,3 +136,4 @@ My phone results, one line each (written by chat). Measured results stay in REPO
 - Check 5 Open-screen listen (7 min open and playing, screen on): done; Code reads the `timings` open line next session.
 - Check 6 Wave 2 check 8 (laptop restart, touch nothing, Library has no "not reachable" line): pass.
 - Result: 6 of 6 pass, 0 notes. Sort cards (wave 3 check 3) still waits for new songs: comes with the render-folder step.
+- Owner note 2026-11-12: phone warm behind the camera and some battery drain with the app open and playing (not extreme). Cause hunt in the Fable kit step.
