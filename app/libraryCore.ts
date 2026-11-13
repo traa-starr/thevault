@@ -4,8 +4,14 @@
 
 export type Chip = 'all' | 'mine' | 'fire' | 'shelved' | 'untagged' | 'grouped' | 'unsorted';
 export type SortBy = 'date' | 'title' | 'plays';
-/** The chips Library always draws, in order. Unsorted joins them only while a song is still unsorted. */
-export const CHIPS: readonly Chip[] = ['all', 'mine', 'fire', 'shelved', 'untagged', 'grouped'];
+/** The chips Library always draws, in order (calm part 1, 2026-11-12: most used first, Archived last). */
+export const CHIPS: readonly Chip[] = ['all', 'fire', 'untagged', 'grouped', 'shelved'];
+/** The chip row: while a song is still unsorted, Unsorted and Mine join after All (with nothing unsorted, All and Mine
+ * are the same list). The chip that's on always stays, so a "See all" or a last sort never leaves it without its chip. */
+export function chipsFor(anyUnsorted: boolean, on: Chip): Chip[] {
+  const extra: Chip[] = anyUnsorted ? ['unsorted', 'mine'] : (['unsorted', 'mine'] as Chip[]).filter((one) => one === on);
+  return [CHIPS[0], ...extra, ...CHIPS.slice(1)];
+}
 export const SORTS: readonly SortBy[] = ['date', 'title', 'plays'];
 export const nextSort = (sort: SortBy): SortBy => SORTS[(SORTS.indexOf(sort) + 1) % SORTS.length];
 

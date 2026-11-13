@@ -32,7 +32,14 @@ NEXT comes in one of two formats. Its header says which.
   1. Do whatever Limits says comes first (e.g. copying in pending skills).
   2. Write a 3-6 line plan into STATUS "In progress": `<step name>, plan:` then numbered lines. Tick each line
      (`[x]`) as it finishes. Resume works off these lines, so keep them true.
-  3. Build. Then prove every "Code proves" line of Done when by running it. A line you can't prove is a fail, not a pass.
+  3. Build, one goal at a time. **Checkpoint after each goal:** tick its plan lines in STATUS and add one line under them:
+     `Goal <x> done: <what works>; next: <first unticked line>`. A session that hits the usage cap then needs no handoff.
+     If NEXT says `Clear between goals: yes` and goals remain, stop after the checkpoint with one line:
+     `Goal <x> done. Type /clear, then /next.` (Resume picks up from the first unticked line.)
+     Then prove every "Code proves" line of Done when by running it. A line you can't prove is a fail, not a pass.
+  - Change files with the Edit tool. A helper script goes in a file first; never type a script inline (heredocs and
+    quoting break on this laptop).
+  - Screenshots: only the screens this step changed, never the whole set.
   4. Stop and ask instead of guessing when: the goal is unclear, two readings of a Done when line would build different
      things, or a call is mine (taste, scope, money, anything hard to undo).
 - **Recipe format** (`## Parts`; used for loop changes, anything near my music folders, and first-time setup screens

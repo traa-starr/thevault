@@ -194,6 +194,39 @@ def run_test(script, runner=subprocess.run):
     return (PASS, "passes.") if p.returncode == 0 else (FAIL, f"FAILED. Run: python {Path(script).relative_to(REPO_ROOT)}")
 
 
+DESK_ICON = "Vault Desk.lnk"
+
+
+def desktop_folder():
+    """This laptop's Desktop (where the Vault icons live): the local one, or OneDrive's if that's where it moved."""
+    home = Path(os.environ.get("USERPROFILE", Path.home()))
+    for where in (home / "Desktop", home / "OneDrive" / "Desktop"):
+        if where.is_dir():
+            return where
+    return home / "Desktop"
+
+
+def check_desk(port, desktop=None):
+    """The laptop desk (O.7): its icon is on the Desktop, and the page answers on this laptop when the server runs."""
+    icon = (desktop or desktop_folder()) / DESK_ICON
+    if not icon.is_file():
+        return WARN, "no Vault Desk icon on the Desktop. Make it: python server/vault_cli.py desk-icon <library>"
+    if not _listening(LOOPBACK, port):
+        return WARN, "icon there; the page needs the server (the Server line above)."
+    c = http.client.HTTPConnection(LOOPBACK, port, timeout=10)
+    try:
+        c.request("GET", "/desk")
+        r = c.getresponse()
+        page = r.read()
+    except (OSError, http.client.HTTPException):
+        return WARN, "icon there, but the server didn't answer for the page."
+    finally:
+        c.close()
+    if r.status == 200 and b"<title>Vault Desk</title>" in page:
+        return PASS, "icon on the Desktop, page answering on this laptop."
+    return WARN, "icon there, but the running server has no desk yet. Restart it: server\\server_off.ps1, then server\\server_on.ps1."
+
+
 def check_scan_age(conn, today=None, renders=None):
     """The music scan's age. A render folder click (`renders`: its folder) refreshes its own songs only, so it doesn't count."""
     skip = str(renders).rstrip("/\\") + os.sep if renders else None
@@ -241,7 +274,7 @@ def check_phone_copies(conn, root):
 
 
 def run_doctor(root, port=PORT, tailscale=tailscale_info, runner=subprocess.run, guard=GUARD_TEST, library_test=LIBRARY_TEST, say=print,
-               backup_dir=BACKUP_DIR, task=task_state, old_task=None):
+               backup_dir=BACKUP_DIR, task=task_state, old_task=None, desk=check_desk):
     """Prints a line per check and one overall line. Returns the exit code: 2 if anything failed."""
     levels = []
 
@@ -279,6 +312,7 @@ def run_doctor(root, port=PORT, tailscale=tailscale_info, runner=subprocess.run,
                 conn.close()
         except (LibraryMissing, LibraryRefused, sqlite3.Error) as e:
             line("Database", (FAIL, f"can't be read: {e}"))
+        line("Desk", desk(port))
     fails, warns = levels.count(FAIL), levels.count(WARN)
     if fails:
         say(f"Overall: FAIL. {fails} to fix before phone tests, {warns} warnings.")

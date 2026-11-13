@@ -27,6 +27,8 @@ from .backup import BACKUP_DIR, last_backup_age
 from .family import in_family, set_family
 from .importer import kept, mine_without_copy, phone_copy
 from .library import DB_NAME, MARKER_NAME, LibraryMissing, LibraryRefused, open_library
+from .desk import DESK
+from .renders import read_settings, render_folder
 from .scanner import is_cloud_only
 from .songs import add_play, restore_mine, set_mine, set_rating
 from .store import RATINGS
@@ -50,7 +52,9 @@ MAX_BODY = 1024 * 1024
 # What this code can do for the app, as one number. Raise it when the app starts needing a new route or answer, and
 # raise NEEDS_SERVER in app/phoneBackup.ts with it: a laptop still running older code then says "out of date".
 # 1: phone backup (6.2). 2: this number in /health (6.3). 3: app updates at /update (6.5). 4: tags (GET /tags, tag_add/tag_remove).
-SERVER_LEVEL = 5
+# 6: the laptop desk (/desk, /desk-status) and `hidden` in /status (calm part 1). The phone copes without either (no
+# count on Settings' Hidden row), so NEEDS_SERVER stays 5: this number is for doctor and the desk icon to say "restart".
+SERVER_LEVEL = 6
 PHONE_BACKUP_NAME = "phone-backup.json"  # in the library folder; not the record, so the journal never sees it
 MINE_VALUES = ("mine", "not mine")
 MIN_FOLDER_SET = 2
@@ -175,7 +179,34 @@ def status_counts(conn, root):
             "plays": one("SELECT COUNT(*) FROM plays"),
             "played": one("SELECT COUNT(DISTINCT song_id) FROM plays"),
             "last_play": one("SELECT MAX(started_at) FROM plays"),
+            "hidden": hidden_count(conn),  # Settings' "Hidden songs" row (calm part 1)
             "on_phone": read_phone_count(root)}
+
+
+def desk_status(conn, root):
+    """The laptop desk's counts (calm part 1, O.7): Mine, hidden, unsorted (Sort's own count), tags, when the music was
+    last scanned (a render click doesn't count, as in doctor) and when Send to Vault was last clicked. Times are ISO, or
+    None. Numbers and times only: no path, no address."""
+    counts = status_counts(conn, root)
+    renders = render_folder(root)
+    skip = str(renders).rstrip("/\\") + os.sep if renders else None
+    last_scan = (conn.execute("SELECT MAX(last_seen) FROM sources WHERE substr(path, 1, ?) <> ?", (len(skip), skip)) if skip
+                 else conn.execute("SELECT MAX(last_seen) FROM sources")).fetchone()[0]
+    return {"mine": counts["mine"], "hidden": counts["hidden"], "unsorted": len(sorting_view(conn)["songs"]),
+            "tags": conn.execute("SELECT COUNT(*) FROM tags").fetchone()[0], "last_scan": last_scan,
+            "last_render": read_settings(root).get("last_render")}
+
+
+# the desk page may load and ask only this server, and no other page may frame it (review catch 8)
+DESK_HEADERS = {"Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; "
+                                           "media-src 'self'; frame-ancestors 'none'; form-action 'none'; base-uri 'none'",
+                "X-Frame-Options": "DENY"}
+
+
+def on_desk(client, host):
+    """The desk answers only on the laptop itself: the connection from 127.0.0.1 and the address typed as 127.0.0.1 or
+    localhost. Over Tailscale (the phone, or any other device) it isn't there."""
+    return client == LOOPBACK and host in ("localhost", LOOPBACK)
 
 
 def hidden_count(conn):
@@ -396,9 +427,11 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR, on_mine=None):
         def log_message(self, *args):
             pass
 
-        def _send(self, status, body, content_type):
+        def _send(self, status, body, content_type, extra=None):
             self.send_response(status)
             self.send_header("Content-Type", content_type)
+            for k, v in (extra or {}).items():
+                self.send_header(k, v)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
@@ -430,6 +463,16 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR, on_mine=None):
             try:
                 if route == "/":
                     return self._send(200, PAGE.encode("utf-8"), "text/html; charset=utf-8")
+                if route in ("/desk", "/desk-status"):  # the laptop desk (O.7): this laptop only
+                    if not on_desk(self.client_address[0], host):
+                        return self._error(404, "Nothing here.")
+                    if route == "/desk":
+                        return self._send(200, DESK.encode("utf-8"), "text/html; charset=utf-8", DESK_HEADERS)
+                    conn = connect_readonly(root)
+                    try:
+                        return self._json(200, desk_status(conn, root))
+                    finally:
+                        conn.close()
                 if route == "/phone-backup":
                     return self._json(200, {"backup": read_phone_backup(root)})
                 if route == "/health":

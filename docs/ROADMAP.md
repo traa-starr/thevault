@@ -130,7 +130,7 @@ Runs alongside Phase 3. 2.7 passed 2026-11-10: overhaul app code may start. Owne
   native tabs dropped, DECISIONS; Live Activity dropped 2026-11-11, owner)*
 
 - [ ] O.6 One world (owner, 2026-11-12): every screen is busy with options. Inventory every control (`overhaul/INVENTORY.md`), then one design where each job has one home, the song is the centre, and rare options live one gesture away, in a sheet, in Settings or on the laptop desk (like Compare: hidden, easy, never leaves the screen). Hidden songs leave Library for Settings; Library chips in a sensible order. Design by Fable, I pick on the phone, built in waves
-- [ ] O.7 Laptop desk: the server's own page in the laptop browser, from a desktop icon: hidden songs (search, folder, play, restore) and laptop-only counts. Admin that the phone doesn't need lives here
+- [x] O.7 Laptop desk: the server's own page in the laptop browser, from a desktop icon: hidden songs (search, folder, play, restore) and laptop-only counts. Admin that the phone doesn't need lives here *(built 2026-11-12, calm part 1; phone checks at Review)*
 
 **Done when:** I use the redesigned app daily and it doesn't feel a step down from my benchmark apps.
 

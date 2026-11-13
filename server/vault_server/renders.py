@@ -34,9 +34,18 @@ def read_settings(root):
 
 def save_render_folder(root, folder):
     """Writes the render folder's location into the library's settings file (in the library, never the repo)."""
+    _save_setting(root, "render_folder", str(Path(folder).resolve()))
+
+
+def note_click(root):
+    """When Send to Vault was last clicked, for the laptop desk's count (calm part 1). The library's settings file only."""
+    _save_setting(root, "last_render", now())
+
+
+def _save_setting(root, key, value):
     path = Path(root) / SETTINGS_NAME
     settings = read_settings(root)
-    settings["render_folder"] = str(Path(folder).resolve())
+    settings[key] = value
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
     os.replace(tmp, path)
@@ -177,22 +186,24 @@ $s.TargetPath = $env:VAULT_PY
 $s.Arguments = $env:VAULT_ARGS
 $s.WorkingDirectory = $env:VAULT_CWD
 $s.IconLocation = $env:VAULT_PICTURE
-$s.Description = 'Bring new mixdowns into the Vault'
+$s.Description = $env:VAULT_DESC
 $s.Save()
 Write-Output $link
 """
 
 
-def make_icon(root, repo, python, picture=0, run=None):
-    """The desktop icon: double-click runs `renders` in a small window that waits for a key. Returns the icon's path."""
+def make_icon(root, repo, python, picture=0, run=None, name=ICON_NAME, job="renders", tail=" --pause",
+              about="Bring new mixdowns into the Vault"):
+    """A Vault desktop icon. By default Send to Vault: double-click runs `renders` in a small window that waits for a
+    key. `name`, `job` (the vault_cli command), `tail` and `about` make another (Vault Desk). Returns the icon's path."""
     import subprocess
     run = run or subprocess.run
     python = Path(python)
     if python.name.lower() == "pythonw.exe":  # the window needs the Python that has one
         python = python.with_name("python.exe")
     # through cmd, so a crash before the window's own pause (a broken Python, a missing file) still waits for a key
-    command = f'"{python}" "{Path(repo) / "server" / "vault_cli.py"}" renders "{Path(root).resolve()}" --pause'
-    env = {**os.environ, "VAULT_ICON_NAME": ICON_NAME, "VAULT_PY": os.path.expandvars("%ComSpec%"), "VAULT_CWD": str(repo),
+    command = f'"{python}" "{Path(repo) / "server" / "vault_cli.py"}" {job} "{Path(root).resolve()}"{tail}'
+    env = {**os.environ, "VAULT_ICON_NAME": name, "VAULT_DESC": about, "VAULT_PY": os.path.expandvars("%ComSpec%"), "VAULT_CWD": str(repo),
            "VAULT_ARGS": f'/c "{command} || pause"',
            "VAULT_PICTURE": ICON_PICTURE.format(picture)}
     p = run(["powershell", "-NoProfile", "-Command", MAKE_ICON], env=env, capture_output=True, text=True)

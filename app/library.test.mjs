@@ -7,7 +7,7 @@
 // The model can't stand in for the phone (LESSONS): the phone's hang watch and my thumb judge the flick itself.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { CHIPS, chipSongs, dailyShuffle, HOME_FRONT, HOME_PAGE, HOME_ROW, HOME_ROWS, homePage, homeRows, keepIfSame, linesByRow, MOST_PLAYED_FROM, nextSort, ROW_HEIGHT, rowLayout, rowsInView, SORTS, sortSongs, taggedOnceKnown } from './libraryCore.ts';
+import { CHIPS, chipsFor, chipSongs, dailyShuffle, HOME_FRONT, HOME_PAGE, HOME_ROW, HOME_ROWS, homePage, homeRows, keepIfSame, linesByRow, MOST_PLAYED_FROM, nextSort, ROW_HEIGHT, rowLayout, rowsInView, SORTS, sortSongs, taggedOnceKnown } from './libraryCore.ts';
 import { S } from './theme.ts';
 
 let n = 0;
@@ -96,15 +96,28 @@ ok('every chip keeps exactly its songs, in the list\'s order: All, Mine, Favorit
     unsorted: (song) => song.mine !== 'mine' && !song.sorted,
   };
   const counts = {};
-  for (const chip of [...CHIPS, 'unsorted']) {
+  for (const chip of [...CHIPS, 'mine', 'unsorted']) {
     const got = chipSongs(sorted, chip, LIB.facts);
     assert.deepEqual(ids(got), ids(sorted.filter(want[chip])), chip);
     assert.ok(got.length > 0, `${chip} has songs in the made-up library`);
     counts[chip] = got.length;
   }
   console.log(`     ${Object.entries(counts).map(([chip, count]) => `${chip} ${count}`).join(', ')}`);
-  assert.deepEqual([...CHIPS], ['all', 'mine', 'fire', 'shelved', 'untagged', 'grouped'], 'the chips NEXT asked for, in order, then Versions');
+  assert.deepEqual([...CHIPS], ['all', 'fire', 'untagged', 'grouped', 'shelved'], 'calm part 1: All, Favorites, Needs tags, Versions, Archived');
   assert.equal(counts.mine, counts.untagged + sorted.filter((song) => song.mine === 'mine' && LIB.lines.has(song.id)).length);
+});
+
+ok('calm part 1 (A): nothing unsorted gives All, Favorites, Needs tags, Versions, Archived; one unsorted song adds Unsorted and Mine; no Hidden link in Library', () => {
+  assert.deepEqual(chipsFor(false, 'all'), ['all', 'fire', 'untagged', 'grouped', 'shelved']);
+  assert.deepEqual(chipsFor(true, 'all'), ['all', 'unsorted', 'mine', 'fire', 'untagged', 'grouped', 'shelved']);
+  // the last unsorted song sorted while I'm on Mine or Unsorted: that chip stays until I leave it, the other goes
+  assert.deepEqual(chipsFor(false, 'mine'), ['all', 'mine', 'fire', 'untagged', 'grouped', 'shelved']);
+  assert.deepEqual(chipsFor(false, 'unsorted'), ['all', 'unsorted', 'fire', 'untagged', 'grouped', 'shelved']);
+  // what decides "something is unsorted" in Library: one song not Mine and not sorted by hand
+  const library = code('./Library.tsx');
+  assert.ok(library.includes("song.mine !== 'mine' && !song.sorted") && library.includes('const chips = chipsFor(anyUnsorted, only);'));
+  assert.ok(!/Hidden|showHidden|hiddenCount/.test(library.replace(/'Hidden'/g, '')), 'no Hidden link or overlay left in Library');
+  assert.ok(library.includes('refreshControl={<RefreshControl'), 'pull to refresh: a restore from the laptop desk shows with one pull');
 });
 
 ok('a chip with no songs is an empty list with its own plain line, never a blank page or a crash', () => {
@@ -114,7 +127,7 @@ ok('a chip with no songs is an empty list with its own plain line, never a blank
   assert.deepEqual(chipSongs([], 'all', none), []);
   const library = source('./Library.tsx');
   const words = library.slice(library.indexOf('const CHIP_EMPTY'), library.indexOf('const SORT_WORD'));
-  for (const chip of [...CHIPS, 'unsorted']) assert.ok(new RegExp(`\\b${chip}: '[^']{8,}'`).test(words), `${chip} has a line to show when empty`);
+  for (const chip of [...CHIPS, 'mine', 'unsorted']) assert.ok(new RegExp(`\\b${chip}: '[^']{8,}'`).test(words), `${chip} has a line to show when empty`);
   assert.ok(library.includes("ListEmptyComponent={<Text style={s.empty}>{only === 'untagged' && !tagsKnown ? 'Lines are still loading' : CHIP_EMPTY[only]}</Text>}"));
 });
 
@@ -308,7 +321,7 @@ ok('"See all" lands on the row\'s own list: every card is in the chip and order 
   assert.ok(home.includes('seeAll={() => openLibrary({ chip: row.chip, sort: row.sort })}'), 'Home asks for the tested chip and order');
   const library = code('./Library.tsx');
   const take = library.slice(library.indexOf('takeLibraryAsk();'), library.indexOf('}, [ask]);'));
-  for (const step of ['setSelecting(false)', 'setTicked([])', 'setShowHidden(false)', 'setOnly(ask.chip)', 'setSort(ask.sort)', 'scrollToOffset({ offset: 0'])
+  for (const step of ['setSelecting(false)', 'setTicked([])', 'setOnly(ask.chip)', 'setSort(ask.sort)', 'scrollToOffset({ offset: 0'])
     assert.ok(take.includes(step), `a chip asked from Home: ${step}`);
 });
 

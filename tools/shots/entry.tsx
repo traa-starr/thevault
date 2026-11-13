@@ -22,7 +22,8 @@ const FIX = (globalThis as any).FIX;
 (globalThis as any).fetch = async (url: string) => {
   if (FIX.laptopOff) throw new TypeError('Network request failed');
   const path = String(url).replace(/^https?:\/\/[^/]+/, '').split('?')[0];
-  const body = path === '/songs' ? { songs: FIX.songs ?? [] } : path === '/tags' ? { tags: FIX.tags ?? JSON.parse(FIX.files?.['tags.json'] ?? '[]') } : (FIX.routes?.[path] ?? {});
+  const hidden = path === '/songs' && String(url).includes('hidden=1'); // the Hidden songs screen's own list
+  const body = hidden ? { songs: FIX.hidden ?? [] } : path === '/songs' ? { songs: FIX.songs ?? [] } : path === '/tags' ? { tags: FIX.tags ?? JSON.parse(FIX.files?.['tags.json'] ?? '[]') } : (FIX.routes?.[path] ?? {});
   return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };
 };
 
@@ -48,7 +49,8 @@ function Screen() {
 };
 // type into the first text field, as a thumb would (react-native-web draws it as an <input>)
 (globalThis as any).app.type = (text: string) => {
-  const input = document.querySelector('input') as HTMLInputElement;
+  // the first one on screen: the Search tab stays drawn (hidden) under other screens, with its own field
+  const input = ([...document.querySelectorAll('input')].find((one) => one.offsetParent !== null) ?? document.querySelector('input')) as HTMLInputElement;
   const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
   set.call(input, text);
   input.dispatchEvent(new Event('input', { bubbles: true }));

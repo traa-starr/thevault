@@ -1,10 +1,13 @@
 // Settings (overhaul wave 4): the setup bits in one quiet place, opened from the gear on Home. The laptop (its
-// address, whether it answers), when this install's data began, and the build line. Nothing here plays or changes a
-// song. The address rules are laptopCore.ts; App.tsx owns the saved address, this screen only the box being typed in,
+// address, whether it answers), when this install's data began, and the build line. Hidden songs live here since calm
+// part 1 (2026-11-12): the row opens their own screen (Hidden.tsx), which can play and restore. The address rules are laptopCore.ts; App.tsx owns the saved address, this screen only the box being typed in,
 // so Back drops a half-typed address.
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import Hidden from './Hidden';
+import { hiddenRowCount, restoresOnTheirWay } from './hiddenCore';
 import { Icon } from './Icon';
+import { useOutbox } from './outbox';
 import { logText } from './pressLog';
 import { Tap } from './Tap';
 import { C, coveredBelow, R, S, T } from './theme';
@@ -22,14 +25,29 @@ type Props = {
   build: string;
   /** Something is in the mini player: the page ends above it. */
   mini: boolean;
+  /** The laptop's address to ask, for the Hidden songs screen. */
+  url: string;
+  /** How many songs are hidden, or null while the laptop hasn't said. */
+  hidden: number | null;
+  /** Ask the laptop again (the Hidden count after a restore). */
+  onRecount: () => void;
   /** Saves a new address; false when nothing was typed. */
   onSave: (typed: string) => boolean;
   onBack: () => void;
 };
 
-export default function Settings({ address, line, off, stamp, build, mini, onSave, onBack }: Props) {
+export default function Settings({ address, line, off, stamp, build, mini, url, hidden, onRecount, onSave, onBack }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(address);
+  const [showHidden, setShowHidden] = useState(false);
+  // restores still on their way come off the count at once; once the laptop has them all, it's asked again (catch 1)
+  const onTheirWay = restoresOnTheirWay(useOutbox().pending);
+  const was = useRef(onTheirWay);
+  useEffect(() => {
+    if (was.current && !onTheirWay) onRecount();
+    was.current = onTheirWay;
+  }, [onTheirWay]);
+  if (showHidden) return <Hidden url={url} mini={mini} onBack={() => (setShowHidden(false), onRecount())} />;
   const save = () => {
     if (onSave(draft)) setEditing(false);
   };
@@ -87,6 +105,17 @@ export default function Settings({ address, line, off, stamp, build, mini, onSav
         )}
       </View>
 
+      <Text style={s.section}>Songs</Text>
+      <View style={s.card}>
+        <Tap style={s.row} radius={R.cardTile} onPress={() => setShowHidden(true)} accessibilityLabel="Hidden songs">
+          <Text style={s.rowWord}>Hidden songs</Text>
+          <View style={s.rowEnd}>
+            <Text style={s.rowValue} numberOfLines={1}>{hiddenRowCount(hidden, onTheirWay)}</Text>
+            <Arrow />
+          </View>
+        </Tap>
+      </View>
+
       <Text style={s.section}>This phone</Text>
       <View style={s.card}>
         <View style={s.row}>
@@ -137,6 +166,7 @@ const s = StyleSheet.create({
   rowLine: { height: StyleSheet.hairlineWidth, backgroundColor: C.line, marginLeft: 14 },
   rowWord: { ...T.row },
   rowValue: { ...T.meta, fontSize: 15, flexShrink: 1, fontVariant: ['tabular-nums'] },
+  rowEnd: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowNote: { ...T.meta, fontSize: 15, flex: 1 },
   rowWarn: { color: C.warnText },
   arrow: { transform: [{ rotate: '180deg' }] },

@@ -70,18 +70,22 @@ const addressIO: AddressIO = {
 };
 const loadAddress = () => loadKept(addressIO);
 
-async function songCount(address: string) {
+/** The laptop's song count, and how many songs are hidden (null: a laptop too old to say). */
+async function songCount(address: string): Promise<{ songs: number; hidden: number | null }> {
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), TIMEOUT_MS);
   try {
     // just the count; a laptop too old to know /status sends the whole list to count instead
     const r = await fetch(`${serverUrl(address)}/status`, { signal: abort.signal });
-    if (r.ok) return ((await r.json()) as { songs: number }).songs;
+    if (r.ok) {
+      const data = (await r.json()) as { songs: number; hidden?: number };
+      return { songs: data.songs, hidden: typeof data.hidden === 'number' ? data.hidden : null };
+    }
     if (r.status !== 404) throw new Error(`Server said ${r.status}`);
     const old = await fetch(`${serverUrl(address)}/songs`, { signal: abort.signal });
     if (!old.ok) throw new Error(`Server said ${old.status}`);
     const data: { songs: unknown[] } = await old.json();
-    return data.songs.length;
+    return { songs: data.songs.length, hidden: null };
   } finally {
     clearTimeout(timer);
   }
@@ -91,6 +95,7 @@ export default function App() {
   const [address, setAddress] = useState(loadAddress);
   const [draft, setDraft] = useState(address);
   const [line, setLine] = useState('');
+  const [hidden, setHidden] = useState<number | null>(null);
   const { tab, sort, settings } = usePlace();
   const { song } = usePlayerPick('song');
   const [stamp] = useState(survivalStamp);
@@ -103,9 +108,11 @@ export default function App() {
     setLine((was) => was || 'Checking the laptop…'); // the last answer stays until the new one comes
     try {
       const count = await songCount(address);
-      setLine(`${count.toLocaleString('en-US')} songs on the laptop`);
+      setLine(`${count.songs.toLocaleString('en-US')} songs on the laptop`);
+      setHidden(count.hidden);
     } catch {
       setLine(LAPTOP_OFF);
+      setHidden(null);
     }
   }, [address]);
 
@@ -237,7 +244,7 @@ export default function App() {
             search leaves it, and a half-typed address goes with it */}
         {settings && url ? (
           <View style={s.screen}>
-            <Settings address={address} line={line} off={line === LAPTOP_OFF} stamp={stamp} build={updateLine(buildLine)} mini={!!song} onSave={saveTyped} onBack={closeSettings} />
+            <Settings address={address} line={line} off={line === LAPTOP_OFF} stamp={stamp} build={updateLine(buildLine)} mini={!!song} url={url} hidden={hidden} onRecount={check} onSave={saveTyped} onBack={closeSettings} />
           </View>
         ) : null}
         <UndoToast />

@@ -27,7 +27,7 @@ const LOCAL = {
   playerStore: fake('playerStore.ts'),
   outbox: fake('outbox.ts'),
   keyboard: fake('keyboard.ts'),
-  ...Object.fromEntries(['compareStore', 'Compare', 'Versions', 'Hidden', 'versionStore', 'offline', 'phoneBackup'].map((n) => [n, fake('others.tsx')])),
+  ...Object.fromEntries(['compareStore', 'Compare', 'Versions', 'versionStore', 'offline', 'phoneBackup'].map((n) => [n, fake('others.tsx')])),
 };
 
 const swap = {

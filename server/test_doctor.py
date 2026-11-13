@@ -17,6 +17,8 @@ from vault_server.songs import set_mine as songs_set_mine  # noqa: E402
 from vault_server.store import now  # noqa: E402
 
 failures = []
+DESKTOP = Path(tempfile.mkdtemp(prefix="vault-desktop-")).resolve()  # holds a made-up Vault Desk icon
+(DESKTOP / doctor.DESK_ICON).write_bytes(b"made-up shortcut")
 
 
 def check(name, ok, detail=""):
@@ -43,6 +45,7 @@ def run(root, **kw):
     kw.setdefault("runner", fake_run(0))
     kw.setdefault("backup_dir", Path(root).parent / "backups")
     kw.setdefault("task", lambda: None)  # the stays-up line has its own test (test_keepalive.py)
+    kw.setdefault("desk", lambda port: doctor.check_desk(port, desktop=DESKTOP))  # a made-up Desktop, never the real one
     code = doctor.run_doctor(root, say=out.append, **kw)
     return code, out
 
@@ -109,7 +112,12 @@ def main():
     servers = server.start_servers(root, [server.LOOPBACK], 0)
     code, out = run(root, port=servers[0].server_port)
     check("all good: every line passes", code == 0 and all(x.startswith("PASS") for x in out[:-1]) and out[-1].startswith("Overall: PASS"), str(out))
-    check("all eight checks plus the fingerprint, phone copies and render folder are there", len(out) == 12, str(out))
+    check("all eight checks plus the fingerprint, phone copies, render folder and desk are there", len(out) == 13, str(out))
+    check("desk: icon there and the page answers", line(out, "Desk").startswith("PASS  Desk: icon on the Desktop, page answering"), str(out))
+    empty = Path(tempfile.mkdtemp(prefix="vault-desktop-empty-"))
+    check("desk: no icon on the Desktop is a warning that says how to make it",
+          doctor.check_desk(servers[0].server_port, desktop=empty)[1].startswith("no Vault Desk icon") and doctor.check_desk(servers[0].server_port, desktop=empty)[0] == doctor.WARN)
+    shutil.rmtree(empty)
     check("the server line shows the running version", f"version {server.SERVER_LEVEL}" in line(out, "Server"), str(out))
     doctor.SERVER_LEVEL = server.SERVER_LEVEL + 1  # this code is newer than what's running
     code, out = run(root, port=servers[0].server_port)

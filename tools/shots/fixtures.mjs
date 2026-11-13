@@ -74,6 +74,15 @@ const SCROLL = (to) => `document.querySelectorAll('div').forEach((el) => { if (e
 
 // ---- overhaul wave 4 (2026-11-11): Queue, Versions, Compare, Settings, the whole-app pass ----
 const SETTINGS = 'app.openSettings()';
+// calm part 1: 815 hidden songs in made-up folders (none of them real), a tenth cloud only
+const HIDDEN_FOLDERS = ['Session Music / Other Artist A', 'Session Music / Other Artist B', 'Music', 'Loose files', 'Session Music / Beat Pack'];
+const HIDDEN_WORDS = ['velvet', 'harbor', 'neon', 'quarry', 'lantern', 'drift', 'saffron', 'meadow'];
+const HIDDEN = Array.from({ length: 815 }, (_, i) => ({
+  id: `h${i}`, title: `${HIDDEN_WORDS[i % 8]} ${HIDDEN_WORDS[(i * 3) % 8]} ${i}`, mine: 'not mine', sorted: true, where: i % 10 === 3 ? 'cloud' : 'laptop',
+  date: `${2016 + (i % 9)}-0${(i % 9) + 1}-1${i % 9}`, folder: HIDDEN_FOLDERS[i % 5], length: 180,
+}));
+const HIDDEN_OPEN = "app.tapText('Hidden songs')";
+const HIDDEN_FOLDER_CHIP = 'Music · 163';
 const SETS = { ...SORTING, sets: [{ id: 'f1', name: 'FL Studio Projects/2025', kind: 'folder', songs: songs.slice(0, 6).map((one) => one.id) }, { id: 'n1', name: 'Midnight Run', kind: 'name', songs: ['s1'] }] };
 // the card in front says its song's title and date; the card behind shows no words. The first card is Midnight Run
 // (2025-01-10), the next No Sleep 2: after a throw the next one must be up and the first one's date gone
@@ -252,8 +261,16 @@ export const fixtures = [
   { name: 'sort-set-open', ...whole({ player: NO_SONG, routes: { '/status': { songs: 1395 }, '/sorting': SETS } }, [SORT, "app.tapText('FL Studio Projects/2025')"]) },
   { name: 'sort-swept-undo', ...whole({ player: NO_SONG, routes: { '/status': { songs: 1395 }, '/sorting': SETS } }, [SORT, "app.tapText('FL Studio Projects/2025')", "app.tapText('All mine')"]) },
   { name: 'sort-laptop-off', ...whole({ player: NO_SONG, laptopOff: true }, [SORT]) },
-  { name: 'hidden', ...rich({}, [LIB, "app.tapText('Hidden')"]) },
-  { name: 'hidden-laptop-off', ...rich({ laptopOff: true }, [LIB, "app.tapText('Hidden')"]) },
+  // ---- calm part 1 (2026-11-12): chips without Mine, Hidden songs in Settings (815 made-up songs, made-up folders) ----
+  { name: 'calm-library-chips', ...rich({ songs: full.map((one) => ({ ...one, sorted: true, mine: 'mine' })) }, [LIB]) },
+  { name: 'calm-library-chips-unsorted', ...rich({ songs: full.map((one, i) => ({ ...one, sorted: i !== 2, mine: i === 2 ? 'unknown' : 'mine' })) }, [LIB]) },
+  { name: 'calm-settings', ...whole({ songs: played, player: NO_SONG, routes: { '/status': { songs: 1395, hidden: 815 } } }, [SETTINGS]) },
+  { name: 'calm-hidden', ...whole({ songs: played, player: NO_SONG, hidden: HIDDEN, routes: { '/status': { songs: 1395, hidden: 815 } } }, [SETTINGS, HIDDEN_OPEN]) },
+  { name: 'calm-hidden-searched', ...whole({ songs: played, player: NO_SONG, hidden: HIDDEN }, [SETTINGS, HIDDEN_OPEN, "app.type('harbor')"]) },
+  { name: 'calm-hidden-filtered', ...whole({ songs: played, player: NO_SONG, hidden: HIDDEN }, [SETTINGS, HIDDEN_OPEN, `app.tapText('${HIDDEN_FOLDER_CHIP}')`]) },
+  { name: 'calm-hidden-no-match', ...whole({ songs: played, player: NO_SONG, hidden: HIDDEN }, [SETTINGS, HIDDEN_OPEN, `app.tapText('${HIDDEN_FOLDER_CHIP}')`, "app.type('zzz')"]) },
+  { name: 'calm-hidden-restored', ...whole({ songs: played, hidden: HIDDEN }, [SETTINGS, HIDDEN_OPEN, "app.tapText('Restore')"]) },
+  { name: 'calm-hidden-laptop-off', ...whole({ songs: played, player: NO_SONG, laptopOff: true }, [SETTINGS, HIDDEN_OPEN]) },
   { name: 'home-backup-didnt-save', ...whole({ songs: played, saveFailed: true, player: NO_SONG }) },
   { name: 'home-welcome-back', ...whole({ songs: played, player: NO_SONG, restored: { savedAt: '2026-11-01T10:00:00Z', notSure: 2, changes: 3, lastSong: true, settings: true } }) },
   { name: 'library-changes-waiting', ...rich({ pending: [{ id: 'p2', kind: 'rating_set', data: { song_id: 's5', value: 'fire' } }], saveFailed: true }, [LIB]) },

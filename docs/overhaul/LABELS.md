@@ -46,17 +46,19 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Search
 
 ## Hidden.tsx
-- {…} hidden songs
-- 1 hidden song
+- All folders
 - Back
 - Cloud only
 - File missing
-- Hidden
+- Hidden songs
+- In Library
 - Laptop not reachable
 - Loading…
-- Nothing hidden
-- On the laptop
+- Play {…}
 - Restore
+- Restore {…}
+- Search hidden songs
+- Search title or folder
 - Try again
 
 ## Home.tsx
@@ -120,7 +122,6 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - File missing
 - Group as versions
 - Hidden
-- Hidden · {…}
 - it wasn't
 - Laptop not reachable
 - Laptop not reachable: songs on this phone still play. Tap to try again.
@@ -249,11 +250,13 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Close
 - Copy all
 - Data since
+- Hidden songs
 - Laptop
 - Laptop address
 - Lock-screen log
 - Save
 - Settings
+- Songs
 - This phone
 
 ## SongRow.tsx
@@ -355,6 +358,16 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 
 ## hangWatch.ts
 - {…} never showed
+
+## hiddenCore.ts
+- {…} hidden songs
+- {…} of {…}
+- 1 hidden song
+- in {…}
+- Loose files
+- match "{…}"
+- No hidden songs{…}{…}
+- Nothing hidden
 
 ## laptopCore.ts
 - Timed out

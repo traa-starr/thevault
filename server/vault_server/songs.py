@@ -77,11 +77,24 @@ def link_songs(lib):
             twins[(c[0]["name"].casefold(), c[0]["size"])] = c
             anchors.append(c)
 
+    # a file renamed or moved by hand (calm part 1, 2026-11-12): its old place is gone and every place its song had is
+    # gone, while the same file (same fingerprint) is here at a new path. It keeps that song, so its verdict, tags,
+    # rating, versions and phone copy stay with it, rather than a new song being made. Fingerprinted files only: a
+    # cloud-only file has none until it's downloaded.
+    orphans = {}
+    for r in conn.execute("""SELECT p.song_id, s.file_key FROM song_places p JOIN sources s USING (path) JOIN songs g ON g.id=p.song_id
+                             WHERE p.state='sure' AND s.file_key LIKE 'hash:%' AND s.status!='present'
+                             AND NOT EXISTS (SELECT 1 FROM song_places q JOIN sources t USING (path)
+                                             WHERE q.song_id=p.song_id AND t.status='present')"""):
+        orphans.setdefault(r["file_key"], set()).add(r["song_id"])
+
     # each song keeps the oldest id its places already had; a new one is made only if none did
     wanted, claimed, created = {}, set(), 0
     cluster_song = {}
     for c in anchors:
         have = {placed[r["path"]]["song_id"] for r in c if was_sure(r)} - claimed
+        if not have:  # nowhere it was before: maybe a song whose file was moved here
+            have = set().union(*(orphans.get(r["file_key"], set()) for r in c)) - claimed
         lead = _lead(c, verdict)
         places = [(r["path"], "sure", "skip_copy" if verdict[r["path"]] == "skip" else "same_file") for r in c]
         if have:

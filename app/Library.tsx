@@ -1,15 +1,14 @@
 // The song list from the laptop (overhaul wave 2, Wall's look): a tile on every row, my Favorite / Archived marks,
-// chips to narrow it (All, Mine, Favorites, Archived, Needs tags, Versions), three orders (Newest, A to Z, Most
+// chips to narrow it (All, Favorites, Needs tags, Versions, Archived; Unsorted and Mine while something is unsorted), three orders (Newest, A to Z, Most
 // played). Tap a row to play. Songs on the phone play from there; with the laptop off, the last list shows and only
 // those play. Search has its own screen now (SearchScreen.tsx).
 // Choices the laptop hasn't confirmed yet already show here. Hold a row for select mode: tick songs, then group them as
 // versions, or call them Mine or Not mine, all at once with one Undo.
 // What a chip keeps and how a list is ordered: libraryCore.ts (plain code, tested).
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Hidden from './Hidden';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Icon } from './Icon';
-import { CHIPS, chipSongs, keepIfSame, linesByRow, nextSort, rowLayout, sortSongs, taggedOnceKnown, type Chip, type SortBy } from './libraryCore';
+import { chipsFor, chipSongs, keepIfSame, linesByRow, nextSort, rowLayout, sortSongs, taggedOnceKnown, type Chip, type SortBy } from './libraryCore';
 import { listRetrier } from './laptopCore';
 import { takeLibraryAsk, takeSeed, useLibraryAsk, useSeed } from './nav';
 import { inSongList } from './energy';
@@ -89,8 +88,6 @@ export default function Library({ url }: { url: string }) {
   }));
   useEffect(() => retrier.stop, [retrier]);
   const [sort, setSort] = useState<SortBy>('date'); // Newest every time the app opens
-  const [showHidden, setShowHidden] = useState(false);
-  const [hiddenOnLaptop, setHiddenOnLaptop] = useState<number | null>(null); // null: an older laptop, or not asked yet
   const [only, setOnly] = useState<Chip>('all');
   const mineOnly = only === 'mine';
   // a chip tapped again goes back to All
@@ -121,12 +118,11 @@ export default function Library({ url }: { url: string }) {
         const asked = Date.now();
         const r = await fetch(`${url}/songs`, { signal: abort.signal });
         if (!r.ok) throw new Error(`Server said ${r.status}`);
-        const data: { songs: Song[]; hidden?: number } = await r.json();
+        const data: { songs: Song[] } = await r.json();
         if (!current) return;
         retrier.came();
         setFailed(false);
         offline.setReachable(true);
-        setHiddenOnLaptop(data.hidden ?? null);
         saveSongList(data.songs, asked);
         ratingStore.setBase(data.songs, asked);
         playStore.setBase(data.songs, asked);
@@ -173,11 +169,6 @@ export default function Library({ url }: { url: string }) {
 
   const sorted = useMemo(() => sortSongs(songs ?? [], sort, plays), [songs, sort, plays]);
 
-  // the laptop's count plus my Not mine taps still on their way (they're already out of the list)
-  const hiddenCount = useMemo(
-    () => (hiddenOnLaptop === null || !fetched ? null : hiddenOnLaptop + fetched.length - withPending(fetched, pending).length),
-    [hiddenOnLaptop, fetched, pending],
-  );
   const byId = useMemo(() => new Map((songs ?? []).map((song) => [song.id, song])), [songs]);
   const ratings = useRatings();
   // how many lines each row has tagged (its versions' lines count for it). The same Map until a count changes, so a
@@ -193,7 +184,7 @@ export default function Library({ url }: { url: string }) {
   );
   // Unsorted is a chip only while something is still unsorted (sorting is done; it comes back if new songs arrive)
   const anyUnsorted = useMemo(() => (songs ?? []).some((song) => song.mine !== 'mine' && !song.sorted), [songs]);
-  const chips = anyUnsorted || only === 'unsorted' ? [...CHIPS, 'unsorted' as const] : CHIPS;
+  const chips = chipsFor(anyUnsorted, only);
   // the chips don't all fit across the screen: the one that's on is always brought into view (a "See all" on Home
   // may pick one that was off the right edge)
   const chipRow = useRef<React.ComponentRef<typeof ScrollView>>(null);
@@ -262,13 +253,12 @@ export default function Library({ url }: { url: string }) {
     setTicked([song.id]);
   };
 
-  // a "See all" on Home: this chip, in this order, from the top. Select mode and Hidden step aside first
+  // a "See all" on Home: this chip, in this order, from the top. Select mode steps aside first
   useEffect(() => {
     if (!ask) return;
     takeLibraryAsk();
     setSelecting(false);
     setTicked([]);
-    setShowHidden(false);
     setPlays(playStore.all());
     setOnly(ask.chip);
     setSort(ask.sort);
@@ -325,11 +315,6 @@ export default function Library({ url }: { url: string }) {
     });
   };
 
-  const closeHidden = () => {
-    setShowHidden(false);
-    setAttempt(attempt + 1); // a restored song is back in the list, and the count with it
-  };
-
   // a row's taps, the same two functions for every row and every draw, so a row redraws only when what it shows changes
   const taps = useRef({ tap: (_: Song) => {}, hold });
   taps.current = { tap: (song) => (selecting ? tick(song) : open(song, false)), hold };
@@ -353,8 +338,7 @@ export default function Library({ url }: { url: string }) {
 
   return (
     <View style={s.fill}>
-    {showHidden ? <Hidden url={url} onBack={closeHidden} /> : null}
-    <View style={[s.page, showHidden && s.hidden]}>
+    <View style={s.page}>
       <View style={s.header}>
         {/* a tab, so no Back: only select mode's Cancel */}
         {selecting ? (
@@ -420,10 +404,6 @@ export default function Library({ url }: { url: string }) {
                 </View>
               </Pressable>
             ))}
-            {/* songs I called Not mine: a quiet word at the end, not a chip (it opens its own list) */}
-            <Pressable style={(p) => [s.chipTap, s.hiddenTap, tint(p)]} onPress={() => setShowHidden(true)}>
-              <Text style={s.quiet}>{hiddenCount === null ? 'Hidden' : `Hidden · ${number(hiddenCount)}`}</Text>
-            </Pressable>
           </ScrollView>
           <View style={s.bar}>
             <Text style={s.count}>{`${number(base.length)} ${COUNT_WORD[only]}`}</Text>
@@ -443,6 +423,8 @@ export default function Library({ url }: { url: string }) {
             initialNumToRender={14}
             maxToRenderPerBatch={20}
             windowSize={15}
+            // pull down to ask the laptop again: a song restored on the laptop desk shows up without leaving the tab
+            refreshControl={<RefreshControl refreshing={false} onRefresh={() => setAttempt(attempt + 1)} tintColor={C.dim} />}
             ListEmptyComponent={<Text style={s.empty}>{only === 'untagged' && !tagsKnown ? 'Lines are still loading' : CHIP_EMPTY[only]}</Text>}
             renderItem={({ item }) => (
               <SongRow
@@ -482,7 +464,6 @@ export default function Library({ url }: { url: string }) {
 
 const s = StyleSheet.create({
   fill: { flex: 1, backgroundColor: C.bg },
-  hidden: { display: 'none' },
   page: { flex: 1, backgroundColor: C.bg, paddingTop: 64, paddingHorizontal: S.side },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: S.tap, marginBottom: 8 },
   headerRight: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -508,7 +489,6 @@ const s = StyleSheet.create({
   chipOn: { backgroundColor: C.text },
   chipWord: { ...T.chip, color: C.dim, fontWeight: '600' },
   chipWordOn: { color: C.bg },
-  hiddenTap: { paddingHorizontal: 8 },
   bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: S.tap },
   count: { ...T.meta, fontVariant: ['tabular-nums'] },
   sort: { height: S.tap, flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 12 },

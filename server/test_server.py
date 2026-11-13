@@ -957,7 +957,7 @@ def main():
     r, body = ask("/status")
     st = json.loads(body)
     check("/status: the count is the list's, with Mine, copies, ratings and the phone's own count", r.status == 200 and st["songs"] == len(songs)
-          and set(st) == {"songs", "mine", "copies", "fire", "shelved", "plays", "played", "last_play", "on_phone"} and st["on_phone"] is None, str(st))
+          and set(st) == {"songs", "mine", "copies", "fire", "shelved", "plays", "played", "last_play", "hidden", "on_phone"} and st["on_phone"] is None and st["hidden"] == 0, str(st))
     r, body = ask("/")
     check("the page opens and shows titles as plain text", r.status == 200 and b"textContent = song.title" in body and b"innerHTML" not in body)
 

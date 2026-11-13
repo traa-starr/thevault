@@ -23,6 +23,8 @@
     python server/vault_cli.py search-data <library folder>                  every tag with its song title as JSON (for tools/search/accept.mjs); read-only
     python server/vault_cli.py renders <library folder> [--pause]            bring new mixdowns from the render folder into Sort (the desktop icon runs this)
     python server/vault_cli.py renders-setup <library folder> <render folder> save where the render folder is (in the library) and make the desktop icon
+    python server/vault_cli.py desk <library folder>                         open the laptop desk in the browser (the Vault Desk icon runs this)
+    python server/vault_cli.py desk-icon <library folder>                    make the Vault Desk desktop icon
 """
 import shutil
 import json
@@ -49,9 +51,13 @@ from vault_server.tags import tags_by_song  # noqa: E402
 from vault_server.updates import publish  # noqa: E402
 from vault_server.timings import timings_report  # noqa: E402
 from vault_server.lengths import length_counts  # noqa: E402
-from vault_server.renders import NoRenderFolder, bring_in, make_icon, render_folder, save_render_folder, words  # noqa: E402
+from vault_server.renders import NoRenderFolder, bring_in, make_icon, note_click, render_folder, save_render_folder, words  # noqa: E402
+from vault_server.doctor import probe, running_level  # noqa: E402
+from vault_server.server import LOOPBACK, PORT, SERVER_LEVEL  # noqa: E402
 
 ICON = 103  # which built-in Windows picture the desktop icon shows (imageres.dll): the music note
+DESK_ICON = 109  # the Vault Desk icon's picture (imageres.dll): a monitor
+DESK_ICON_NAME = "Vault Desk.lnk"
 
 
 def print_result(result):
@@ -69,6 +75,7 @@ def run_renders(folder, pause=False):
                 raise NoRenderFolder("The render folder isn't set up yet. Run renders-setup once. Nothing was changed.")
             print(f"Looking in {where} ...")
             out = bring_in(lib, where)
+            note_click(lib.root)  # the laptop desk's "Last render click"
         finally:
             lib.close()
         print(words(out))
@@ -110,12 +117,45 @@ def setup_renders(folder, where):
     return 0
 
 
+def desk_url(port=PORT):
+    return f"http://{LOOPBACK}:{port}/desk"
+
+
+def open_desk(folder, ask=probe, browse=None):
+    """The Vault Desk icon's job: the desk page in the browser if the server answers on this laptop; if not, why, in
+    words (the icon's window then waits for a key). Opens nothing else and changes nothing."""
+    import webbrowser
+    browse = browse or webbrowser.open
+    if not (Path(folder) / MARKER_NAME).is_file():
+        print(f"The Vault library isn't at {folder} (is the E: drive plugged in?). Nothing was opened.")
+        return 2
+    answer = ask(LOOPBACK, PORT)
+    if answer in (None, "odd"):
+        print("The Vault server isn't answering on this laptop, so the desk can't open.")
+        print("It starts by itself at log-in. To start it now: powershell -File server\\server_on.ps1 (or log out and in).")
+        return 2
+    level = running_level(LOOPBACK, PORT)
+    if level is not None and level < SERVER_LEVEL:
+        print("The Vault server is running older code that has no desk yet. Restart it once:")
+        print("powershell -File server\\server_off.ps1, then powershell -File server\\server_on.ps1 (or restart the laptop).")
+        return 2
+    browse(desk_url())
+    return 0
+
+
+def setup_desk(folder):
+    lib = open_library(folder)
+    lib.close()
+    print(f"Desktop icon: {make_icon(lib.root, Path(__file__).resolve().parent.parent, sys.executable, DESK_ICON, name=DESK_ICON_NAME, job='desk', tail='', about='Open the Vault Desk in the browser')}")
+    return 0
+
+
 def main(argv):
     for stream in (sys.stdout, sys.stderr):  # a song name with an emoji mustn't stop a command halfway
         if hasattr(stream, "reconfigure"):  # a test's captured output has none
             stream.reconfigure(errors="replace")
     if len(argv) < 3 or argv[1] not in ("init", "check", "import-sorting", "scan", "apply-sorting", "songs", "mains", "import", "fingerprint", "serve", "doctor",
-                                        "backup", "pull-cloud", "publish", "tags", "copies", "timings", "search-data", "ratings", "status", "plays", "renders", "renders-setup"):
+                                        "backup", "pull-cloud", "publish", "tags", "copies", "timings", "search-data", "ratings", "status", "plays", "renders", "renders-setup", "desk", "desk-icon"):
         print(__doc__)
         return 1
     cmd, folder = argv[1], argv[2]
@@ -126,6 +166,10 @@ def main(argv):
         return run_renders(folder, pause="--pause" in argv[3:])
     if cmd == "renders-setup":
         return setup_renders(folder, argv[3])
+    if cmd == "desk":
+        return open_desk(folder)
+    if cmd == "desk-icon":
+        return setup_desk(folder)
     try:
         if cmd == "backup":
             ok, words = run_backup(folder, *argv[3:4])
