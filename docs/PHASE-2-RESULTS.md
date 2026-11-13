@@ -137,3 +137,11 @@ My phone results, one line each (written by chat). Measured results stay in REPO
 - Check 6 Wave 2 check 8 (laptop restart, touch nothing, Library has no "not reachable" line): pass.
 - Result: 6 of 6 pass, 0 notes. Sort cards (wave 3 check 3) still waits for new songs: comes with the render-folder step.
 - Owner note 2026-11-12: phone warm behind the camera and some battery drain with the app open and playing (not extreme). Cause hunt in the Fable kit step.
+
+## Fable kit review (2026-11-12)
+- Check 1 World-map mockup: pass with a note. Calmer; Compare, Hidden songs found. Holding a line (player Lines) only closes the popup: the mockup leaves out the line hold menu (REPORT "Mockup leaves out"), so tag editing there couldn't be tried. Real app keeps today's hold menu.
+- Checks 2-5 Render folder (renders in, Sort cards, play from Recently added, Nothing new): skipped, no new mixdowns handy. Stay pending.
+- Check 6 Library chips: pass. Owner wants: Needs tags moved after Versions, and a new "Has tags" chip (goes into the Fable build).
+- Check 7 Hidden songs in Settings (count, search, chip, plays, Restore, Library): pass.
+- Check 8 Vault Desk restore, phone Library pull to refresh: pass.
+- Check 9 Hide again from the phone, back in the desk's hidden list: pass.

@@ -3,6 +3,19 @@
 Drafted by Code (Opus) 2026-11-12 from `INVENTORY.md` (158 controls) and the board (`board/world-map.md`). The owner
 judges it on the phone through the mockup (`spike/mockups/world/`) and corrects it at Review. Reversible until built.
 
+**Owner's corrections at Review (2026-11-13), these beat the tables below:**
+- Library row hold opens the song sheet: yes, as drawn.
+- Home rows: Most played **stays**; only Versions to compare goes (comparing happens from the player while listening).
+  Rows: Recently added, Most played, Favorites, Needs tags.
+- The eye **stays** on the player and works as today (shows or hides Mine / Not mine, remembers its choice). Mine / Not
+  mine stay in the song sheet too.
+- Library chips: All, Favorites, Versions, **Has tags** (NEW: songs with at least one tag), Needs tags, Archived
+  (+ Unsorted, Mine while any unsorted, as today).
+- Player: the Shuffle icon **stays** on the player, toggling as today (Queue header gets no Shuffle). NEW **Repeat**
+  beside it: tap cycles Off, Repeat all, Repeat one. Both smaller than play / previous / next, one each side of them
+  (Apple Music style), so the row is balanced.
+- Tagging's line hold menu (player Lines, hold a line) is unchanged; the mockup left it out.
+
 **Homes:** on screen · gesture (one swipe or hold away) · sheet (a row in a sheet that opens in place) · Settings · desk
 (laptop page) · gone. **⚠** = a change to something the owner likely uses daily or weekly. **NEW** = a control the map
 adds (not one of the 158).

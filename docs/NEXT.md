@@ -1,37 +1,40 @@
-# NEXT: Fable kit: world map, one mockup, build kit; find the heat
+# NEXT: Fable builds the world map (O.6), goals 1-3
 Format: goal
-Written by chat, 2026-11-12.
-Effort: high (Opus). Fable is not used here: this step is everything Fable needs before its one build session.
-Log: Review deferred again; the 8 phone checks (render 4 + calm 4) are walked at the next review with this step's (owner). Phone warm behind the camera with the app open, battery drain, mild (owner note). Opus drafts the world map into the mockup instead of a separate chat placement session; the owner judges the mockup on the phone (chat-default, promo ends 2026-11-16). Heat cause found on Opus before Fable (chat-default) (logged by chat)
-Size: the whole Fable kit plus the heat hunt, so the next review can approve the mockup and the step after is the one Fable session. 4 goals; publish only if D changes app code.
-Queue after this: Review (mockup + heat + the 8 deferred checks); chat writes the Fable NEXT from the kit. Then ONE Fable session (Model: fable, clear between goals). Then Opus fresh-eyes and fix-ups. Promo ends 2026-11-16.
-Read: `docs/LESSONS.md`; last 6 DECISIONS rows; ROADMAP O.6; `docs/overhaul/INVENTORY.md`; `docs/overhaul/DESIGN-SYSTEM.md`; CHAT-INSTRUCTIONS "Fable session" (the kit list only); files you touch.
+Written by chat, 2026-11-13.
+Model: fable
+Clear between goals: yes. After each goal: checkpoint (tick STATUS plan, 2 lines), stop; I type `/clear` then `/next`.
+Effort: high
+Log: Library row hold = song sheet (owner). Home keeps Most played, drops only Versions to compare (owner). The eye stays on the player as today (owner). Shuffle stays on the player as today, and a new Repeat (Off / all / one) balances the row; both smaller than the main buttons (owner). Repeat cycles Off, all, one and is remembered after closing the app (chat-default). Library gets a Has tags chip; Needs tags moves after Versions (owner). Has tags is a chip only, no Home row: Home's line card already opens on tagged songs (chat-default). Mockup gap: the line hold menu stays as today (chat) (logged by chat)
+Size: FABLE-KIT goals 1-3, each ships on its own. Goal 4 (Versions pages, Settings Laptop status) and fresh-eyes are the next Opus NEXT. Promo ends 2026-11-16.
+Queue after this: Opus: fresh-eyes on the diff, fix-ups, FABLE-KIT goal 4, serve mockups from the Vault server (no typed command). Then my phone walk of the new app + the 4 render checks + the heat listen.
+Read: `docs/overhaul/FABLE-KIT.md` (§1, §3, §4, §5; skip §6); `docs/overhaul/WORLD-MAP.md` top block "Owner's corrections" only (it beats the kit); `docs/LESSONS.md`; files you edit. Nothing else.
 
 ## Goal
-A. **World map (O.6), `docs/overhaul/WORLD-MAP.md`.** Every one of the 158 controls in INVENTORY gets one home: on screen / one gesture away / a sheet / Settings / desk / gone. The song is the centre; rare options sit one gesture away like Compare (hidden, easy, never leaves the screen). Counts per screen before and after; each daily screen (Home, Library, Player, Sort) at about half its controls or fewer. Mark every move that changes something I likely use daily. Board meeting first; the board also names ONE idea that makes the app feel like The Vault, not a Spotify / YouTube Music clone, and the map uses it.
-B. **One clickable mockup from the map, opened on my phone.** Home, Library, Player, Sort, Settings, plus the sheets and gestures the map creates, tappable. A short "what moved where" list on the page. Mockup only, no app code. My taste: haptics, big controls (44 pt), minimal and out of the way, plain labels.
-C. **Fable build kit, `docs/overhaul/FABLE-KIT.md`.** Code map (which file holds each screen and control the map changes, under 60 lines); the shot list (changed screens only); how it could break (LESSONS included), each tied to a test or a shot; the build split into 2-4 goals, each shipping on its own, most important first. New tests for the map's logic written now and failing on purpose; old tests that pin behaviour the map changes are listed (or updated to the map). Fable only makes them pass.
-D. **Heat with the app open.** Find the cause, don't guess: read the open-screen energy lines in `timings`, list everything that runs while the app is open and playing (timers, polling, animations, keep-awake, list redraws, pull to refresh, the Hidden count), and measure what you can. Small and safe fix: build it, test it, publish. Anything bigger: write the cause and the fix plan into FABLE-KIT for Fable or the next Opus step.
+1. **Song sheet + calm player** (FABLE-KIT goal 1), but **the eye stays**: it shows or hides Mine / Not mine on the player for every song and keeps its choice, as today. **Shuffle stays** on the player and toggles as today (Queue's header gets no Shuffle). **New Repeat** button: tap cycles Off, Repeat all (the list starts over at its end), Repeat one (the song loops); remembered after closing the app. Shuffle and Repeat sit one each side of previous / play / next, smaller than those, like Apple Music. Everything else on the face moves as the kit says.
+2. **Holds and menus everywhere** (kit goal 2), plus: Home rows are Recently added, Most played, Favorites, Needs tags. Library chips read All, Favorites, Versions, Has tags, Needs tags, Archived (+ Unsorted / Mine as today); Has tags = songs with at least one tag.
+3. **Your lines** (kit goal 3).
 
 ## The bar
-- Board first for A (notes `docs/board/world-map.md`).
-- D: cause before fix; a fix gets a test or a measured number. Two failed fixes: write it up and move on.
-- Screenshots only of the mockup and changed screens, checked by a subagent.
-- One `fresh-eyes` review (Sonnet) only if D changes app code. REPORT under 40 lines with "Odd in how we work:".
+- First, before goal 1: change the kit tests to the owner's calls, nothing else in them: `app/songActions.test.mjs` "player face: Mine / Not mine only while unsorted (the eye is gone)" becomes "the eye decides: verdicts shown for any rating when the eye is open, hidden when shut; never while comparing"; its "goal 1 ... no eye" check drops the `buttonsHidden|eyeSetting` line. `app/yourLines.test.mjs` line 70 expects `['Recently added', 'Most played', 'Favorites', 'Needs tags']`. The eye tests in `quickAndCool.test.mjs` / `playOrder.test.mjs` stay as they are.
+- Repeat changes what plays next: add its checks to `app/playOrder.test.mjs` first (all: after the last song comes the first; one: the same song again; off: as today; Next and Previous still move on with Repeat one), see them fail, then build. Recount the `<Tap>` check in `quickAndCool.test.mjs` for the new face.
+- Change files with the Edit tool; any helper script goes in a file. Run only the tests for files you touched; `/verify` once at the end.
+- Controls: instant press, 44 pt, no swallowed tap, nothing shifts. Shots: only FABLE-KIT §2's list, plus `library` for the chips; a hold never fires while scrolling (`library-1395-flick` passes).
+- No board, research or fresh-eyes inside this session. Two failed fixes on a goal: write it up, move on.
+- Short `/wrap`; REPORT under 40 lines with "Odd in how we work:".
 
 ## Done when
 Code proves:
-- A: WORLD-MAP lists all 158 controls with a home each (count matches INVENTORY), before/after counts per screen, daily screens at about half or fewer.
-- B: mockup opens on the phone (the link or exact steps in REPORT); every screen in A's list is in it; shots checked.
-- C: FABLE-KIT exists with all five parts; the new tests run and fail for the right reason; `/verify` otherwise PASS.
-- D: the cause named with the evidence (a line from timings or a measurement); if fixed: test pass, publish goes out. `check_repo.py` clean.
+- `playOrder.test.mjs` Repeat checks pass; `node --experimental-strip-types app/songActions.test.mjs` and `app/yourLines.test.mjs` pass (after the edits above); `/verify` all PASS.
+- `library.test.mjs` checks the new chip order and that Has tags keeps exactly the songs with a tag.
+- Shots from the list taken and checked; publish goes out (no rebuild).
 I prove:
-1. Mockup on the phone: tap through Home, Library, Player, Sort, Settings. Each daily screen feels calmer; I find Compare, Hidden songs and tag editing each within one gesture. Pass / notes.
-2. Heat: play a song with the app open, screen on, 15 min, starting from a cool phone. Not warm behind the camera; battery % before and after.
+1. Player: `...` opens the song sheet; Versions and Compare open over the player; eye hides and shows Mine / Not mine and remembers after closing the app; Shuffle toggles as before; Repeat cycles Off / all / one (a song on Repeat one plays again) and the button row looks balanced.
+2. Library: hold a row = song sheet (never while flicking); `...` has Shuffle, Order, Select; chips in the new order; Has tags shows only tagged songs.
+3. Home: `...` top right (Sort, Tag songs, Settings); rows Recently added, Most played, Favorites, Needs tags; line card on top.
+4. Lines: rows and the mini player show my line; hold a line in the player's Lines still opens the edit menu.
 
 ## Limits
-- No app redesign code: the mockup is a page, not the app. Only D may touch app code, and only for the heat.
-- Never write inside iCloud Drive, FL Studio Projects or `Vault Renders`.
-- No rebuild; if D needs one, write it in `overhaul/REBUILD.md` and stop D.
-- The repo is public: fake song names in the mockup, tests and shots; no laptop address.
-- If the session runs long: A and B first (they block my phone check), then D, then C.
+- Goals in order; if the window runs short, goal 1 alone must ship.
+- No goal 4, no stretch, no memos, no new mockups.
+- Never write inside iCloud Drive, FL Studio Projects or `Vault Renders`. Repo is public: fake names in tests and shots.
+- Never delete the eye's flag file; the journal and outbox carry every change.
