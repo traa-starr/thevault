@@ -710,6 +710,12 @@ def timings_path(tmp):
     post(hot)
     text = chr(10).join(timings_report(root))
     check("energy: FAIL names what went over", "FAIL (redraws over 6, net over 2)" in text, text)
+    # skimming (2026-11-12): 39 starts in 5 min is tapping through songs, shown apart and never judged
+    post({"version": "skim", "samples": [energy("open", reports=886, redraws=808, phone=3, stream=36), energy("open")]})
+    text = chr(10).join(timings_report(root))
+    check("energy: a skim is shown apart, not judged",
+          "open, skimming (5 min, 7.8 song starts a minute): wake-ups 177" in text and "Not judged" in text
+          and "open (5 min): wake-ups 120, redraws 1.0" in text and "FAIL" not in text.split("Hang watch")[0], text)
     check("phone count: kept and printed", "Mine songs on the phone: 670 of 671" in text and server.read_phone_count(root)["stored"] == 670)
     post({"version": "newer", "samples": [], "copies": {"stored": "x", "wanted": 1}})
     check("phone count: a bad one changes nothing", server.read_phone_count(root)["stored"] == 670)

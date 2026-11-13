@@ -28,6 +28,9 @@ COUNTS = ("reports", "redraws", "net", "writes", "phone", "stream")
 CEILINGS = {"locked": {"reports": 130, "redraws": 6, "net": 2, "writes": 6},
             "open": {"reports": 130, "redraws": 135, "net": 6, "writes": 8}}
 MIN_ENERGY_MIN = 5  # fewer minutes of playing and it isn't judged yet
+# A sample with more song starts than this per minute is skimming (tapping through songs), not listening: each start
+# loads, seeks and redraws, so it's shown apart and never judged (2026-11-12: a 39-start sample failed "open").
+SKIM_STARTS = 2.0  # songs under 30 s each on average; short beats played through stay "listening"
 # The hang watch (2026-11-09): a screen stall over 2 s, with the screen and the tap as fixed words from the app's code
 # (never a title), and how long the watch ran, so "no stalls" means something.
 WORDS = re.compile(r"[A-Za-z0-9 +:'-]{0,40}")
@@ -204,8 +207,16 @@ def energy_lines(samples):
     now = [s for s in energy if s["version"] == newest]
     phone, stream = sum(s["phone"] for s in now), sum(s["stream"] for s in now)
     lines = [f"Energy while playing, app code {newest or 'unnamed'}, per minute. Plays: {phone} from the phone's copy, {stream} streamed"]
+    starts = lambda s: (s["phone"] + s["stream"]) / (s["ms"] / 60000)
     for where in WHERE:
-        mine = [s for s in now if s["where"] == where]
+        mine = [s for s in now if s["where"] == where and starts(s) <= SKIM_STARTS]
+        skims = [s for s in now if s["where"] == where and starts(s) > SKIM_STARTS]
+        if skims:
+            sk_min = sum(s["ms"] for s in skims) / 60000
+            sk = {k: sum(s[k] for s in skims) / sk_min for k in COUNTS}
+            lines.append(f"  {where}, skimming ({sk_min:.0f} min, {sk['phone'] + sk['stream']:.1f} song starts a minute): "
+                         f"wake-ups {sk['reports']:.0f}, redraws {sk['redraws']:.1f}, network calls {sk['net']:.1f}, "
+                         f"file writes {sk['writes']:.1f}. Not judged: the ceilings are for listening")
         minutes = sum(s["ms"] for s in mine) / 60000
         if not mine:
             lines.append(f"  {where}: none yet")

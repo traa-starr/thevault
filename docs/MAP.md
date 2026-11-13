@@ -8,6 +8,7 @@ From the interview and read-only scans, 2026-10-31. No Tailscale hostnames or IP
 | This repo | `E:\dev\thevault` | Remote: `github.com/traa-starr/thevault` (public) |
 | Decisions archive | `docs/decisions/phase-0-1.md` | Phase 0 and Phase 1 rows, word for word; summaries stay in `docs/DECISIONS.md` |
 | Screenshot tool (Code's eyes) | `tools/shots/` (own packages, laptop only) | Draws app screens with fake data via react-native-web + headless Edge; PNGs go to `spike/output/shots/` (gitignored). Added 2026-11-08 |
+| World map and Fable kit (O.6) | `docs/overhaul/WORLD-MAP.md`, `docs/overhaul/FABLE-KIT.md`, mockup `spike/mockups/world/` | Every control's home; what Fable builds and how it's checked. Added 2026-11-12 |
 | Design system (overhaul) | `docs/overhaul/DESIGN-SYSTEM.md`, values in `app/theme.ts` | Colours, type, sizes, corners, tint, glass, words. Every word on screen: `docs/overhaul/LABELS.md` (made by `app/labels.test.mjs`). Added 2026-11-10 |
 | Play log | `plays` table in `vault.db`, lines in `journal.jsonl` (kind `song_play`) | One line per play (song, start, seconds heard, source). Count and last heard are worked out from it and sent with the song list; the phone keeps only unsent plays, in its outbox. Added 2026-11-10 |
 | Search spike (Phase 3 groundwork) | `spike/search/` | Ranking ladder + tests + benchmark on fake tags; numbers land in `spike/output/search/` (gitignored). Memo: `docs/SEARCH-OPTIONS.md`. Added 2026-11-08 |
