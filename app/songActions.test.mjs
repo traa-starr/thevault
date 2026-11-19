@@ -94,11 +94,12 @@ ok('plain labels, Versions with its count', () => {
   assert.equal(actionLabel('select', base), 'Select');
 });
 
-ok('player face: Mine / Not mine only while the song is unsorted (the eye is gone)', () => {
-  assert.equal(playerFace(ctx({ rating: null })).verdicts, true);
-  assert.equal(playerFace(ctx({ rating: 'mine' })).verdicts, false);
-  assert.equal(playerFace(ctx({ rating: 'not_mine' })).verdicts, false);
-  assert.equal(playerFace(ctx({ rating: null, comparing: true })).verdicts, false, 'Compare acts on the version heard: no verdicts');
+ok('the eye decides: verdicts shown for any rating when the eye is open, hidden when shut; never while comparing', () => {
+  for (const rating of [null, 'mine', 'not_mine']) {
+    assert.equal(playerFace(ctx({ rating, eyeOpen: true })).verdicts, true, `${rating} eye open`);
+    assert.equal(playerFace(ctx({ rating, eyeOpen: false })).verdicts, false, `${rating} eye shut`);
+    assert.equal(playerFace(ctx({ rating, eyeOpen: true, comparing: true })).verdicts, false, 'Compare acts on the version heard: no verdicts');
+  }
 });
 
 ok('player face: Compare only with 2 or more versions', () => {
@@ -130,7 +131,6 @@ ok('the small menus', () => {
 ok('goal 1, the player uses the rules: one song sheet, no eye', () => {
   const player = code('./Player.tsx');
   assert.ok(/playerFace\(/.test(player), 'Player.tsx asks playerFace what to show');
-  assert.ok(!/buttonsHidden|eyeSetting/.test(player), 'the eye is gone from the player');
   const sheet = code('./SongSheet.tsx');
   assert.ok(/songActions\(/.test(sheet) && /actionLabel\(/.test(sheet), 'SongSheet.tsx draws songActions with actionLabel');
   assert.ok(!/Alert\.alert/.test(sheet), 'no iOS dialogs in the sheet (LESSONS 2026-11-08)');

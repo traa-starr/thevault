@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { View } from 'react-native';
 import App from '../../app/App';
 import { PlayerSheet } from '../../app/Player';
+import { openSongSheet, SongSheetLayer } from '../../app/SongSheet';
 import * as nav from '../../app/nav';
 import * as versions from './fakes/others';
 import Library from '../../app/Library';
@@ -36,16 +37,30 @@ function Screen() {
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       <PlayerSheet />
+      <SongSheetLayer />
     </View>
   );
 }
 
-(globalThis as any).app = { ...tagStore, ...Tagging, ...nav, player, session, ratingStore, versions };
+(globalThis as any).app = { ...tagStore, ...Tagging, ...nav, player, session, ratingStore, versions, openSongSheet };
 // taps the first thing on screen with exactly this text (a chip, a word button)
 (globalThis as any).app.tapText = (text: string) => {
   // only what's showing: Home and Library are both in the page, one of them hidden
   const el = [...document.querySelectorAll('[tabindex] *, [tabindex]')].find((one) => one.textContent === text && !one.children.length && (one as HTMLElement).offsetParent !== null) as HTMLElement | undefined;
   el?.click();
+};
+// the first thing on screen matching a CSS selector ("[aria-label=...]") or with exactly this text
+const shown = (one: Element) => (one as HTMLElement).offsetParent !== null;
+(globalThis as any).app.find = (what: string) =>
+  (what.startsWith('[')
+    ? [...document.querySelectorAll(what)].find(shown)
+    : [...document.querySelectorAll('[tabindex] *, [tabindex]')].find((one) => one.textContent === what && !one.children.length && shown(one))) as HTMLElement | undefined;
+// taps a button by what VoiceOver calls it (an icon button has no words: Home's and Library's "...")
+(globalThis as any).app.tapLabel = (label: string) => (globalThis as any).app.find(`[aria-label="${label}"]`)?.click();
+// the middle of that thing, for the runner's real finger (`hold` in a fixture)
+(globalThis as any).app.middleOf = (what: string) => {
+  const r = (globalThis as any).app.find(what)?.getBoundingClientRect();
+  return r ? [r.x + r.width / 2, r.y + r.height / 2] : null;
 };
 // type into the first text field, as a thumb would (react-native-web draws it as an <input>)
 (globalThis as any).app.type = (text: string) => {

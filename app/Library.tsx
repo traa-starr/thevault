@@ -2,13 +2,14 @@
 // chips to narrow it (All, Favorites, Needs tags, Versions, Archived; Unsorted and Mine while something is unsorted), three orders (Newest, A to Z, Most
 // played). Tap a row to play. Songs on the phone play from there; with the laptop off, the last list shows and only
 // those play. Search has its own screen now (SearchScreen.tsx).
-// Choices the laptop hasn't confirmed yet already show here. Hold a row for select mode: tick songs, then group them as
-// versions, or call them Mine or Not mine, all at once with one Undo.
+// Choices the laptop hasn't confirmed yet already show here. Hold a row for the song sheet (SongSheet.tsx); its Select row,
+// or Select songs in the header's "...", starts select mode: tick songs, then group them as versions, or call them Mine
+// or Not mine, all at once with one Undo. The "..." also holds Shuffle and Order (WORLD-MAP, owner 2026-11-13).
 // What a chip keeps and how a list is ordered: libraryCore.ts (plain code, tested).
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Icon } from './Icon';
-import { chipsFor, chipSongs, keepIfSame, linesByRow, nextSort, rowLayout, sortSongs, taggedOnceKnown, type Chip, type SortBy } from './libraryCore';
+import { chipsFor, chipSongs, keepIfSame, linesByRow, rowLayout, SORTS, sortSongs, taggedOnceKnown, type Chip, type SortBy } from './libraryCore';
 import { listRetrier } from './laptopCore';
 import { takeLibraryAsk, takeSeed, useLibraryAsk, useSeed } from './nav';
 import { inSongList } from './energy';
@@ -18,25 +19,28 @@ import { LaptopLine, RestoreNotice, WaitingLine } from './Notices';
 import { NOT_HERE, player, usePlayerWith, type Pool } from './playerStore';
 import { playStore } from './playStore';
 import { ratingStore, useRatings } from './ratingStore';
-import { session } from './sessionStore';
+import { LIBRARY_MENU } from './songActions';
 import { SongRow } from './SongRow';
+import { linesForRows } from './yourLines';
+import { openMenu, openSongSheet, type MenuRow } from './SongSheet';
 import { useAllTags, useTagsKnown } from './tagStore';
 import { tint } from './Tagging';
 import { Tap } from './Tap';
 import { C, S, T } from './theme';
-import { libraryShuffleTap, pickable, shuffleWords, withPending } from './playOrder';
+import { pickable, shuffleWords, withPending } from './playOrder';
 import { setLibrary, useVersions, type LibSong } from './versionStore';
 import * as versions from './versionStore';
 
 type Song = LibSong;
-const CHIP_WORD: Record<Chip, string> = { all: 'All', mine: 'Mine', fire: 'Favorites', shelved: 'Archived', untagged: 'Needs tags', grouped: 'Versions', unsorted: 'Unsorted' };
+const CHIP_WORD: Record<Chip, string> = { all: 'All', mine: 'Mine', fire: 'Favorites', shelved: 'Archived', tagged: 'Has tags', untagged: 'Needs tags', grouped: 'Versions', unsorted: 'Unsorted' };
 /** After the count: "671 Mine", "12 to tag". */
-const COUNT_WORD: Record<Chip, string> = { all: 'songs', mine: 'Mine', fire: 'Favorites', shelved: 'Archived', untagged: 'to tag', grouped: 'version groups', unsorted: 'unsorted' };
+const COUNT_WORD: Record<Chip, string> = { all: 'songs', mine: 'Mine', fire: 'Favorites', shelved: 'Archived', tagged: 'with tags', untagged: 'to tag', grouped: 'version groups', unsorted: 'unsorted' };
 const CHIP_EMPTY: Record<Chip, string> = {
   all: 'No songs yet',
   mine: 'No Mine songs yet',
   fire: 'No Favorites yet: tap Favorite in the player',
   shelved: 'Nothing archived',
+  tagged: 'No song has a line tagged yet',
   untagged: 'Every Mine song has a line tagged',
   grouped: 'No version groups yet',
   unsorted: 'Nothing left unsorted',
@@ -44,8 +48,6 @@ const CHIP_EMPTY: Record<Chip, string> = {
 const SORT_WORD: Record<SortBy, string> = { date: 'Newest', title: 'A to Z', plays: 'Most played' };
 
 const TIMEOUT_MS = 10000;
-/** The Shuffle pill is 36 high: 4 more above and below makes its touch the full 44. */
-const SHUFFLE_SLOP = { top: 4, bottom: 4 };
 const WHERE: Record<string, string> = { laptop: 'On the laptop', cloud: 'Cloud only', gone: 'File missing' };
 
 const number = (n: number) => n.toLocaleString('en-US');
@@ -94,9 +96,9 @@ export default function Library({ url }: { url: string }) {
   const toggle = (one: Chip) => setOnly(only === one ? 'all' : one);
   // Most played uses the counts as they were when I chose it: a song reaching 0:30 never moves a row under my thumb
   const [plays, setPlays] = useState(playStore.all);
-  const changeSort = () => {
+  const changeSort = (to: SortBy) => {
     setPlays(playStore.all());
-    setSort(nextSort(sort));
+    setSort(to);
   };
   // select mode: the ticked rows, first held first (that one becomes Main)
   const [selecting, setSelecting] = useState(false);
@@ -176,10 +178,21 @@ export default function Library({ url }: { url: string }) {
   const allTags = useAllTags();
   const linesWas = useRef<Map<string, number> | null>(null);
   const lines = useMemo(() => (linesWas.current = keepIfSame(linesWas.current, linesByRow(allTags, (id) => families.get(id) ?? id))), [allTags, families]);
+  // each row's line (its earliest words, its versions' included) and family size: the row's second line (yourLines.ts)
+  const rowLinesWas = useRef<Map<string, string> | null>(null);
+  const rowLines = useMemo(() => (rowLinesWas.current = keepIfSame(rowLinesWas.current, linesForRows(allTags, (id) => families.get(id) ?? id))), [allTags, families]);
+  const familySize = useMemo(() => {
+    const out = new Map<string, number>();
+    // counted like membersOf (family.ts): the Main plus every other song pointing at it
+    families.forEach((main, song) => {
+      if (song !== main) out.set(main, (out.get(main) ?? 1) + 1);
+    });
+    return out;
+  }, [families]);
   // a fresh install hasn't had the laptop's tags yet: until it has, no song is said to need them
   const tagsKnown = useTagsKnown();
   const base = useMemo(
-    () => chipSongs(sorted, only, { rating: (id) => ratings.get(id), grouped: (id) => families.has(id), tagged: taggedOnceKnown(tagsKnown, lines) }),
+    () => chipSongs(sorted, only, { rating: (id) => ratings.get(id), grouped: (id) => families.has(id), tagged: taggedOnceKnown(tagsKnown, lines), hasTag: (id) => lines.has(id) }),
     [sorted, only, families, ratings, lines, tagsKnown],
   );
   // Unsorted is a chip only while something is still unsorted (sorting is done; it comes back if new songs arrive)
@@ -220,10 +233,10 @@ export default function Library({ url }: { url: string }) {
   const playingRow = playingSong ? families.get(playingSong.id) ?? playingSong.id : null;
   const shuffleOn = !!playing?.shuffle;
   const poolOf = (pool: Pool) => playable.filter((song) => (song.mine === 'mine') === (pool === 'mine'));
-  const tapShuffle = () => {
+  // the "..." menu's Shuffle rows: Off, or one pool picked straight away (the pill's cycle, without the cycling)
+  const shuffleTo = (pick: { on: false } | { on: true; pool: Pool }) => {
     // the player as it is right now (what's drawn may be a moment behind)
-    const { order: playing, pool: playingPool, song: playingSong } = player.now();
-    const pick = libraryShuffleTap({ on: !!playing?.shuffle, pool: playingPool }, poolOf('mine').length > 0, poolOf('unsorted').length > 0);
+    const { order: playing, song: playingSong } = player.now();
     if (!pick.on) return player.setShuffleOn(false);
     // playing from this list: only what comes next changes. From another list (a session, a Sort set): this list
     // takes over, the song carrying on from its second
@@ -246,12 +259,34 @@ export default function Library({ url }: { url: string }) {
   const tick = (song: Song) =>
     setTicked((old) => (old.includes(song.id) ? old.filter((id) => id !== song.id) : [...old, song.id]));
 
-  // hold a row: select mode, that row ticked first
+  const selectFrom = (id: string | null) => {
+    setSelecting(true);
+    setTicked(id ? [id] : []);
+  };
+  // hold a row: the song sheet (WORLD-MAP Library 7); its Select row starts select mode with this row ticked first.
+  // In select mode a hold ticks, like a tap. The row waits HOLD_MS and a scroll cancels it (SongRow)
   const hold = (song: Song) => {
     if (selecting) return tick(song);
-    setSelecting(true);
-    setTicked([song.id]);
+    openSongSheet(song, 'library', { onSelect: () => selectFrom(song.id) });
   };
+
+  // the header's "...": Shuffle (its pools), Order (its three), Select songs. A pick opens the next small menu
+  const shuffleMenu = () => {
+    const { order: now, pool: nowPool } = player.now();
+    const on = !!now?.shuffle;
+    const rows: MenuRow[] = [{ key: 'off', label: 'Off', on: !on, onPress: () => shuffleTo({ on: false }) }];
+    for (const pool of ['mine', 'unsorted'] as const)
+      if (poolOf(pool).length) rows.push({ key: pool, label: shuffleWords({ on: true, pool }), on: on && nowPool === pool, onPress: () => shuffleTo({ on: true, pool }) });
+    openMenu(rows, 'Shuffle');
+  };
+  const orderMenu = () =>
+    openMenu(SORTS.map((one) => ({ key: one, label: SORT_WORD[one], on: sort === one, onPress: () => changeSort(one) })), 'Order');
+  const MENU_ROW: Record<(typeof LIBRARY_MENU)[number], () => MenuRow> = {
+    shuffle: () => ({ key: 'shuffle', label: 'Shuffle', note: shuffleOn ? shuffleWords({ on: true, pool: playingPool }) : 'Off', onPress: shuffleMenu }),
+    order: () => ({ key: 'order', label: 'Order', note: SORT_WORD[sort], onPress: orderMenu }),
+    select: () => ({ key: 'select', label: 'Select songs', onPress: () => selectFrom(null) }),
+  };
+  const openLibraryMenu = () => openMenu(LIBRARY_MENU.filter((key) => key !== 'shuffle' || playable.length).map((key) => MENU_ROW[key]()));
 
   // a "See all" on Home: this chip, in this order, from the top. Select mode steps aside first
   useEffect(() => {
@@ -334,7 +369,7 @@ export default function Library({ url }: { url: string }) {
     ].filter(Boolean).join(' · ');
   };
   // everything a row draws besides its song: rows redraw when one of these changes, and only then
-  const rowsDependOn = useMemo(() => [ratings, lines, playingRow, selecting, ticked, groupMain, laptopOff, stored, sort === 'plays' ? plays : null], [ratings, lines, playingRow, selecting, ticked, groupMain, laptopOff, stored, sort, plays]);
+  const rowsDependOn = useMemo(() => [ratings, lines, rowLines, familySize, playingRow, selecting, ticked, groupMain, laptopOff, stored, sort === 'plays' ? plays : null], [ratings, lines, rowLines, familySize, playingRow, selecting, ticked, groupMain, laptopOff, stored, sort, plays]);
 
   return (
     <View style={s.fill}>
@@ -348,19 +383,10 @@ export default function Library({ url }: { url: string }) {
         ) : null}
         <Text style={s.title}>{selecting ? `${number(ticked.length)} ticked` : 'Library'}</Text>
         {selecting || !songs ? null : (
-          <View style={s.headerRight}>
-            {/* Shuffle grows to the left when it says its pool, so Tag songs never moves */}
-            {playable.length ? (
-              <Tap style={[s.shuffle, shuffleOn && s.shuffleOn]} filled={shuffleOn} radius={18} hitSlop={SHUFFLE_SLOP} onPress={tapShuffle} accessibilityLabel={shuffleOn ? `Shuffle on, ${shuffleWords({ on: true, pool: playingPool })}` : 'Shuffle off'}>
-                <Icon name="shuffle" size={16} color={shuffleOn ? C.onAccent : C.text} />
-                <Text style={[s.shuffleWord, shuffleOn && s.shuffleWordOn]}>{shuffleOn ? `Shuffle: ${shuffleWords({ on: true, pool: playingPool })}` : 'Shuffle'}</Text>
-              </Tap>
-            ) : null}
-            {/* the tagging session: Mine songs that can play now, one card at a time */}
-            <Pressable style={(p) => [s.tagSongs, tint(p)]} onPress={() => session.start(url)}>
-              <Text style={s.quiet}>Tag songs</Text>
-            </Pressable>
-          </View>
+          // Shuffle, Order and Select songs live here (WORLD-MAP Library NEW); Tag songs moved to Home's "..."
+          <Tap style={s.more} radius={22} onPress={openLibraryMenu} accessibilityLabel="More: Shuffle, Order, Select songs">
+            <Icon name="more" size={22} color={C.text} />
+          </Tap>
         )}
       </View>
       {!selecting ? <SavedLine /> : null}
@@ -406,11 +432,9 @@ export default function Library({ url }: { url: string }) {
             ))}
           </ScrollView>
           <View style={s.bar}>
-            <Text style={s.count}>{`${number(base.length)} ${COUNT_WORD[only]}`}</Text>
-            <Pressable style={(p) => [s.sort, tint(p)]} onPress={changeSort} accessibilityLabel={`Order: ${SORT_WORD[sort]}`}>
-              <Text style={s.sortWord}>{SORT_WORD[sort]}</Text>
-              <Icon name="down" size={12} color={C.dim} />
-            </Pressable>
+            {/* the order says itself here; it changes in the "..." menu */}
+            <Text style={s.count} numberOfLines={1}>{`${number(base.length)} ${COUNT_WORD[only]} · ${SORT_WORD[sort]}`}</Text>
+            {shuffleOn ? <Text style={s.count} numberOfLines={1}>{`Shuffle: ${shuffleWords({ on: true, pool: playingPool })}`}</Text> : null}
           </View>
           <FlatList
             ref={rows}
@@ -436,7 +460,9 @@ export default function Library({ url }: { url: string }) {
                 disabled={!selecting && item.where !== 'laptop' && !offline.has(item.id)}
                 playing={playingRow === item.id}
                 ticked={selecting ? ticked.includes(item.id) : undefined}
-                versions
+                // select mode keeps the plain second line: "Main" and the date matter while grouping
+                line={selecting ? null : rowLines.get(item.id)}
+                family={selecting ? 1 : familySize.get(item.id) ?? 1}
                 onPress={tapRow}
                 onLongPress={holdRow}
               />
@@ -470,12 +496,7 @@ const s = StyleSheet.create({
   title: { ...T.title },
   cancel: { height: S.tap, justifyContent: 'center', paddingRight: 8 },
   quiet: { color: C.dim, fontSize: 15 },
-  tagSongs: { height: S.tap, justifyContent: 'center', paddingLeft: 10 },
-  // a 36 pill inside a 44 touch
-  shuffle: { height: 36, marginVertical: 4, paddingHorizontal: 14, borderRadius: 18, backgroundColor: C.raised, flexDirection: 'row', alignItems: 'center', gap: 6, overflow: 'hidden' },
-  shuffleOn: { backgroundColor: C.accent },
-  shuffleWord: { color: C.text, fontSize: 14, fontWeight: '600' },
-  shuffleWordOn: { color: C.onAccent },
+  more: { marginLeft: 'auto', width: S.tap, height: S.tap, marginRight: -10, alignItems: 'center', justifyContent: 'center' },
   middle: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   line: { color: C.dim, fontSize: 17 },
   again: { height: S.tap, paddingHorizontal: 16, justifyContent: 'center' },
@@ -490,9 +511,7 @@ const s = StyleSheet.create({
   chipWord: { ...T.chip, color: C.dim, fontWeight: '600' },
   chipWordOn: { color: C.bg },
   bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: S.tap },
-  count: { ...T.meta, fontVariant: ['tabular-nums'] },
-  sort: { height: S.tap, flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 12 },
-  sortWord: { color: C.text, fontSize: 14, fontWeight: '600' },
+  count: { ...T.meta, fontVariant: ['tabular-nums'], flexShrink: 1 },
   refused: { color: C.danger, fontSize: 14, paddingBottom: 8 },
   empty: { color: C.dim, fontSize: 15, textAlign: 'center', paddingTop: 32 },
   selectBar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 },

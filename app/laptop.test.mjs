@@ -114,7 +114,9 @@ ok('B: first run has no Settings and no gear: Home shows the address box instead
   const app = code('./App.tsx');
   assert.ok(app.includes('{settings && url ? ('), 'no address, no Settings screen');
   const home = code('./Home.tsx');
-  assert.ok(/\{url \? \(\s*<Tap style=\{s\.gear\}[^>]*onPress=\{onSettings\} accessibilityLabel="Settings">/.test(home), 'the gear only once there is a laptop');
+  // world map: the gear became Home's "...", whose last row is Settings
+  assert.ok(/\{url \? \(\s*<Tap style=\{s\.gear\}[^>]*onPress=\{homeMenu\}/.test(home), 'the "..." only once there is a laptop');
+  assert.ok(/settings: \{ key: 'settings', label: 'Settings', onPress: onSettings \}/.test(home), 'Settings is in it');
   assert.ok(home.includes('{!url ? setup : ('), 'the box in place of everything playable');
   assert.ok(!/Change laptop address|Data since|Lock-screen log/.test(home) && !/Change laptop address|Data since|Lock-screen log/.test(app), 'the setup bits live in Settings only');
   const settings = code('./Settings.tsx');

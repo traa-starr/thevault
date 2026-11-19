@@ -26,6 +26,7 @@ import { MiniPlayer, PlayerSheet, UndoToast } from './Player';
 import { player, usePlayerPick } from './playerStore';
 import { session } from './sessionStore';
 import Sort from './Sort';
+import { SongSheetLayer } from './SongSheet';
 import { VersionsLayer } from './Versions';
 import { phoneBackup, survivalStamp, usePhoneBackup } from './phoneBackup';
 import { compare } from './compareStore';
@@ -253,6 +254,8 @@ export default function App() {
       {url ? <TabBar /> : null}
       <MiniPlayer />
       <PlayerSheet />
+      {/* the song sheet: over every screen and the player (hold a song, or the player's "...") */}
+      <SongSheetLayer />
       {url ? <VersionsLayer url={url} /> : null}
     </View>
   );

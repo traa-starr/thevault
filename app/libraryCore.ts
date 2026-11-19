@@ -2,10 +2,10 @@
 // chip keeps, the three sort orders, the rows' fixed height, Home's five new rows and where each one's "See all" lands.
 // No React Native here.
 
-export type Chip = 'all' | 'mine' | 'fire' | 'shelved' | 'untagged' | 'grouped' | 'unsorted';
+export type Chip = 'all' | 'mine' | 'fire' | 'shelved' | 'tagged' | 'untagged' | 'grouped' | 'unsorted';
 export type SortBy = 'date' | 'title' | 'plays';
-/** The chips Library always draws, in order (calm part 1, 2026-11-12: most used first, Archived last). */
-export const CHIPS: readonly Chip[] = ['all', 'fire', 'untagged', 'grouped', 'shelved'];
+/** The chips Library always draws, in order (owner, 2026-11-13: All, Favorites, Versions, Has tags, Needs tags, Archived). */
+export const CHIPS: readonly Chip[] = ['all', 'fire', 'grouped', 'tagged', 'untagged', 'shelved'];
 /** The chip row: while a song is still unsorted, Unsorted and Mine join after All (with nothing unsorted, All and Mine
  * are the same list). The chip that's on always stays, so a "See all" or a last sort never leaves it without its chip. */
 export function chipsFor(anyUnsorted: boolean, on: Chip): Chip[] {
@@ -49,13 +49,19 @@ export type ChipFacts = {
   rating: (id: string) => string | null | undefined;
   /** The song is in a version group. */
   grouped: (id: string) => boolean;
-  /** The song, or one of its versions, has a tagged line. */
+  /** The song, or one of its versions, has a tagged line. Until the phone has had the laptop's tags this says yes, so
+   * nothing is said to need tags (taggedOnceKnown). */
   tagged: (id: string) => boolean;
+  /** The song, or one of its versions, has a tagged line, as far as the phone knows (no guessing: Has tags). Left
+   * out: `tagged`. */
+  hasTag?: (id: string) => boolean;
 };
 
-/** The songs a chip keeps, in the order given. Needs tags: Mine, and no line tagged on it or any of its versions. */
+/** The songs a chip keeps, in the order given. Needs tags: Mine, and no line tagged on it or any of its versions.
+ * Has tags: any song with at least one line tagged on it or a version. */
 export function chipSongs<S extends Listed>(songs: readonly S[], chip: Chip, facts: ChipFacts): S[] {
   if (chip === 'mine') return songs.filter((song) => song.mine === 'mine');
+  if (chip === 'tagged') return songs.filter((song) => (facts.hasTag ?? facts.tagged)(song.id));
   if (chip === 'fire') return songs.filter((song) => facts.rating(song.id) === 'fire');
   if (chip === 'shelved') return songs.filter((song) => facts.rating(song.id) === 'shelved');
   if (chip === 'untagged') return songs.filter((song) => song.mine === 'mine' && !facts.tagged(song.id));
@@ -93,22 +99,18 @@ export const HOME_ROW = 12;
 /** A song counts as "most played" from this many plays: one play is only "recently played". */
 export const MOST_PLAYED_FROM = 2;
 
-export type HomeRowKey = 'added' | 'most' | 'favorites' | 'untagged' | 'versions';
+export type HomeRowKey = 'added' | 'most' | 'favorites' | 'untagged';
+/** Home's four lower rows (owner, 2026-11-13: Versions to compare left Home; comparing happens from the player). */
 export const HOME_ROWS: readonly { key: HomeRowKey; title: string; chip: Chip; sort: SortBy }[] = [
   { key: 'added', title: 'Recently added', chip: 'all', sort: 'date' },
   { key: 'most', title: 'Most played', chip: 'all', sort: 'plays' },
   { key: 'favorites', title: 'Favorites', chip: 'fire', sort: 'date' },
   { key: 'untagged', title: 'Needs tags', chip: 'untagged', sort: 'date' },
-  { key: 'versions', title: 'Versions to compare', chip: 'grouped', sort: 'date' },
 ];
 
-export type HomeFacts = ChipFacts & {
-  plays: ReadonlyMap<string, Played>;
-  /** How many versions a song's group holds (1: no group). */
-  versions: (id: string) => number;
-};
+export type HomeFacts = ChipFacts & { plays: ReadonlyMap<string, Played> };
 
-/** Every song that could sit in each of Home's five new rows, before the page is laid out (`homePage` picks the
+/** Every song that could sit in each of Home's four lower rows, before the page is laid out (`homePage` picks the
  * cards). `songs`: the ones that may show (one row per family, not Archived, playable right now), so a card never
  * leads to a wait. Every card is in the list its "See all" opens in Library.
  * Recently added goes by the song's own date (the only date there is); a song with no date is left out. */
@@ -119,7 +121,6 @@ export function homeRows<S extends Listed>(songs: readonly S[], facts: HomeFacts
     most: sortSongs(songs.filter((song) => (facts.plays.get(song.id)?.n ?? 0) >= MOST_PLAYED_FROM), 'plays', facts.plays),
     favorites: chipSongs(newest, 'fire', facts),
     untagged: chipSongs(newest, 'untagged', facts),
-    versions: newest.filter((song) => facts.versions(song.id) >= 2),
   };
 }
 
@@ -140,7 +141,6 @@ export const HOME_PAGE: readonly { key: HomePageKey; ordered: boolean }[] = [
   { key: 'most', ordered: true },
   { key: 'favorites', ordered: false },
   { key: 'untagged', ordered: false },
-  { key: 'versions', ordered: false },
 ];
 
 const mix = (text: string) => {

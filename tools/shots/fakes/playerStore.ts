@@ -10,7 +10,7 @@ export const NOT_HERE = "Not on this phone, and the laptop isn't reachable";
 const base = {
   order: null, song: null, sorting: false, wanted: true, time: 0, duration: 0, note: '', trouble: '', undo: null,
   message: '', sheet: 'player', queueFrom: 'none', timeLeft: false, buttonsHidden: false, marks: {}, pool: 'mine',
-  comparing: false, session: null,
+  comparing: false, session: null, repeat: 'off',
 };
 let state: any = { ...base, ...(FIX.player ?? {}) };
 const out = new Set<string>();
@@ -48,5 +48,6 @@ export const player = noop({
   markOf: (song: PlayerSong) => ({ mine: song.mine, sorted: song.sorted }),
   seek: async (at: number) => set({ time: at }),
   setShuffleOn: (on: boolean, pool: Pool) => set({ order: { ...(state.order ?? {}), shuffle: on }, pool }),
+  tapRepeat: () => set({ repeat: state.repeat === 'off' ? 'all' : state.repeat === 'all' ? 'one' : 'off' }),
   set,
 });

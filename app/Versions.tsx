@@ -227,7 +227,15 @@ function VersionsView({ url }: { url: string }) {
           <Text style={s.sheetTitle}>Versions · {list.length}</Text>
           <View style={s.grow} />
           {/* one sheet at a time on iOS: this one goes first, then Compare opens */}
-          <Pressable style={s.compareTap} onPress={() => { close(); setTimeout(() => compare.openFromLibrary(url, versionsOf), AFTER_CLOSE_MS); }}>
+          <Pressable
+            style={s.compareTap}
+            onPress={() => {
+              close();
+              // over the player, on the family playing: Compare borrows the song as it plays
+              const fromPlayer = player.now().sheet !== 'none' && !!playing && list.includes(playing.id);
+              setTimeout(() => (fromPlayer ? compare.openFromPlayer(url) : compare.openFromLibrary(url, versionsOf)), AFTER_CLOSE_MS);
+            }}
+          >
             {({ pressed }) => (
               <View style={[s.comparePill, pressed && s.comparePressed]}>
                 <Text style={s.compareWord}>Compare</Text>
@@ -326,12 +334,13 @@ export function VersionsToast() {
 
 /** Mounted once, above every screen and the player sheet. */
 export function VersionsLayer({ url }: { url: string }) {
-  // iOS shows one sheet at a time: these never open while the player sheet is up, or the screen stops taking touches
+  // The player sheet is a layer inside the app (Player.tsx), not an iOS sheet, so Versions opens over it as the one iOS
+  // sheet (world map goal 1: from the song sheet, over the player). The picker still waits for the player to close.
   const { sheet } = usePlayerPick('sheet');
   return (
     <>
       {sheet === 'none' ? <Picker url={url} /> : null}
-      {sheet === 'none' ? <VersionsView url={url} /> : null}
+      <VersionsView url={url} />
       <VersionsToast />
     </>
   );

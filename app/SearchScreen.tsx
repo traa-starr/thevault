@@ -18,7 +18,9 @@ import { withPending, type ShownTag } from './playOrder';
 import { useRatings } from './ratingStore';
 import { recents, useRecents } from './recentSearches';
 import { findSongs, pieces, type SongHit } from './search';
+import { HOLD_MS } from './songActions';
 import { RatingMark, SongRow } from './SongRow';
+import { openSongSheet } from './SongSheet';
 import { clock, useAllTags } from './tagStore';
 import { tint } from './Tagging';
 import { C, coveredBelow, R, S, T } from './theme';
@@ -34,11 +36,11 @@ const LAPTOP_OFF = 'Laptop not reachable: songs on this phone still play. Tap to
 
 /** A result whose tagged line matched: the line (its matching words bold) over the song's title, the second on the
  * right. Up to two lines of the tag show; the row grows for the second. */
-function LineRow({ song, hit, stems, typed, rating, off, disabled, onPress }: {
-  song: Song; hit: SongHit<ShownTag>; stems: string[]; typed: string; rating: string | null | undefined; off: boolean; disabled: boolean; onPress: () => void;
+function LineRow({ song, hit, stems, typed, rating, off, disabled, onPress, onLongPress }: {
+  song: Song; hit: SongHit<ShownTag>; stems: string[]; typed: string; rating: string | null | undefined; off: boolean; disabled: boolean; onPress: () => void; onLongPress: () => void;
 }) {
   return (
-    <Pressable style={(p) => [s.lineRow, tint(p)]} disabled={disabled} onPress={onPress}>
+    <Pressable style={(p) => [s.lineRow, tint(p)]} disabled={disabled} onPress={onPress} onLongPress={onLongPress} delayLongPress={HOLD_MS}>
       <View style={off ? s.off : undefined}>
         <Tile title={song.title} date={song.date} size={S.rowTile} radius={R.rowTile} plain />
       </View>
@@ -103,6 +105,11 @@ export default function SearchScreen({ url, showing }: { url: string; showing: b
 
   /** A result tapped: the song the row shows (the row carries it, so results still changing can't swap it), from its
    * line's second. A version's line plays that version, in its Main's place in the list. */
+  // hold a result: the song sheet, the keyboard out of its way (WORLD-MAP Search NEW)
+  const hold = (row: Song) => {
+    Keyboard.dismiss();
+    openSongSheet(row, 'search');
+  };
   const play = (row: Song, hit: SongHit<ShownTag> | undefined, words: string) => {
     Keyboard.dismiss();
     const id = hit ? hit.tag.song_id : row.id;
@@ -215,9 +222,9 @@ export default function SearchScreen({ url, showing }: { url: string; showing: b
             const hit = found.hitOf.get(item.id);
             const { off, disabled } = lineState(item, hit ? hit.tag.song_id : item.id);
             return hit ? (
-              <LineRow song={item} hit={hit} stems={found.stems} typed={found.typed} rating={ratings.get(item.id)} off={off} disabled={disabled} onPress={() => play(item, hit, text)} />
+              <LineRow song={item} hit={hit} stems={found.stems} typed={found.typed} rating={ratings.get(item.id)} off={off} disabled={disabled} onPress={() => play(item, hit, text)} onLongPress={() => hold(item)} />
             ) : (
-              <SongRow song={item} meta={detail(item)} onPhone={offline.has(item.id)} bold={found} rating={ratings.get(item.id)} off={off} disabled={disabled} playing={playingSong?.id === item.id} onPress={(song) => play(song, undefined, text)} />
+              <SongRow song={item} meta={detail(item)} onPhone={offline.has(item.id)} bold={found} rating={ratings.get(item.id)} off={off} disabled={disabled} playing={playingSong?.id === item.id} onPress={(song) => play(song, undefined, text)} onLongPress={hold} />
             );
           }}
         />

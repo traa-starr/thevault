@@ -6,14 +6,15 @@ import { SymbolView } from './native';
 
 export type IconName =
   | 'play' | 'pause' | 'next' | 'previous' | 'home' | 'library' | 'search' | 'favorite' | 'favoriteOn' | 'archive' | 'archiveOn'
-  | 'tag' | 'lines' | 'queue' | 'shuffle' | 'more' | 'down' | 'close' | 'eye' | 'eyeOff' | 'back' | 'settings' | 'grip';
+  | 'tag' | 'lines' | 'queue' | 'shuffle' | 'more' | 'down' | 'close' | 'eye' | 'eyeOff' | 'back' | 'settings' | 'grip'
+  | 'repeat' | 'repeatOne';
 
 /** Apple's name for each. */
 export const SF: Record<IconName, string> = {
   play: 'play.fill', pause: 'pause.fill', next: 'forward.fill', previous: 'backward.fill', home: 'house.fill', library: 'square.stack.fill',
   search: 'magnifyingglass', favorite: 'heart', favoriteOn: 'heart.fill', archive: 'archivebox', archiveOn: 'archivebox.fill', tag: 'tag.fill',
   lines: 'text.alignleft', queue: 'list.bullet', shuffle: 'shuffle', more: 'ellipsis', down: 'chevron.down', close: 'xmark', eye: 'eye',
-  eyeOff: 'eye.slash', back: 'chevron.left', settings: 'gearshape.fill', grip: 'line.3.horizontal',
+  eyeOff: 'eye.slash', back: 'chevron.left', settings: 'gearshape.fill', grip: 'line.3.horizontal', repeat: 'repeat', repeatOne: 'repeat.1',
 };
 
 type Props = { name: IconName; size?: number; color: string };
@@ -113,6 +114,18 @@ function Drawn({ name, size, color }: Required<Props>) {
         <View style={[box, { gap: 5 * u }]} pointerEvents="none">
           <View style={d.row}>{bar(13, 2.2)}<View style={tri('right', 6 * u, 8 * u, color)} /></View>
           <View style={d.row}><View style={tri('left', 6 * u, 8 * u, color)} />{bar(13, 2.2)}</View>
+        </View>
+      );
+    case 'repeat':
+    case 'repeatOne':
+      // a loop: a rounded box, an arrow on its top and bottom edges, a small 1 inside for Repeat one
+      return (
+        <View style={box} pointerEvents="none">
+          <View style={{ width: 19 * u, height: 12 * u, borderRadius: 4 * u, borderWidth: 2.2 * u, borderColor: color, alignItems: 'center', justifyContent: 'center' }}>
+            {name === 'repeatOne' ? bar(2.2, 6) : null}
+          </View>
+          <View style={[tri('right', 5 * u, 7 * u, color), { position: 'absolute', top: 2.5 * u, right: 5 * u }]} />
+          <View style={[tri('left', 5 * u, 7 * u, color), { position: 'absolute', bottom: 2.5 * u, left: 5 * u }]} />
         </View>
       );
     case 'more':

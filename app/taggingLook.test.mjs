@@ -54,7 +54,7 @@ ok('session: the count is a line with a thin amber bar; Not mine is the quiet pi
   assert.equal(fn(12, 10), 1, 'never past the end');
   assert.ok(/sessionTrack: \{ position: 'absolute'/.test(playerSrc) && /sessionBar: \{ height: 2, backgroundColor: C\.accent \}/.test(playerSrc), 'the bar is drawn inside the row: nothing below moves');
   assert.ok(/<Tap style=\{\[s\.sessionPill, out && s\.sessionPillOff\]\} radius=\{18\} onPress=\{session\.notMine\}/.test(playerSrc), 'Not mine is a pill, same job');
-  assert.ok(/<Action icon="next" word="Next song" on onPress/.test(playerSrc), 'Next song lit');
+  assert.ok(/<Action key=\{slot\} icon="next" word="Next song" on onPress/.test(playerSrc), 'Next song lit');
 });
 
 console.log(`taggingLook: ${n} checks passed`);

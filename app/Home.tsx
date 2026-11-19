@@ -1,15 +1,14 @@
-// Home (overhaul wave 1, Wall): something to play within one tap. Search, Shuffle and Favorites, what I played
-// lately, and songs I haven't played in a while. Wave 2 adds five rows under those: Recently added, Most played,
-// Favorites, Needs tags, Versions to compare, each with a "See all" that opens Library on the matching chip or order.
-// Sort and the tagging session are at the bottom under More: reachable in one tap, never in the way. The laptop's
-// address and the build line moved to Settings (wave 4), behind the small gear beside the title. A row with nothing in it isn't drawn (a fresh install shows no blank headings).
+// Home (overhaul wave 1, Wall): something to play within one tap. On top, one of my lines (yourLines.ts homeLine). Shuffle (hold it for Favorites or Unsorted), what I
+// played lately, and songs I haven't played in a while. Under those: Recently added, Most played, Favorites, Needs tags,
+// each heading a "See all" that opens Library on the matching chip or order. Hold a card for the song sheet.
+// The "..." top right holds Sort, Tag songs and Settings (WORLD-MAP, O.6). A row with nothing in it isn't drawn (a fresh install shows no blank headings).
 // The rows' rules: playLog.ts (the first two) and libraryCore.ts (the five new ones).
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Tile } from './Art';
 import { Icon } from './Icon';
 import { HOME_ROWS, homePage, homeRows, keepIfSame, linesByRow, taggedOnceKnown, type HomeRowKey } from './libraryCore';
-import { openLibrary, openSearch, openSort } from './nav';
+import { openLibrary, openLibrarySelect, openSort } from './nav';
 import { LaptopLine, RestoreNotice, WaitingLine } from './Notices';
 import { loadSongList, offline, useOffline } from './offline';
 import { useOutbox } from './outbox';
@@ -19,12 +18,21 @@ import { pickable, withPending } from './playOrder';
 import { playStore } from './playStore';
 import { ratingStore, useRatings } from './ratingStore';
 import { session } from './sessionStore';
-import { useAllTags, useTagsKnown } from './tagStore';
+import { HOLD_MS, HOME_MENU, SHUFFLE_POOLS } from './songActions';
+import { openMenu, openSongSheet, type MenuRow } from './SongSheet';
+import { clock, useAllTags, useTagsKnown } from './tagStore';
+import { homeLine } from './yourLines';
 import { tint } from './Tagging';
 import { Tap } from './Tap';
 import { C, coveredBelow, R, S, T } from './theme';
-import * as versions from './versionStore';
 import { useVersions, type LibSong } from './versionStore';
+
+/** What Shuffle says when a pool has nothing that can play. */
+const EMPTY_POOL: Record<(typeof SHUFFLE_POOLS)[number], string> = {
+  mine: 'No Mine songs can play right now.',
+  favorites: 'No Favorites yet: tap Favorite in the player',
+  unsorted: 'Nothing left unsorted',
+};
 
 const DAY_MS = 24 * 3600 * 1000;
 /** "3 months ago", in the plainest words. */
@@ -41,11 +49,37 @@ export const ago = (last: number, now: number) => {
 const year = (song: LibSong) => (song.date ? song.date.slice(0, 4) : '');
 
 function Card({ song, note, size, label, onPress }: { song: LibSong; note: string; size: number; label: string; onPress: () => void }) {
+  // hold: the song sheet, the same one as everywhere; its Select opens Library's select mode on this song
+  const hold = () => openSongSheet(song, 'home', { onSelect: () => openLibrarySelect(song.id) });
   return (
-    <Pressable style={{ width: size }} onPress={onPress} accessibilityLabel={label}>
+    <Pressable style={{ width: size }} onPress={onPress} onLongPress={hold} delayLongPress={HOLD_MS} accessibilityLabel={label}>
       <Tile title={song.title} date={song.date} size={size} radius={R.cardTile} />
       <Text style={s.cardTitle} numberOfLines={1}>{song.title}</Text>
       <Text style={s.cardNote} numberOfLines={1}>{note || ' '}</Text>
+    </Pressable>
+  );
+}
+
+/** Home opens on one of my lines, big (WORLD-MAP rule 2): tap = that song from that second. No lines yet: what to do. */
+function LineCard({ line, title, onPress }: { line: { text: string; at_sec: number } | null; title: string; onPress: () => void }) {
+  return (
+    <Pressable
+      style={(p) => [s.lineCard, tint(p)]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={line ? `Play ${title} from ${clock(line.at_sec)}: ${line.text}` : 'Tag your first line'}
+    >
+      {line ? (
+        <>
+          <Text style={s.lineWords} numberOfLines={3}>“{line.text}”</Text>
+          <Text style={s.lineSong} numberOfLines={1}>{title ? `${title} · ${clock(line.at_sec)}` : clock(line.at_sec)}</Text>
+        </>
+      ) : (
+        <>
+          <Text style={s.lineWords}>Tag your first line</Text>
+          <Text style={s.lineSong} numberOfLines={2}>Tag songs: mark a line while it plays, and it shows up here</Text>
+        </>
+      )}
     </Pressable>
   );
 }
@@ -55,28 +89,30 @@ type RowProps = {
   songs: LibSong[];
   note: (song: LibSong) => string;
   onPlay: (song: LibSong) => void;
-  /** "See all": the whole list in Library. The first two rows have none (they aren't a Library list). */
+  /** "See all": the whole list in Library, by tapping the heading. The first two rows have none (they aren't a
+   * Library list). */
   seeAll?: () => void;
-  /** The smaller card of the five lower rows, so seven rows aren't a wall of the same squares. */
+  /** The smaller card of the four lower rows, so six rows aren't a wall of the same squares. */
   small?: boolean;
-  /** What VoiceOver says a card does, before the title. */
-  does?: string;
 };
 
-function Row({ title, songs, note, onPlay, seeAll, small, does = 'Play' }: RowProps) {
+function Row({ title, songs, note, onPlay, seeAll, small }: RowProps) {
   if (!songs.length) return null;
   return (
     <>
-      <View style={s.headRow}>
-        <Text style={s.heading}>{title}</Text>
-        {seeAll ? (
-          <Pressable style={(p) => [s.seeAll, tint(p)]} onPress={seeAll} accessibilityLabel={`See all: ${title}`}>
-            <Text style={s.seeAllWord}>See all</Text>
-          </Pressable>
-        ) : null}
-      </View>
+      {/* the heading is the See all (WORLD-MAP Home 7): no separate grey link */}
+      {seeAll ? (
+        <Pressable style={(p) => [s.headRow, tint(p)]} onPress={seeAll} accessibilityRole="button" accessibilityLabel={`See all: ${title}`}>
+          <Text style={s.heading}>{title}</Text>
+          <Text style={s.chevron}>›</Text>
+        </Pressable>
+      ) : (
+        <View style={s.headRow}>
+          <Text style={s.heading}>{title}</Text>
+        </View>
+      )}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.rowScroll} contentContainerStyle={s.rowCards}>
-        {songs.map((song) => <Card key={song.id} song={song} note={note(song)} size={small ? S.cardSmall : S.cardTile} label={`${does} ${song.title}`} onPress={() => onPlay(song)} />)}
+        {songs.map((song) => <Card key={song.id} song={song} note={note(song)} size={small ? S.cardSmall : S.cardTile} label={`Play ${song.title}`} onPress={() => onPlay(song)} />)}
       </ScrollView>
     </>
   );
@@ -140,10 +176,9 @@ export default function Home({ url, setup, onSettings, showing }: Props) {
   const tagsKnown = useTagsKnown();
   const linesWas = useRef<Map<string, number> | null>(null);
   const lines = useMemo(() => (linesWas.current = keepIfSame(linesWas.current, linesByRow(allTags, (id) => families.get(id) ?? id))), [allTags, families]);
-  const versionsOf = (id: string) => (families.has(id) ? versions.members(id).length : 1);
   const more = useMemo(
     () => homeRows(playable.filter((song) => ratings.get(song.id) !== 'shelved'), {
-      rating: (id) => ratings.get(id), grouped: (id) => families.has(id), tagged: taggedOnceKnown(tagsKnown, lines), plays, versions: versionsOf,
+      rating: (id) => ratings.get(id), grouped: (id) => families.has(id), tagged: taggedOnceKnown(tagsKnown, lines), plays,
     }),
     [playable, ratings, families, lines, plays, tagsKnown],
   );
@@ -154,7 +189,6 @@ export default function Home({ url, setup, onSettings, showing }: Props) {
     most: (song) => `${(plays.get(song.id)?.n ?? 0).toLocaleString('en-US')} plays`,
     favorites: year,
     untagged: year,
-    versions: (song) => `${versionsOf(song.id)} versions`,
   };
 
   /** A card: that song now, the rest of its row after it. Like a Library row: it plays whatever else is going on;
@@ -166,15 +200,47 @@ export default function Home({ url, setup, onSettings, showing }: Props) {
     player.open('player');
   };
   /** Shuffle: a Mine song starts, the mini player shows it, and every Mine song is up next. Never starts on an
-   * Archived song. `only`: just these (Favorites). */
-  const shuffle = (only?: LibSong[]) => {
-    const list = only ?? mine;
+   * Archived song. Hold it for the pools (SHUFFLE_POOLS): Mine, Favorites (just those), Unsorted (songs not called
+   * mine yet, like Library's Shuffle: Unsorted). */
+  const shuffle = (pool: (typeof SHUFFLE_POOLS)[number] = 'mine') => {
+    const unsorted = pool === 'unsorted' ? playable.filter((song) => song.mine !== 'mine' && !song.sorted) : [];
+    const list = pool === 'favorites' ? mine.filter((song) => ratings.get(song.id) === 'fire') : pool === 'unsorted' ? unsorted : mine;
     const from = pickable(list, ratingStore.isShelved);
     const start = (from.length ? from : list)[Math.floor(Math.random() * (from.length || list.length))];
-    if (!start) return player.showMessage(only ? 'No Favorites yet: tap Favorite in the player' : listed ? 'No Mine songs can play right now.' : 'Songs are still loading.');
-    player.playList(url, only ? list : playable, start.id, true, 'mine');
+    if (!start) return player.showMessage(!listed ? 'Songs are still loading.' : EMPTY_POOL[pool]);
+    player.playList(url, pool === 'favorites' ? list : playable, start.id, true, pool === 'unsorted' ? 'unsorted' : 'mine');
   };
-  const favorites = () => shuffle(mine.filter((song) => ratings.get(song.id) === 'fire'));
+  const POOL_WORD: Record<(typeof SHUFFLE_POOLS)[number], string> = { mine: 'Mine', favorites: 'Favorites', unsorted: 'Unsorted' };
+  const pools = () => openMenu(SHUFFLE_POOLS.map((pool) => ({ key: pool, label: POOL_WORD[pool], onPress: () => shuffle(pool) })), 'Shuffle');
+  // the "..." top right (HOME_MENU): Sort with what's left, Tag songs, Settings. Only once a laptop is set
+  const unsortedLeft = useMemo(() => all.filter((song) => song.mine !== 'mine' && !song.sorted).length, [all]);
+  const MENU: Record<(typeof HOME_MENU)[number], MenuRow> = {
+    sort: { key: 'sort', label: unsortedLeft ? `Sort · ${unsortedLeft.toLocaleString('en-US')} left` : 'Sort songs', note: 'Mine or not mine, one card at a time', onPress: openSort },
+    tag_songs: { key: 'tag_songs', label: 'Tag songs', note: 'My songs one by one, to mark their lines', onPress: () => session.start(url) },
+    settings: { key: 'settings', label: 'Settings', onPress: onSettings },
+  };
+  const homeMenu = () => openMenu(HOME_MENU.map((key) => MENU[key]));
+
+  // the line card: a new line each time Home comes back into view, never a jump while I look at it
+  const [seed, setSeed] = useState(() => Math.floor(Math.random() * 1e6));
+  const wasInView = useRef(inView);
+  useEffect(() => {
+    if (inView && !wasInView.current) setSeed((n) => n + 1);
+    wasInView.current = inView;
+  }, [inView]);
+  // only lines on songs in the list (a hidden song's line would be a card that can't play); before the list, all of them
+  const picked = useMemo(() => {
+    if (!all.length) return homeLine(allTags, seed);
+    const listedIds = new Set(all.map((song) => song.id));
+    return homeLine(allTags.filter((tag) => listedIds.has(tag.song_id)), seed);
+  }, [allTags, all, seed]);
+  const lineSong = picked ? all.find((song) => song.id === picked.song_id) ?? null : null;
+  const playLine = () => {
+    if (!picked) return session.start(url);
+    if (!lineSong) return player.showMessage('Songs are still loading.');
+    // that song from that second, then the rest of Mine after it, like a Library tap
+    play(mine.some((song) => song.id === lineSong.id) ? mine : [lineSong, ...mine], lineSong, picked.at_sec);
+  };
 
   const now = Date.now();
   const lastPlayed = (map: PlayMap) => (song: LibSong) => {
@@ -185,10 +251,10 @@ export default function Home({ url, setup, onSettings, showing }: Props) {
     <ScrollView style={s.page} contentContainerStyle={[s.content, { paddingBottom: coveredBelow(true, !!playing) + 24 }]} keyboardShouldPersistTaps="handled">
       <View style={s.titleRow}>
         <Text style={s.title}>The Vault</Text>
-        {/* no gear until there's a laptop: first run shows the address box below instead */}
+        {/* no "..." until there's a laptop: first run shows the address box below instead */}
         {url ? (
-          <Tap style={s.gear} radius={22} onPress={onSettings} accessibilityLabel="Settings">
-            <Icon name="settings" size={22} color={C.dim} />
+          <Tap style={s.gear} radius={22} onPress={homeMenu} accessibilityLabel="More: Sort, Tag songs, Settings">
+            <Icon name="more" size={22} color={C.text} />
           </Tap>
         ) : null}
       </View>
@@ -197,18 +263,13 @@ export default function Home({ url, setup, onSettings, showing }: Props) {
       <LaptopLine />
       {!url ? setup : (
         <>
-          <Pressable style={s.search} onPress={() => openSearch('')} accessibilityRole="search" accessibilityLabel="Search">
-            <Icon name="search" size={20} color={C.dim} />
-            <Text style={s.searchWord}>Search</Text>
-          </Pressable>
+          {/* waits for the laptop's tags on a fresh install, so "Tag your first line" never shows over lines still on their way */}
+          {picked || tagsKnown ? <LineCard line={picked} title={lineSong?.title ?? ''} onPress={playLine} /> : null}
+          {/* Search is the round button by the tabs; Favorites is a hold on Shuffle (WORLD-MAP Home 2, 4) */}
           <View style={s.pair}>
-            <Tap filled style={[s.big, s.shuffle]} radius={24} onPress={() => shuffle()} accessibilityLabel="Shuffle my songs">
+            <Tap filled style={[s.big, s.shuffle]} radius={24} onPress={() => shuffle()} onLongPress={pools} delayLongPress={HOLD_MS} accessibilityLabel="Shuffle my songs" accessibilityHint="Hold for Favorites or Unsorted">
               <Icon name="shuffle" size={20} color={C.onAccent} />
               <Text style={s.shuffleWord}>Shuffle</Text>
-            </Tap>
-            <Tap style={[s.big, s.favorites]} radius={24} onPress={favorites} accessibilityLabel="Shuffle my Favorites">
-              <Icon name="favoriteOn" size={18} color={C.text} />
-              <Text style={s.favoritesWord}>Favorites</Text>
             </Tap>
           </View>
           <Row title="Recently played" songs={rows.recent} note={lastPlayed(plays)} onPlay={(song) => play(rows.recent, song)} />
@@ -225,21 +286,10 @@ export default function Home({ url, setup, onSettings, showing }: Props) {
               title={row.title}
               songs={rows[row.key]}
               note={moreNote[row.key]}
-              // a group's card opens its versions (Compare is there); every other card plays
-              does={row.key === 'versions' ? 'Versions of' : 'Play'}
-              onPlay={(song) => (row.key === 'versions' ? versions.openVersions(song.id) : play(rows[row.key], song))}
+              onPlay={(song) => play(rows[row.key], song)}
               seeAll={() => openLibrary({ chip: row.chip, sort: row.sort })}
             />
           ))}
-          <Text style={[s.heading, s.moreHeading]}>More</Text>
-          <Tap style={s.more} onPress={openSort} accessibilityLabel="Sort songs">
-            <Text style={s.moreWord}>Sort songs</Text>
-            <Text style={s.moreNote}>Mine or not mine, one card at a time</Text>
-          </Tap>
-          <Tap style={s.more} onPress={() => session.start(url)} accessibilityLabel="Tag songs">
-            <Text style={s.moreWord}>Tag songs</Text>
-            <Text style={s.moreNote}>My songs one by one, to mark their lines</Text>
-          </Tap>
         </>
       )}
     </ScrollView>
@@ -253,26 +303,20 @@ const s = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 34, marginBottom: 16 },
   title: { ...T.title },
   gear: { width: S.tap, height: S.tap, marginRight: -10, alignItems: 'center', justifyContent: 'center' },
-  search: { height: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, borderRadius: R.field, backgroundColor: C.raised },
-  searchWord: { color: C.dim, fontSize: 17 },
-  pair: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  lineCard: { backgroundColor: C.raised, borderRadius: R.cardTile, paddingHorizontal: 18, paddingVertical: 16, marginBottom: 14, minHeight: 96, justifyContent: 'center' },
+  lineWords: { color: C.text, fontSize: 22, lineHeight: 28, fontWeight: '700' },
+  lineSong: { ...T.meta, marginTop: 8 },
+  pair: { flexDirection: 'row', gap: 10 },
   big: { flex: 1, height: 48, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, overflow: 'hidden' },
   shuffle: { backgroundColor: C.accent },
   shuffleWord: { color: C.onAccent, fontSize: 17, fontWeight: '700' },
-  favorites: { backgroundColor: C.raised },
-  favoritesWord: { color: C.text, fontSize: 17, fontWeight: '600' },
-  // a heading keeps its place and height with or without See all
-  headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: S.tap, marginTop: 18, marginBottom: 4 },
+  // a heading keeps its place and height whether or not it opens its list
+  headRow: { flexDirection: 'row', alignItems: 'center', gap: 6, height: S.tap, marginTop: 18, marginBottom: 4, alignSelf: 'flex-start' },
   heading: { ...T.heading },
-  moreHeading: { marginTop: 28, marginBottom: 10 },
-  seeAll: { height: S.tap, minWidth: 64, alignItems: 'flex-end', justifyContent: 'center', paddingLeft: 12 },
-  seeAllWord: { color: C.dim, fontSize: 15 },
+  chevron: { color: C.dim, fontSize: 22, fontWeight: '600', marginTop: -2 },
   // the row runs to both screen edges, its first card in line with everything else
   rowScroll: { marginHorizontal: -S.side, flexGrow: 0 },
   rowCards: { paddingHorizontal: S.side, gap: 12 },
   cardTitle: { color: C.text, fontSize: 14, marginTop: 6 },
   cardNote: { ...T.meta, marginTop: 1 },
-  more: { minHeight: S.row, justifyContent: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line },
-  moreWord: { ...T.row },
-  moreNote: { ...T.meta, marginTop: 2 },
 });

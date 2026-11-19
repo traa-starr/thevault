@@ -1,6 +1,6 @@
 // Self-test for the play order: node --experimental-strip-types app/playOrder.test.mjs
 import assert from 'node:assert/strict';
-import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere, dialTarget, tagsWithPending, setFlag, listAfterTap, listIsOpen, shuffleAfterTap, shuffleWords, tickWordsAfter, noTickWords, songStartWords, tagTapped, TICK_SHOW_MS, TAP_BOUNCE_MS, seekRelease, tagEdit, tagRemoval, tagUndoLine, rowOrder, sessionPool, sessionLap, sessionCount, draftGoesOnChange, draftLine, libraryShuffleTap, startSpot, moveBy, SESSION_START_SEC, SORT_START_SEC, sessionLine, sessionBack } from './playOrder.ts';
+import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere, dialTarget, tagsWithPending, setFlag, listAfterTap, listIsOpen, shuffleAfterTap, shuffleWords, tickWordsAfter, noTickWords, songStartWords, tagTapped, TICK_SHOW_MS, TAP_BOUNCE_MS, seekRelease, tagEdit, tagRemoval, tagUndoLine, rowOrder, sessionPool, sessionLap, sessionCount, draftGoesOnChange, draftLine, libraryShuffleTap, startSpot, moveBy, SESSION_START_SEC, SORT_START_SEC, sessionLine, sessionBack, repeatAfterTap, repeatFrom, withRepeat, afterSongEnds } from './playOrder.ts';
 import { applyEdit, applyPicks, groupEdit, groupLead, linkEdit, makeMainEdit, membersOf, removeEdit, reverse, settle } from './family.ts';
 
 const fams = (pairs) => new Map(Object.entries(pairs));
@@ -769,6 +769,66 @@ for (const [name, test] of Object.entries(tests)) {
   assert.equal(sessionBack(sessionText, null), null);
   // an out song no longer in the pool is dropped, never counted
   assert.deepEqual(sessionBack(JSON.stringify(sessionLine(pool, ['gone', ...out], lap)), order).out, out);
+}
+
+// Repeat (owner, 2026-11-13): one button on the player cycles Off, Repeat all, Repeat one, remembered after a kill
+{
+  const repeatTests = {
+    'repeat: a tap cycles Off > all > one > Off; the saved word comes back, anything else is Off': () => {
+      assert.equal(repeatAfterTap('off'), 'all');
+      assert.equal(repeatAfterTap('all'), 'one');
+      assert.equal(repeatAfterTap('one'), 'off');
+      for (const r of ['off', 'all', 'one']) assert.equal(repeatFrom(r), r);
+      for (const junk of [null, undefined, '', 'ONE', 'loop']) assert.equal(repeatFrom(junk), 'off');
+    },
+    'repeat all: after the last song comes the first (shuffle too), and on round again': () => {
+      const seen = [];
+      let o = withRepeat(mixed('a'), 'all');
+      for (let i = 0; i < 6; i++) seen.push(currentId((o = afterSongEnds(o, 'all'))));
+      assert.deepEqual(seen, ['b', 'c', 'd', 'a', 'b', 'c']);
+      assert.equal(currentId(afterSongEnds(withRepeat(list('d'), 'all'), 'all')), 'a', 'list order: last, then first');
+    },
+    'repeat all: a song shuffle avoids stays avoided on the second time round': () => {
+      const seen = [];
+      let o = withRepeat(mixed('a'), 'all');
+      for (let i = 0; i < 6; i++) seen.push(currentId((o = nextInOrder(o, ['c']))));
+      assert.deepEqual(seen, ['b', 'd', 'a', 'b', 'd', 'a']);
+    },
+    'repeat all: Up next lists each song once, then stops at the song playing': () => {
+      assert.deepEqual(upNext(jumpTo(withRepeat(mixed('a'), 'all'), 'b'), 10), ['c', 'd', 'a']);
+    },
+    'repeat one: the song ends, the same song plays again from its start': () => {
+      const o = withRepeat(list('b'), 'one');
+      const again = afterSongEnds(o, 'one');
+      assert.equal(currentId(again), 'b');
+      assert.equal(again.at, o.at);
+    },
+    'repeat one: Next and Previous still move on': () => {
+      const o = withRepeat(list('b'), 'one');
+      assert.equal(currentId(nextInOrder(o)), 'c');
+      assert.equal(currentId(previousInOrder(o)), 'a');
+    },
+    'repeat off: as today (list order wraps, a shuffle ends after its last song)': () => {
+      assert.equal(currentId(afterSongEnds(withRepeat(list('d'), 'off'), 'off')), 'a');
+      assert.equal(afterSongEnds(jumpTo(withRepeat(mixed('a'), 'off'), 'd'), 'off'), null, 'a shuffle ends after its last song');
+      assert.deepEqual(walk(withRepeat(mixed('a'), 'off')), ['b', 'c', 'd']);
+      assert.deepEqual(walk(mixed('a')), ['b', 'c', 'd'], 'no repeat set at all: as today');
+    },
+    'repeat: a shuffle tap keeps it': () => {
+      assert.equal(setShuffle(withRepeat(list('a'), 'all'), true).wrap, true);
+      assert.equal(setShuffle(withRepeat(mixed('a'), 'all'), false).wrap, true);
+      assert.ok(!setShuffle(list('a'), true).wrap);
+    },
+  };
+  for (const [name, test] of Object.entries(repeatTests)) {
+    try {
+      test();
+      console.log(`PASS  ${name}`);
+    } catch (e) {
+      failed++;
+      console.log(`FAIL  ${name}  ${e.message}`);
+    }
+  }
 }
 
 console.log(failed ? `\n${failed} FAILED` : '\nALL PASSED');

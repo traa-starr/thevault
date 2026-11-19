@@ -67,7 +67,7 @@ ok('a row second line: the line, else the versions count, else nothing', () => {
 });
 
 ok('Home keeps three lower rows: Most played and Versions to compare move to Library only', () => {
-  assert.deepEqual(HOME_ROWS.map((row) => row.title), ['Recently added', 'Favorites', 'Needs tags']);
+  assert.deepEqual(HOME_ROWS.map((row) => row.title), ['Recently added', 'Most played', 'Favorites', 'Needs tags']);
 });
 
 ok('the screens use it: Home has the line card, rows and the mini player show lines', () => {

@@ -1,7 +1,8 @@
 // Which song comes next, as plain data so it can be tested without a phone. Songs are ids, so a list refresh can't point
 // the queue at the wrong song: the order keeps its own copy of the list from the moment of the tap.
 // Test: node --experimental-strip-types app/playOrder.test.mjs
-export type Order = { list: string[]; sequence: string[]; at: number; furthest: number; shuffle: boolean; removed: string[] };
+/** `wrap`: Repeat all, so a shuffle starts over after its last song (list order always wraps). */
+export type Order = { list: string[]; sequence: string[]; at: number; furthest: number; shuffle: boolean; removed: string[]; wrap?: boolean };
 
 const shuffled = (ids: string[], random: () => number) => {
   const out = [...ids];
@@ -25,22 +26,39 @@ export function startOrder(list: string[], current: string, shuffle: boolean, ra
 export const currentId = (order: Order) => order.sequence[order.at];
 
 export const setShuffle = (order: Order, shuffle: boolean, random: () => number = Math.random): Order =>
-  startOrder(order.list, currentId(order), shuffle, random, order.removed);
+  withWrap(startOrder(order.list, currentId(order), shuffle, random, order.removed), !!order.wrap);
+
+const withWrap = (order: Order, wrap: boolean): Order => (wrap ? { ...order, wrap } : order);
 
 /** The next song, or null when none is left. List order wraps round to the top and plays every song still in the list.
- * Shuffle plays each song once and never lands on a song in `avoid`, but one already played can be stepped back through. */
+ * Shuffle plays each song once and never lands on a song in `avoid`, but one already played can be stepped back through.
+ * With Repeat all (`wrap`) a shuffle goes round again from its first song: a new time round, so `avoid` counts again. */
 export function nextInOrder(order: Order, avoid: Avoid = []): Order | null {
   const count = order.sequence.length;
   for (let step = 1; step <= count; step++) {
-    if (order.shuffle && order.at + step >= count) return null;
+    const round = order.at + step >= count; // past the end: round again
+    if (order.shuffle && round && !order.wrap) return null;
     const at = (order.at + step) % count;
     const id = order.sequence[at];
     if (order.removed.includes(id)) continue;
-    if (order.shuffle && at > order.furthest && avoids(avoid, id)) continue;
-    return { ...order, at, furthest: Math.max(order.furthest, at) };
+    if (order.shuffle && (round || at > order.furthest) && avoids(avoid, id)) continue;
+    return { ...order, at, furthest: order.shuffle && round ? at : Math.max(order.furthest, at) };
   }
   return null;
 }
+
+/** Repeat (owner, 2026-11-13): Off, Repeat all (the list starts over at its end), Repeat one (the song loops). */
+export type Repeat = 'off' | 'all' | 'one';
+export const repeatAfterTap = (r: Repeat): Repeat => (r === 'off' ? 'all' : r === 'all' ? 'one' : 'off');
+/** The word saved on the phone, read back after a kill: anything else is Off. */
+export const repeatFrom = (text: string | null | undefined): Repeat => (text === 'all' || text === 'one' ? text : 'off');
+/** The order with Repeat set: only Repeat all changes what Next finds. */
+export const withRepeat = (order: Order, r: Repeat): Order => {
+  const { wrap: _, ...rest } = order;
+  return withWrap(rest, r === 'all');
+};
+/** A song played to its end: Repeat one plays it again (the player loops it); otherwise the next song, as Next finds it. */
+export const afterSongEnds = (order: Order, r: Repeat, avoid: Avoid = []): Order | null => (r === 'one' ? order : nextInOrder(order, avoid));
 
 /** The song before, or null when there isn't one. List order wraps round to the bottom. */
 export function previousInOrder(order: Order): Order | null {
@@ -108,9 +126,12 @@ export function queueDrop(rows: readonly string[], from: number, to: number): { 
 
 export function upNext(order: Order, count: number, avoid: Avoid = []): string[] {
   const out: string[] = [];
+  const seen = new Set<string>();
   for (const moved of walkAhead(order, count, avoid)) {
-    if (moved.at === order.at) break;
-    out.push(currentId(moved));
+    const id = currentId(moved);
+    if (moved.at === order.at || seen.has(id)) break; // round again (Repeat all): each song once
+    seen.add(id);
+    out.push(id);
   }
   return out;
 }

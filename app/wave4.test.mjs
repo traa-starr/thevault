@@ -103,7 +103,8 @@ ok('A: Make main still makes that version the Main of its whole family and keeps
 // ---------- A: compare ---------------------------------------------------------------------------------------------------
 ok('A: Compare is opened the same two ways, and its wheel keeps its size, snap and rules', () => {
   const versions = code('./Versions.tsx');
-  assert.ok(versions.includes('close(); setTimeout(() => compare.openFromLibrary(url, versionsOf), AFTER_CLOSE_MS);'), 'from the Versions sheet: the sheet goes first');
+  // world map goal 1: Versions can open over the player; on the family playing, Compare borrows the player's song
+  assert.ok(/close\(\);[\s\S]{0,300}setTimeout\(\(\) => \(fromPlayer \? compare\.openFromPlayer\(url\) : compare\.openFromLibrary\(url, versionsOf\)\), AFTER_CLOSE_MS\)/.test(versions), 'from the Versions sheet: the sheet goes first');
   assert.ok(code('./Player.tsx').includes('onPress={() => compare.openFromPlayer(player.url())}'), 'from the player');
   const wheel = code('./Compare.tsx');
   assert.ok(/WHEEL_ROW = 32;/.test(wheel) && /WHEEL_WIDTH = 168;/.test(wheel), 'the same slot: nothing beside it moves');
@@ -120,7 +121,8 @@ ok('A: Queue, Versions and the picker use the list row every screen uses: 60 hig
   assert.equal(S.rowTile, 44);
   assert.ok(/height: S\.row\b/.test(style('./Player.tsx', 'queueRow')));
   assert.ok(/height: S\.tap\b/.test(style('./Player.tsx', 'queueBack')) && /minWidth: S\.tap\b/.test(style('./Player.tsx', 'queueBack')));
-  assert.ok(/width: S\.tap, height: S\.tap/.test(style('./Player.tsx', 'queueGrip')));
+  // the grip went with the world map (the whole row lifts on a hold): no grip in Queue
+  assert.ok(!/name="grip"/.test(code('./Player.tsx')), 'no grip icon in Queue');
   const player = code('./Player.tsx');
   assert.equal((player.slice(player.indexOf('function QueueRow('), player.indexOf('function useSlide(')).match(/<Tile [^>]*size=\{S\.rowTile\}/g) ?? []).length, 2, 'the playing row and every row up next');
   const versions = code('./Versions.tsx');

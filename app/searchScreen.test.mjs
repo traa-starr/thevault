@@ -170,13 +170,13 @@ ok('a tap plays the row\'s own song from its line\'s second, whatever the result
   assert.ok(screen.includes('style={{ marginBottom: keyboard }}'), 'the list stops where the keyboard starts');
 });
 
-ok('Library has no search box left; the lock-screen link, Home\'s box and the round button all open the one search screen', () => {
+ok('Library and Home have no search box left (world map); the lock-screen link and the round button open the one search screen', () => {
   const library = code('./Library.tsx');
   assert.ok(!library.includes('TextInput') && !library.includes('searchSongs') && !library.includes('useSearchAsk'));
   const nav = code('./nav.tsx');
   const open = nav.slice(nav.indexOf('export const openSearch'), nav.indexOf('export const closeSearch'));
   assert.ok(open.includes("player.open('none')") && open.includes('setPlace(searchOpened(place))'), 'the player steps aside, the search screen shows');
-  assert.ok(code('./Home.tsx').includes("onPress={() => openSearch('')}") && code('./Frame.tsx').includes("onPress={() => openSearch('')}"));
+  assert.ok(!code('./Home.tsx').includes('openSearch') && code('./Frame.tsx').includes("onPress={() => openSearch('')}"));
   const app = code('./App.tsx');
   assert.ok(app.includes('if (ask && addressNow.current) openSearch(ask.q);'), 'the link');
   assert.ok(/\(tab !== 'search' \|\| sort\) && s\.away/.test(app), 'kept drawn, only hidden, like Home and Library');

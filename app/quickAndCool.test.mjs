@@ -56,10 +56,18 @@ const source = (file) => readFileSync(new URL(file, import.meta.url), 'utf8');
     assert.ok(tap.includes('onPressIn'), 'starts at finger-down, before the tap does its work');
     const player = source('./Player.tsx');
     assert.ok(!/p\.pressed|tint\(p\)|pressed &&/.test(player), 'no player button still draws its look from the app thread');
-    for (const label of ['Previous', 'Next', "'Pause' : 'Play'", 'Not mine', 'Mine', 'Favorite', 'Archive', 'Queue']) assert.ok(player.includes(label));
-    // the action row's five buttons (Favorite, Archive, Tag, Lines, Queue) are one <Action>, itself a <Tap>
+    for (const label of ['Previous', 'Next', "'Pause' : 'Play'", 'Not mine', 'Mine', 'Favorite', 'Shuffle', 'Repeat', 'More']) assert.ok(player.includes(label), label);
+    // world map: Archive and Queue moved from the face into the song sheet's rows (one Pressable each, closing on the first tap)
+    const sheetRules = source('./songActions.ts');
+    for (const label of ["'Archive'", "'Queue'"]) assert.ok(sheetRules.includes(label), label);
+    // the action row's four buttons (Favorite, Tag, Lines, "..." or Next song) are one <Action>, itself a <Tap>
     assert.ok(/function Action\([\s\S]*?<Tap\b/.test(player), 'the action row is made of Taps');
-    assert.ok((player.match(/<Tap\b/g) ?? []).length + (player.match(/<Action\b/g) ?? []).length >= 18, 'Previous, Play, Next, Shuffle, Favorite, Archive, Tag, Lines, Queue, close, eye, Mine, Not mine, the mini player, the session');
+    // the song sheet's rows: the first tap closes the sheet, then acts; a second tap in the same moment does nothing,
+    // so a double tap on Favorite or Archive can't turn it on and straight off again
+    const sheet = source('./SongSheet.tsx');
+    assert.ok(/if \(done\.current\) return;\s*done\.current = true;\s*closeSongSheet\(\);\s*fn\(\);/.test(sheet), 'sheet rows: close first, then act, once');
+    assert.ok(sheet.includes('once(() => run(action, now))') && sheet.includes('once(one.onPress)'), 'the song sheet and every small menu go through it');
+    assert.ok((player.match(/<Tap\b/g) ?? []).length + (player.match(/<Action\b/g) ?? []).length >= 20, 'Previous, Play, Next, Shuffle, Repeat, Favorite, Tag, Lines, More, Next song, close, eye, Mine, Not mine, the mini player Play and Next, the session Close and Not mine, Queue Back, Action');
   });
 }
 

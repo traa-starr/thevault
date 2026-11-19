@@ -16,7 +16,7 @@ import { timing, type Path } from './timings';
 import { changedKeys, redrawFor, SPOT_EVERY_MS } from './energy';
 import { hang } from './hangWatch';
 import { closeQueue, openSheet, type Sheet } from './sheetCore';
-import { currentId, eyeSetting, jumpTo, moveBy, shownLength, SORT_START_SEC, startSpot, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setFlag, setShuffle, startOrder, upNext, walkAhead, walkBack, type Order } from './playOrder';
+import { afterSongEnds, currentId, eyeSetting, jumpTo, moveBy, repeatAfterTap, repeatFrom, shownLength, SORT_START_SEC, startSpot, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setFlag, setShuffle, startOrder, upNext, walkAhead, walkBack, withRepeat, type Order, type Repeat } from './playOrder';
 import { isVersion, members, removeEditFor, sendEdit, showToast, songTitle, undo as undoVersions, type Sent } from './versionStore';
 
 /** `length`: seconds, measured on the laptop (NEXT C), so the length shows at the tap; null or missing: not known yet. */
@@ -64,6 +64,8 @@ type State = {
   queueFrom: 'none' | 'player';
   timeLeft: boolean;
   buttonsHidden: boolean;
+  /** Repeat: Off, all, one. Kept in repeat.txt, so it comes back after the app is closed. */
+  repeat: Repeat;
   marks: Record<string, Mark>;
   pool: Pool;
   /** Compare has the sound: the queue's player waits, paused, and its buttons do nothing. */
@@ -74,6 +76,15 @@ const timeLeftFile = () => new File(Paths.document, 'time-left.txt');
 const lastPlayFile = () => new File(Paths.document, 'last-play.json');
 const RECENT_KEPT = 30;
 const buttonsHiddenFile = () => new File(Paths.document, 'buttons-hidden.txt');
+const repeatFile = () => new File(Paths.document, 'repeat.txt');
+const readRepeat = (): Repeat => {
+  try {
+    const file = repeatFile();
+    return file.exists ? repeatFrom(file.textSync().trim()) : 'off';
+  } catch {
+    return 'off';
+  }
+};
 
 let state: State = {
   order: null,
@@ -90,6 +101,7 @@ let state: State = {
   queueFrom: 'none',
   timeLeft: timeLeftFile().exists,
   buttonsHidden: buttonsHiddenFile().exists,
+  repeat: readRepeat(),
   marks: {},
   pool: 'unsorted',
   comparing: false,
@@ -262,8 +274,11 @@ function onSound(sound: Sound) {
   if (sound.finished) finished();
 }
 
+/** The player loops its song: a Sort card, or Repeat one. */
+const loopNow = () => state.sorting || state.repeat === 'one';
+
 function finished() {
-  const moved = state.order && nextInOrder(state.order, avoid());
+  const moved = state.order && afterSongEnds(state.order, state.repeat, avoid());
   if (moved) {
     loadOrder(moved, undefined, true);
     return;
@@ -411,7 +426,7 @@ function loadOrder(order: Order, asked: number | undefined, play: boolean) {
     } else {
       sound.load([audioUrl(id)], 0, at, play);
     }
-    sound.setLoop(state.sorting);
+    sound.setLoop(loopNow());
     sound.setTitle(titleOf(id));
   };
   // play first: once the audio mode is set (every load after the first), the sound is asked for before the screen
@@ -538,7 +553,7 @@ export const player = {
     const marks = { ...state.marks };
     ids.forEach((id) => delete marks[id]); // the list already holds my latest choices
     update({ marks, pool });
-    const order = startOrder(ids, startId, shuffle);
+    const order = withRepeat(startOrder(ids, startId, shuffle), state.repeat);
     if (state.sorting) saved = { order, at: at ?? 0 };
     else {
       tapFor(path, currentId(order));
@@ -799,7 +814,7 @@ export const player = {
     saved = null;
     state = { ...state, sorting: false };
     startPoint = 0;
-    engine?.setLoop(false);
+    engine?.setLoop(loopNow());
     if (!spot) {
       engine?.stop();
       track = [];
@@ -859,9 +874,36 @@ export const player = {
     update({ buttonsHidden: eye.toggle() });
   },
 
+  /** Repeat's one button: Off > all > one > Off. Saved for the next launch; the switch flips even if the file can't be. */
+  tapRepeat() {
+    const repeat = repeatAfterTap(state.repeat);
+    note(`Player: Repeat ${repeat}`);
+    try {
+      const file = repeatFile();
+      if (repeat === 'off') {
+        if (file.exists) file.delete();
+      } else {
+        if (!file.exists) file.create();
+        file.writeSync(repeat);
+      }
+    } catch {
+      // a full phone: the choice holds until the app closes
+    }
+    update({ repeat });
+    if (!state.comparing) engine?.setLoop(loopNow()); // Compare loops its song itself and puts this back on Done
+    if (state.sorting && saved) saved = { ...saved, order: withRepeat(saved.order, repeat) };
+    if (!state.order || state.sorting) return;
+    const order = withRepeat(state.order, repeat);
+    if (!!order.wrap === !!state.order.wrap) return; // only Repeat all changes what comes next
+    const index = engine?.windowed ? engine.index() : 0;
+    track = track.map((one, i) => (i <= index ? { id: one.id, order: i === index ? order : null } : one));
+    update({ order });
+    replaceAhead(order, index);
+  },
+
   /** The two display settings, read again from their files (a restore after a reinstall just wrote them). */
   reloadSettings() {
-    update({ timeLeft: timeLeftFile().exists, buttonsHidden: eye.reload() });
+    update({ timeLeft: timeLeftFile().exists, buttonsHidden: eye.reload(), repeat: readRepeat() });
   },
 
   /** A version from the Versions view: plays now, and what came after it stays as it was. */
@@ -931,7 +973,7 @@ export const player = {
       last.songs.forEach((song) => songs.set(song.id, song));
       if (!songs.has(currentId(last.order))) return;
       update({ pool: last.pool ?? 'unsorted' });
-      loadOrder(last.order, last.at ?? 0, false);
+      loadOrder(withRepeat(last.order, state.repeat), last.at ?? 0, false);
       restored = true;
     } catch {
       // nothing usable saved: start empty, as before
@@ -979,7 +1021,7 @@ export const player = {
     const back = beforeCompare;
     beforeCompare = null;
     update({ comparing: false });
-    engine?.setLoop(state.sorting);
+    engine?.setLoop(loopNow());
     engine?.lockScreenSkips(true);
     if (back) {
       if (back.spot) loadOrder(back.spot.order, back.spot.at, false);

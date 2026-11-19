@@ -19,17 +19,20 @@ import { Glass } from './Frame';
 import { Icon, type IconName } from './Icon';
 import { Tap } from './Tap';
 import { compare, useCompare } from './compareStore';
-import { openLibrarySelect, usePlace } from './nav';
+import { usePlace } from './nav';
 import { player, usePlayer, usePlayerPick } from './playerStore';
 import { draftGoesOnChange, listIsOpen, queueDrop, seekRelease, shuffleAfterTap, shuffleWords, type ShownTag } from './playOrder';
 import { ratingStore, useRating } from './ratingStore';
 import { session, useSession, useSessionCount } from './sessionStore';
 import { layers, pullCloses, slideController, type Nav } from './sheetCore';
+import { playerFace } from './songActions';
+import { openSongSheet } from './SongSheet';
 import { HoldMenu, jumpToTag, ReservedLine, TagList, usePassedTag } from './Tagging';
 import { sayAside, tagLine, useTagLine, useTags } from './tagStore';
 import { C, coveredBelow, R, S, T } from './theme';
-import { VersionsChip, VersionsToast } from './Versions';
+import { VersionsToast } from './Versions';
 import * as versions from './versionStore';
+import { lineFor } from './yourLines';
 
 const HOLD_MS = 300; // not lower: a hold let go just short of this jumps to the song
 const SLIDE_MS = 220;
@@ -195,6 +198,9 @@ export function MiniPlayer() {
   const { sort } = usePlace();
   const swipe = useSwipeUp(() => player.open('queue'));
   const date = useSongDate(song?.id);
+  // your line under the title (WORLD-MAP rule 2): from the song's id and its tags only, never the clock (heat)
+  const songTags = useTags(song?.id);
+  const line = useMemo(() => (song ? lineFor(song.id, songTags) : null), [song?.id, songTags]);
   if (!song) return null;
   const fade = sheetAt.interpolate({ inputRange: [0, HANDOVER, 1], outputRange: [0, 0, 1], extrapolate: 'clamp' });
   return (
@@ -204,7 +210,7 @@ export function MiniPlayer() {
           <Tile title={song.title} date={date} size={S.rowTile} radius={R.rowTile} />
           <View style={s.miniText}>
             <Text style={s.miniTitle} numberOfLines={1}>{song.title}</Text>
-            <Text style={s.miniDetail} numberOfLines={1}>{comparing ? 'Comparing versions' : trouble || note || (sorting ? 'Sorting' : wanted ? 'Playing' : 'Paused')}</Text>
+            <Text style={s.miniDetail} numberOfLines={1}>{comparing ? 'Comparing versions' : trouble || note || (sorting ? 'Sorting' : line || (wanted ? 'Playing' : 'Paused'))}</Text>
           </View>
         </Pressable>
         <Tap style={s.miniButton} radius={22} onPress={player.toggle} accessibilityLabel={wanted ? 'Pause' : 'Play'}>
@@ -231,7 +237,7 @@ function Action({ icon, word, on = false, accent = false, onPress, label }: { ic
 }
 
 export function FullPlayer() {
-  const { song, order, wanted: playerWanted, time: playerTime, duration: playerDuration, note, trouble, timeLeft, sorting, buttonsHidden, pool } = usePlayer();
+  const { song, order, wanted: playerWanted, time: playerTime, duration: playerDuration, note, trouble, timeLeft, sorting, buttonsHidden, pool, repeat } = usePlayer();
   const [seekingTo, setSeekingTo] = useState<number | null>(null);
   const swipe = useBlankSwipeUp(() => player.open('queue'));
   const hidden = useRef(new Animated.Value(buttonsHidden ? 1 : 0)).current;
@@ -316,11 +322,30 @@ export function FullPlayer() {
     player.setShuffleOn(pick.on, pick.pool);
     sayAside(pick.on ? { text: 'Shuffle: ', bold: shuffleWords(pick) } : { text: 'Shuffle ', bold: 'off' });
   };
+  const tapRepeat = () => {
+    player.tapRepeat();
+    const now = player.now().repeat;
+    sayAside(now === 'off' ? { text: 'Repeat ', bold: 'off' } : { text: 'Repeat: ', bold: now === 'all' ? 'All' : 'One' });
+  };
   const title = comparing ? versions.songTitle(shownId ?? '') : song?.title;
   const date = useSongDate(shownId);
   const linesOpen = !comparing && !!shownId && listIsOpen(listFor, shownId);
   const tile = Math.max(Math.min(artBox.width, artBox.height), 0);
   const out = player.isOut();
+  // what the face shows comes from the tested rules (songActions.ts); the eye decides Mine / Not mine (owner, 2026-11-13)
+  const familySize = shownId ? Math.max(versions.members(shownId).length, 1) : 1;
+  const mark = song ? player.markOf(song) : null;
+  const face = playerFace({
+    rating: !mark?.sorted ? null : mark.mine === 'mine' ? 'mine' : 'not_mine',
+    favorite: rating === 'fire', archived: rating === 'shelved', familySize, comparing, inSession, from: 'player', eyeOpen: !buttonsHidden,
+  });
+  // "...": the song sheet on the song heard (in Compare, the version sounding)
+  const openSheet = () => {
+    if (!shownId) return;
+    const info = versions.songInfo(shownId);
+    const heard = song?.id === shownId ? song : { id: shownId, title: versions.songTitle(shownId), mine: info?.mine ?? 'mine', sorted: info?.sorted ?? true };
+    openSongSheet(heard, 'player');
+  };
   return (
     <Animated.View style={[s.page, { transform: [{ translateY: lift.interpolate({ inputRange: [0, 1], outputRange: [0, -artBox.height] }) }] }]}>
       {/* beside the grab mark: down (Done in Compare), or the tagging session's Close and count */}
@@ -346,8 +371,8 @@ export function FullPlayer() {
       <View style={s.titleBox}>
         <Text style={s.title} numberOfLines={2}>{title}</Text>
       </View>
-      {/* the quiet row: Mine / Not mine (the eye hides them, and keeps my choice), Shuffle on the right. In a session,
-          Not mine alone. On a Sort card, nothing. The row keeps its height either way */}
+      {/* the quiet row: Mine / Not mine (the eye hides them, and keeps my choice). In a session, Not mine alone. On a
+          Sort card, nothing. The row keeps its height either way */}
       <View style={s.quiet}>
         {inSession ? (
           // the same quiet pill as Sort's buttons (wave 3)
@@ -362,7 +387,7 @@ export function FullPlayer() {
             {/* only the eye shows or hides these; in Compare they stay as the eye says, dimmed, and take no taps */}
             <Animated.View
               style={[s.verdicts, comparing && s.resting, { opacity: hidden.interpolate({ inputRange: [0, 1], outputRange: [comparing ? 0.35 : 1, 0] }) }]}
-              pointerEvents={buttonsHidden || comparing ? 'none' : 'auto'}
+              pointerEvents={face.verdicts ? 'auto' : 'none'}
             >
               {out ? null : (
                 <>
@@ -377,28 +402,14 @@ export function FullPlayer() {
             </Animated.View>
           </>
         )}
-        <View style={s.fill} />
-        {/* each tap: Off > Mine > Unsorted > Off, no box. Hidden while sorting and in a session, its place kept */}
-        {inSession || sorting ? null : (
-          <Tap style={s.eyeTap} radius={22} onPress={leavingCompare(tapShuffle)} accessibilityLabel={shuffleOn ? `Shuffle on, ${pool === 'mine' ? 'Mine' : 'unsorted'}` : 'Shuffle off'}>
-            <Icon name="shuffle" size={22} color={shuffleOn ? C.accent : C.faint} />
-          </Tap>
-        )}
       </View>
-      {/* versions: + Version, the Versions chip, and Compare (or its wheel) in one fixed slot. The row keeps its height */}
+      {/* Compare (or its wheel) in one fixed slot, only with 2 or more versions; Versions and + Version are in the song
+          sheet ("..."). The row keeps its height */}
       <View style={[s.versionRow, inSession && s.versionRowSession]}>
         {!shownId || (!comparing && (sorting || (out && !inSession))) ? null : (
           <>
-            {/* never a sheet over this sheet (iOS froze on that): the player closes first, then the next screen opens */}
-            {/* already in a group: hidden, its Versions chip and Compare do the work */}
-            {versions.members(shownId).length > 1 ? null : (
-              <Pressable onPress={() => player.closeThen(() => openLibrarySelect(shownId))}>
-                <Text style={s.word}>+ Version</Text>
-              </Pressable>
-            )}
-            <VersionsChip id={shownId} onPress={() => player.closeThen(() => versions.openVersions(shownId))} />
             {/* one fixed-width slot: the Compare word, or in Compare the wheel in its place, so nothing beside it moves */}
-            {versions.members(shownId).length > 1 ? (
+            {face.compare ? (
               <View style={s.compareSlot}>
                 {comparing ? (
                   <CompareDial />
@@ -420,43 +431,63 @@ export function FullPlayer() {
         <View style={s.timeBox}>
           <Text style={s.time}>{clock(shown)}</Text>
         </View>
-        <Pressable style={s.timeTap} onPress={player.toggleTimeLeft}>
+        {/* the time-left tap is gone (world map); the length shows as it was last set */}
+        <View style={s.timeTap}>
           <Text style={s.time}>{!duration ? '–:––' : timeLeft ? `-${clock(Math.max(duration - shown, 0))}` : clock(duration)}</Text>
-        </Pressable>
+        </View>
       </View>
       {/* also the player's own note when nothing about tags is showing */}
       <ReservedLine songId={song?.id} duration={duration} fallback={trouble || note} passed={passed} />
       {/* the same buttons in Compare: Play/Pause works the version heard, the rest end Compare first. Three fixed
-          boxes in a pill: dead centre from every place the player opens */}
-      <Glass style={s.pill} radius={R.pill}>
-        <Tap style={s.skip} radius={28} onPress={leavingCompare(player.previous)} accessibilityLabel="Previous">
-          <Icon name="previous" size={30} color={C.text} />
-        </Tap>
-        <Tap filled style={s.play} radius={S.play / 2} onPress={comparing ? compare.toggle : player.toggle} accessibilityLabel={wanted ? 'Pause' : 'Play'}>
-          <Icon name={wanted ? 'pause' : 'play'} size={28} color="#000" />
-        </Tap>
-        <Tap style={s.skip} radius={28} onPress={leavingCompare(player.next)} accessibilityLabel="Next">
-          <Icon name="next" size={30} color={C.text} />
-        </Tap>
-      </Glass>
-      {/* five fixed slots. A slot with nothing to offer (rating on a Sort card, tagging in Compare) stays empty, so
-          the others never move */}
+          boxes in a pill, Shuffle and Repeat one each side, smaller (owner, 2026-11-13): dead centre from every place
+          the player opens. On a Sort card and in a session the two sides stay empty, their place kept */}
+      <View style={s.transport}>
+        {inSession || sorting ? <View style={s.side} /> : (
+          // each tap: Off > Mine > Unsorted > Off, no box
+          <Tap style={s.side} radius={22} onPress={leavingCompare(tapShuffle)} accessibilityLabel={shuffleOn ? `Shuffle on, ${pool === 'mine' ? 'Mine' : 'unsorted'}` : 'Shuffle off'}>
+            <Icon name="shuffle" size={22} color={shuffleOn ? C.accent : C.faint} />
+          </Tap>
+        )}
+        <Glass style={s.pill} radius={R.pill}>
+          <Tap style={s.skip} radius={28} onPress={leavingCompare(player.previous)} accessibilityLabel="Previous">
+            <Icon name="previous" size={30} color={C.text} />
+          </Tap>
+          <Tap filled style={s.play} radius={S.play / 2} onPress={comparing ? compare.toggle : player.toggle} accessibilityLabel={wanted ? 'Pause' : 'Play'}>
+            <Icon name={wanted ? 'pause' : 'play'} size={28} color="#000" />
+          </Tap>
+          <Tap style={s.skip} radius={28} onPress={leavingCompare(player.next)} accessibilityLabel="Next">
+            <Icon name="next" size={30} color={C.text} />
+          </Tap>
+        </Glass>
+        {inSession || sorting ? <View style={s.side} /> : (
+          // each tap: Off > Repeat all > Repeat one > Off; kept after the app closes
+          <Tap style={s.side} radius={22} onPress={tapRepeat} accessibilityLabel={repeat === 'off' ? 'Repeat off' : repeat === 'all' ? 'Repeat all' : 'Repeat one'}>
+            <Icon name={repeat === 'one' ? 'repeatOne' : 'repeat'} size={22} color={repeat === 'off' ? C.faint : C.accent} />
+          </Tap>
+        )}
+      </View>
+      {/* four fixed slots (playerFace): Favorite, Tag, Lines, "..." (a session: Next song). A slot with nothing to offer
+          (rating on a Sort card, tagging in Compare) stays empty, so the others never move */}
       <View style={s.actions}>
-        {canRate ? (
-          <Action icon={rating === 'fire' ? 'favoriteOn' : 'favorite'} word="Favorite" on={rating === 'fire'} onPress={() => ratingStore.tap(song.id, song.title, 'fire')} label={rating === 'fire' ? 'Favorite, on' : 'Favorite, off'} />
-        ) : <View style={s.action} />}
-        {canRate ? (
-          <Action icon={rating === 'shelved' ? 'archiveOn' : 'archive'} word={rating === 'shelved' ? 'Archived' : 'Archive'} on={rating === 'shelved'} onPress={() => ratingStore.tap(song.id, song.title, 'shelved')} label={rating === 'shelved' ? 'Archived, on' : 'Archive'} />
-        ) : <View style={s.action} />}
-        {/* the most-used button: the middle, under the thumb. While a line is being typed it cancels */}
-        {comparing || !song ? <View style={s.action} /> : (
-          <Action icon={draft ? 'close' : 'tag'} word="Tag" accent onPress={() => tagLine.tap(song.id, song.title, player.positionNow())} label={draft ? 'Cancel tag' : 'Tag here'} />
-        )}
-        {comparing || !shownId ? <View style={s.action} /> : (
-          <Action icon="lines" word={`Lines · ${tags.length}`} on={linesOpen} onPress={() => tagLine.toggleList(shownId)} label={linesOpen ? 'Hide lines' : 'Show lines'} />
-        )}
-        {/* in a session, Next song is the main action: the one lit slot besides Tag */}
-        {inSession ? <Action icon="next" word="Next song" on onPress={leavingCompare(player.next)} /> : <Action icon="queue" word="Queue" onPress={() => player.open('queue')} />}
+        {face.slots.map((slot) => {
+          if (slot === 'favorite')
+            return canRate ? (
+              <Action key={slot} icon={rating === 'fire' ? 'favoriteOn' : 'favorite'} word="Favorite" on={rating === 'fire'} onPress={() => ratingStore.tap(song.id, song.title, 'fire')} label={rating === 'fire' ? 'Favorite, on' : 'Favorite, off'} />
+            ) : <View key={slot} style={s.action} />;
+          if (slot === 'tag')
+            // the most-used button, under the thumb. While a line is being typed it cancels
+            return comparing || !song ? <View key={slot} style={s.action} /> : (
+              <Action key={slot} icon={draft ? 'close' : 'tag'} word="Tag" accent onPress={() => tagLine.tap(song.id, song.title, player.positionNow())} label={draft ? 'Cancel tag' : 'Tag here'} />
+            );
+          if (slot === 'lines')
+            return comparing || !shownId ? <View key={slot} style={s.action} /> : (
+              <Action key={slot} icon="lines" word={`Lines · ${tags.length}`} on={linesOpen} onPress={() => tagLine.toggleList(shownId)} label={linesOpen ? 'Hide lines' : 'Show lines'} />
+            );
+          // in a session, Next song is the main action: the one lit slot besides Tag
+          if (slot === 'next') return <Action key={slot} icon="next" word="Next song" on onPress={leavingCompare(player.next)} />;
+          // the song sheet: Mine / Not mine, Versions, Compare, Archive, Queue... (none on a Sort card: Sort judges)
+          return sorting || !shownId ? <View key={slot} style={s.action} /> : <Action key={slot} icon="more" word="More" onPress={openSheet} label="More for this song" />;
+        })}
       </View>
       <UndoToast inPlayer />
       <VersionsToast />
@@ -501,12 +532,7 @@ function QueueRow({ id, date, sorting }: { id: string; date: string | null; sort
         <Text style={s.queueSong} numberOfLines={1}>{title}</Text>
         <Text style={s.queueMeta} numberOfLines={1}>{date || ' '}</Text>
       </View>
-      {/* the grip only says "this moves": the whole row lifts on a hold. None on a Sort card's queue (no reorder there) */}
-      {sorting ? null : (
-        <View style={s.queueGrip}>
-          <Icon name="grip" size={20} color={C.faint} />
-        </View>
-      )}
+      {/* no grip (world map): the whole row lifts on a hold */}
     </Pressable>
   );
 }
@@ -763,7 +789,10 @@ const s = StyleSheet.create({
   time: { ...T.meta, fontVariant: ['tabular-nums'] },
   timeBox: { width: 64 },
   timeTap: { paddingVertical: 14, paddingLeft: 32, width: 96, alignItems: 'flex-end' },
-  pill: { height: S.pill, marginHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 28 },
+  // Shuffle | the pill | Repeat: the two sides the same width, so the pill stays dead centre
+  transport: { height: S.pill, flexDirection: 'row', alignItems: 'center', marginHorizontal: -6 },
+  side: { width: S.tap, height: S.tap, alignItems: 'center', justifyContent: 'center' },
+  pill: { flex: 1, height: S.pill, marginHorizontal: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 28 },
   skip: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
   play: { width: S.play, height: S.play, borderRadius: S.play / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: C.white, overflow: 'hidden' },
   actions: { height: S.actions, flexDirection: 'row', marginTop: 8, marginHorizontal: -8 },
@@ -790,6 +819,5 @@ const s = StyleSheet.create({
   queueSong: { ...T.row },
   queueNow: { color: C.accent },
   queueMeta: { ...T.meta, marginTop: 2, fontVariant: ['tabular-nums'] },
-  queueGrip: { width: S.tap, height: S.tap, marginRight: -10, alignItems: 'center', justifyContent: 'center' },
   queueEmpty: { ...T.meta, fontSize: 15, textAlign: 'center', paddingTop: 32 },
 });

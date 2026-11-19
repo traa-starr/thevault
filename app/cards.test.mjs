@@ -213,11 +213,13 @@ ok('break 1: the card has no tap of its own; verdicts come only from a release p
   const start = cards.indexOf('{...pan.panHandlers}');
   assert.ok(start > 0, 'the live card takes the pan');
   const live = cards.slice(cards.lastIndexOf('<Animated.View', start), cards.indexOf('</Animated.View>', start));
-  assert.ok(!/onPress|Pressable|Tap\b/.test(live), 'nothing inside the live card answers a tap');
+  // world map: a still hold opens the song sheet (onLongPress after HOLD_MS); still no tap
+  assert.ok(!/onPress=|Tap\b/.test(live), 'nothing inside the live card answers a tap');
+  assert.ok(/onLongPress=\{\(\) => holdCard\(song\)\} delayLongPress=\{HOLD_MS\}/.test(live), 'a hold, on the tested rule');
   const card = cards.slice(cards.indexOf('function Card('), cards.indexOf('function Round('));
   assert.ok(/pointerEvents="none"/.test(card) && !/onPress/.test(card), 'the card face swallows no touch');
   assert.ok(/onPanResponderRelease[\s\S]*?verdictAt\(g\.dx, g\.dy\)/.test(cards), 'a release asks the one rule');
-  assert.equal((cards.match(/latest\.current\.decide\(/g) ?? []).length, 5, 'one call from the release, three buttons, one from + Version');
+  assert.equal((cards.match(/latest\.current\.decide\(/g) ?? []).length, 6, 'one call from the release, three buttons, two from the hold sheet (Mine / Not mine, Add as a version)');
 });
 
 // ---------- 3. the look follows the rules ----------

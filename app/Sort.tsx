@@ -1,6 +1,6 @@
 // Sort home: how far along I am, the cards, the Not sure pile, and sets to sweep (folders first, then repeated name
-// patterns). A set opens inline with its songs listed, and only then offers All mine / All not mine. A sweep is one send,
-// and its Undo puts back only the songs that sweep changed.
+// patterns). Tap a set for its cards; hold it for its sheet: All mine / All not mine and its songs (WORLD-MAP, O.6).
+// A sweep is one send, and its Undo puts back only the songs that sweep changed.
 // Look (overhaul wave 4, the whole-app pass): theme colours only. The green and red blocks are gone (amber is the one
 // accent); buttons are the quiet pills of the Sort card, the main one white like Play.
 import { useState } from 'react';
@@ -8,13 +8,13 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import Cards from './Cards';
 import { WaitingLine } from './Notices';
 import { player } from './playerStore';
-import { session } from './sessionStore';
+import { HOLD_MS, SET_ACTIONS } from './songActions';
+import { openMenu, type MenuRow } from './SongSheet';
 import { tint } from './Tagging';
 import { Tap } from './Tap';
 import { C, R, S, T } from './theme';
 import { loadNotSure, saveNotSure, useSortData, type SortSet, type SortSong } from './sortData';
 
-type Row = { key: string; set: SortSet } & ({ kind: 'set' } | { kind: 'actions' } | { kind: 'song'; song: SortSong });
 type Sweep = { songs: SortSong[]; value: 'mine' | 'not mine' };
 
 const LIKELY: Record<string, string> = { mine: 'Mine by its folder', 'likely mine': 'Likely mine' };
@@ -28,7 +28,6 @@ export default function Sort({ url, onBack }: { url: string; onBack: () => void 
   const { view, failed, retry } = useSortData(url);
   const [notSure, setNotSure] = useState(loadNotSure);
   const [cards, setCards] = useState<{ scope: string[] | null; pile: boolean } | null>(null);
-  const [openSet, setOpenSet] = useState<string | null>(null);
   const [sweep, setSweep] = useState<Sweep | null>(null);
 
   const changeNotSure = (ids: Set<string>) => {
@@ -73,7 +72,6 @@ export default function Sort({ url, onBack }: { url: string; onBack: () => void 
     const list = set.songs.map(view.song);
     player.judge(list, value);
     setSweep({ songs: list, value });
-    setOpenSet(null);
   };
 
   const undoSweep = () => {
@@ -88,23 +86,28 @@ export default function Sort({ url, onBack }: { url: string; onBack: () => void 
     player.open('player');
   };
 
-  // one list, so a set of hundreds opens inline without slowing the screen
-  const rows: Row[] = view.sets.flatMap((set): Row[] =>
-    openSet !== set.id
-      ? [{ key: set.id, kind: 'set', set }]
-      : [
-          { key: set.id, kind: 'set', set },
-          { key: `${set.id}/actions`, kind: 'actions', set },
-          ...set.songs.map((id): Row => ({ key: `${set.id}/${id}`, kind: 'song', set, song: view.song(id) })),
-        ]);
+  // hold a set: its sheet (WORLD-MAP Sort 6, 7, 9). All mine, All not mine, then its songs; a song's tap plays it
+  const holdSet = (set: SortSet) => {
+    const ACTION: Record<(typeof SET_ACTIONS)[number], MenuRow> = {
+      all_mine: { key: 'all_mine', label: 'All mine', onPress: () => sweepSet(set, 'mine') },
+      all_not_mine: { key: 'all_not_mine', label: 'All not mine', onPress: () => sweepSet(set, 'not mine') },
+    };
+    const list = set.songs.map(view.song).map((song): MenuRow => ({
+      key: song.id,
+      label: song.title,
+      note: detail(song) || undefined,
+      onPress: () => (song.where === 'laptop' ? play(set, song) : player.showMessage('No sound: not on the laptop')),
+    }));
+    openMenu([...SET_ACTIONS.map((key) => ACTION[key]), ...list], set.name, `${songs(set.songs.length)} · ${set.kind === 'folder' ? 'folder' : 'similar names'}`);
+  };
 
   return (
     <View style={s.page}>
       <Header onBack={onBack} />
       <WaitingLine />
       <FlatList
-        data={rows}
-        keyExtractor={(row) => row.key}
+        data={view.sets}
+        keyExtractor={(set) => set.id}
         initialNumToRender={20}
         ListHeaderComponent={
           <View style={s.top}>
@@ -116,10 +119,6 @@ export default function Sort({ url, onBack }: { url: string; onBack: () => void 
             ) : (
               <Text style={s.line}>Every song has a card verdict or is in Not sure.</Text>
             )}
-            {/* the tagging session over Mine songs: the cards' other half */}
-            <Tap style={s.button} radius={22} onPress={() => session.start(url)}>
-              <Text style={s.buttonText}>Tag songs</Text>
-            </Tap>
             {unsure ? (
               <Tap style={s.button} radius={22} onPress={() => setCards({ scope: null, pile: true })}>
                 <Text style={s.buttonText}>Not sure · {number(unsure)}</Text>
@@ -128,41 +127,19 @@ export default function Sort({ url, onBack }: { url: string; onBack: () => void 
             <Text style={s.section}>{view.sets.length ? 'Sets to sweep' : 'No sets left'}</Text>
           </View>
         }
-        renderItem={({ item }) => {
-          if (item.kind === 'set') {
-            const isOpen = openSet === item.set.id;
-            return (
-              <Pressable style={(p) => [s.set, tint(p)]} onPress={() => setOpenSet(isOpen ? null : item.set.id)}>
-                <Text style={s.setName} numberOfLines={2}>{item.set.name}</Text>
-                <Text style={s.setCount}>
-                  {songs(item.set.songs.length)} · {item.set.kind === 'folder' ? 'folder' : 'similar names'} · {isOpen ? 'hide' : 'show songs'}
-                </Text>
-              </Pressable>
-            );
-          }
-          if (item.kind === 'actions') {
-            return (
-              <View style={s.actions}>
-                <Tap style={s.button} radius={22} onPress={() => sweepSet(item.set, 'mine')}>
-                  <Text style={s.buttonText}>All mine</Text>
-                </Tap>
-                <Tap style={s.button} radius={22} onPress={() => sweepSet(item.set, 'not mine')}>
-                  <Text style={s.buttonText}>All not mine</Text>
-                </Tap>
-                <Tap style={s.button} radius={22} onPress={() => setCards({ scope: item.set.songs, pile: false })}>
-                  <Text style={s.buttonText}>One by one</Text>
-                </Tap>
-              </View>
-            );
-          }
-          const off = item.song.where !== 'laptop';
-          return (
-            <Pressable style={(p) => [s.song, tint(p)]} disabled={off} onPress={() => play(item.set, item.song)}>
-              <Text style={[s.songTitle, off && s.off]} numberOfLines={1}>{item.song.title}</Text>
-              <Text style={s.songDetail} numberOfLines={1}>{detail(item.song) || ' '}</Text>
-            </Pressable>
-          );
-        }}
+        // tap a set: its cards, one by one. Hold it: All mine, All not mine and its songs (the set sheet)
+        renderItem={({ item: set }) => (
+          <Pressable
+            style={(p) => [s.set, tint(p)]}
+            onPress={() => setCards({ scope: set.songs, pile: false })}
+            onLongPress={() => holdSet(set)}
+            delayLongPress={HOLD_MS}
+            accessibilityHint="Hold for All mine, All not mine and its songs"
+          >
+            <Text style={s.setName} numberOfLines={2}>{set.name}</Text>
+            <Text style={s.setCount}>{songs(set.songs.length)} · {set.kind === 'folder' ? 'folder' : 'similar names'}</Text>
+          </Pressable>
+        )}
       />
       {sweep ? (
         <Pressable style={s.toast} onPress={undoSweep}>
@@ -208,11 +185,6 @@ const s = StyleSheet.create({
   set: { minHeight: S.row, justifyContent: 'center', paddingVertical: 10, borderBottomColor: C.line, borderBottomWidth: StyleSheet.hairlineWidth },
   setName: { ...T.row, fontWeight: '600' },
   setCount: { ...T.meta, marginTop: 2 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 10 },
-  song: { height: 56, justifyContent: 'center', paddingLeft: 12, borderBottomColor: C.line, borderBottomWidth: StyleSheet.hairlineWidth },
-  songTitle: { color: C.text, fontSize: 15 },
-  songDetail: { ...T.meta, fontSize: 12, marginTop: 2 },
-  off: { color: C.faint },
   // the same toast as the player's Undo
   toast: { position: 'absolute', left: 16, right: 16, bottom: 40, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: R.toast, backgroundColor: C.toast },
   toastText: { flex: 1, ...T.toast },

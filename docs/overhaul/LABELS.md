@@ -23,10 +23,9 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 ## Cards.tsx
 - {…} left here
 - {…} of {…} sorted
-- + Version
+- {…}: hold for more
 - All done here
 - Back
-- Back to Sort
 - Cards
 - Likely mine
 - Mine
@@ -65,32 +64,35 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - {…} days ago
 - {…} months ago
 - {…} plays
-- {…} versions
 - {…} years ago
 - 1 month ago
 - 1 year ago
 - Favorites
+- Hold for Favorites or Unsorted
+- Mine
 - Mine or not mine, one card at a time
-- More
+- More: Sort, Tag songs, Settings
 - My songs one by one, to mark their lines
 - No Favorites yet: tap Favorite in the player
 - No Mine songs can play right now.
 - Not played in a while
-- Play
+- Nothing left unsorted
+- Play {…}
+- Play {…} from {…}: {…}
 - Recently played
-- Search
-- See all
 - See all: {…}
 - Settings
 - Shuffle
-- Shuffle my Favorites
 - Shuffle my songs
 - Songs are still loading.
+- Sort · {…} left
 - Sort songs
 - Tag songs
+- Tag songs: mark a line while it plays, and it shows up here
+- Tag your first line
 - The Vault
 - Today
-- Versions of
+- Unsorted
 - Yesterday
 
 ## Library.tsx
@@ -121,6 +123,7 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Favorites
 - File missing
 - Group as versions
+- Has tags
 - Hidden
 - it wasn't
 - Laptop not reachable
@@ -130,26 +133,27 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Loading songs…
 - Main
 - Mine
+- More: Shuffle, Order, Select songs
 - Most played
 - Needs tags
 - Newest
 - No Favorites yet: tap Favorite in the player
 - No Mine songs yet
+- No song has a line tagged yet
 - No songs yet
 - No version groups yet
 - not mine
 - Not mine
 - Nothing archived
 - Nothing left unsorted
+- Off
 - On the laptop
-- Order: {…}
+- Order
 - Phone storage full: {…} Mine songs not on this phone
 - Saving to phone: {…} of {…}
+- Select songs
 - Shuffle
-- Shuffle off
-- Shuffle on, {…}
 - Shuffle: {…}
-- Tag songs
 - The laptop refused
 - they weren't
 - to tag
@@ -158,6 +162,7 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - version groups
 - Versions
 - Versions · {…}, Main: {…}{…}
+- with tags
 
 ## Notices.tsx
 - · Laptop not reachable
@@ -178,10 +183,7 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Welcome back
 
 ## Player.tsx
-- + Version
-- Archive
-- Archived
-- Archived, on
+- All
 - Back
 - Cancel tag
 - Close
@@ -198,11 +200,14 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Lines · {…}
 - Mine
 - Mine, on
+- More
+- More for this song
 - Next
 - Next song
 - Not mine
 - Nothing after this song
 - Now playing: {…}
+- One
 - Open player: {…}
 - Pause
 - Paused
@@ -210,6 +215,11 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Playing
 - Previous
 - Queue
+- Repeat
+- Repeat all
+- Repeat off
+- Repeat one
+- Repeat:
 - Show lines
 - Show Mine and Not mine
 - Shuffle
@@ -264,6 +274,15 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Favorite
 - On this phone
 
+## SongSheet.tsx
+- {…} versions
+- Cancel
+- Close
+- Hidden
+- Mine
+- not mine
+- This is the Main of {…} versions: make another one Main first (Versions).
+
 ## Sort.tsx
 - {…} songs
 - 1 song
@@ -274,21 +293,20 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Cloud only
 - Every song has a card verdict or is in Not sure.
 - File missing
+- Hold for All mine, All not mine and its songs
 - Laptop not reachable
 - Likely mine
 - Loading…
 - Mine
 - Mine by its folder
 - No sets left
+- No sound: not on the laptop
 - not mine
 - Not mine
 - Not sure ·
-- One by one
 - Sets to sweep
-- show songs
 - similar names
 - Sort
-- Tag songs
 - Try again
 - Undo
 
@@ -377,7 +395,6 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Most played
 - Needs tags
 - Recently added
-- Versions to compare
 
 ## playLog.ts
 - heard/
@@ -420,6 +437,20 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Open Library once first, so the phone knows your songs.
 - This song has versions: use Versions to take it out first.
 
+## songActions.ts
+- Add as a version of…
+- Archive
+- Compare
+- Favorite
+- Mine
+- Not mine
+- Queue
+- Select
+- Unarchive
+- Unfavorite
+- Versions
+- Versions ({…})
+
 ## tagStore.ts
 - Changed
 - Deleted
@@ -434,3 +465,6 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 ## versionStore.ts
 - Already versions of each other.
 - that song
+
+## yourLines.ts
+- {…} versions

@@ -12,9 +12,9 @@ import { loadNotSure, saveNotSure } from './sortData';
 
 const TIMEOUT_MS = 10000;
 const EVERY_MS = 5 * 60 * 1000;
-// player files copied as they are: the last song and spot, and the two display settings
+// player files copied as they are: the last song and spot, the two display settings, and Repeat
 const LAST_PLAY = 'last-play.json';
-const PLAYER_FILES = [LAST_PLAY, 'time-left.txt', 'buttons-hidden.txt'];
+const PLAYER_FILES = [LAST_PLAY, 'time-left.txt', 'buttons-hidden.txt', 'repeat.txt'];
 // The laptop server's code this app needs (server.py SERVER_LEVEL). Raise both together.
 export const NEEDS_SERVER = 5;
 

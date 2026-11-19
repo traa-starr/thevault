@@ -36,6 +36,8 @@ export const closePicker = () => setVersions({ picker: null });
 export const setLibrary = () => {};
 export const groupMainOf = () => null;
 export const showToast = () => {};
+export const sendMine = () => [];
+export const undoMine = () => {};
 export const undo = () => {};
 export const group = () => null;
 export const ensureLibrary = () => {};

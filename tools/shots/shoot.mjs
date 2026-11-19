@@ -65,7 +65,9 @@ writeFileSync(
 );
 
 const only = process.argv[2];
-const chosen = fixtures.filter((f) => !only || f.name.includes(only));
+// one word: every shot whose name has it; a comma list: exactly those shots
+const names = only?.includes(',') ? only.split(',') : null;
+const chosen = fixtures.filter((f) => !only || (names ? names.includes(f.name) : f.name.includes(only)));
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 let bad = 0;
 const boxes = {};
@@ -81,6 +83,23 @@ for (const f of chosen) {
   for (const step of f.steps ?? []) {
     await page.evaluate(step);
     await page.waitForTimeout(120);
+  }
+  // `hold`: a real finger presses that thing (selector or exact words, app.find) and stays still 0.6 s, longer than
+  // the app's 0.4 s hold; `then`: steps after the hold (a row in the sheet it opened)
+  if (f.hold) {
+    const at = await page.evaluate((what) => window.app.middleOf(what), f.hold);
+    if (!at) errors.push(`nothing to hold: ${f.hold}`);
+    else {
+      await page.mouse.move(at[0], at[1]);
+      await page.mouse.down();
+      await page.waitForTimeout(600);
+      await page.mouse.up();
+      await page.waitForTimeout(200);
+    }
+    for (const step of f.then ?? []) {
+      await page.evaluate(step);
+      await page.waitForTimeout(120);
+    }
   }
   await page.waitForTimeout(f.wait ?? 480); // a sheet that grew out of the mini player has landed
   // `drag: [x, fromY, toY]` (or `[fromX, fromY, toX, toY]`): a finger pulls from one spot to another and holds there,

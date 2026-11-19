@@ -46,8 +46,7 @@ function library(count = 1395) {
   }
   lines.set(songs[7].id, 30);
   const facts = {
-    rating: (id) => ratings.get(id), grouped: (id) => families.has(id), tagged: (id) => lines.has(id),
-    plays, versions: (id) => families.get(id) ?? 1,
+    rating: (id) => ratings.get(id), grouped: (id) => families.has(id), tagged: (id) => lines.has(id), plays,
   };
   return { songs, ratings, plays, families, lines, facts };
 }
@@ -84,13 +83,14 @@ ok('Most played: most plays first, then heard latest; never-played songs follow,
   assert.deepEqual([nextSort('date'), nextSort('title'), nextSort('plays')], ['title', 'plays', 'date']);
 });
 
-ok('every chip keeps exactly its songs, in the list\'s order: All, Mine, Favorites, Archived, Needs tags, Versions, Unsorted', () => {
+ok('every chip keeps exactly its songs, in the list\'s order: All, Mine, Favorites, Archived, Has tags, Needs tags, Versions, Unsorted', () => {
   const sorted = sortSongs(LIB.songs, 'date');
   const want = {
     all: () => true,
     mine: (song) => song.mine === 'mine',
     fire: (song) => LIB.ratings.get(song.id) === 'fire',
     shelved: (song) => LIB.ratings.get(song.id) === 'shelved',
+    tagged: (song) => LIB.lines.has(song.id),
     untagged: (song) => song.mine === 'mine' && !LIB.lines.has(song.id),
     grouped: (song) => LIB.families.has(song.id),
     unsorted: (song) => song.mine !== 'mine' && !song.sorted,
@@ -103,16 +103,30 @@ ok('every chip keeps exactly its songs, in the list\'s order: All, Mine, Favorit
     counts[chip] = got.length;
   }
   console.log(`     ${Object.entries(counts).map(([chip, count]) => `${chip} ${count}`).join(', ')}`);
-  assert.deepEqual([...CHIPS], ['all', 'fire', 'untagged', 'grouped', 'shelved'], 'calm part 1: All, Favorites, Needs tags, Versions, Archived');
+  assert.deepEqual([...CHIPS], ['all', 'fire', 'grouped', 'tagged', 'untagged', 'shelved'], 'owner 2026-11-13: All, Favorites, Versions, Has tags, Needs tags, Archived');
   assert.equal(counts.mine, counts.untagged + sorted.filter((song) => song.mine === 'mine' && LIB.lines.has(song.id)).length);
 });
 
-ok('calm part 1 (A): nothing unsorted gives All, Favorites, Needs tags, Versions, Archived; one unsorted song adds Unsorted and Mine; no Hidden link in Library', () => {
-  assert.deepEqual(chipsFor(false, 'all'), ['all', 'fire', 'untagged', 'grouped', 'shelved']);
-  assert.deepEqual(chipsFor(true, 'all'), ['all', 'unsorted', 'mine', 'fire', 'untagged', 'grouped', 'shelved']);
+ok('Has tags keeps exactly the songs with a tagged line, whatever their verdict; before the phone has the laptop\'s tags it keeps none', () => {
+  const sorted = sortSongs(LIB.songs, 'date');
+  const lines = new Map([[sorted[0].id, 2], [sorted[5].id, 1]]);
+  const unsortedOne = sorted.find((song) => song.mine !== 'mine');
+  lines.set(unsortedOne.id, 1); // a tagged song not called Mine still counts
+  const facts = { ...LIB.facts, tagged: (id) => lines.has(id) };
+  assert.deepEqual(ids(chipSongs(sorted, 'tagged', facts)), ids(sorted.filter((song) => lines.has(song.id))));
+  // tags not known yet: Needs tags lists nothing (taggedOnceKnown says yes to all), Has tags must list nothing too
+  const unknown = { ...LIB.facts, tagged: taggedOnceKnown(false, new Map()), hasTag: (id) => new Map().has(id) };
+  assert.deepEqual(chipSongs(sorted, 'tagged', unknown), []);
+  assert.deepEqual(chipSongs(sorted, 'untagged', unknown), []);
+  assert.ok(code('./Library.tsx').includes('hasTag: (id) => lines.has(id)'), 'Library asks Has tags of the lines the phone knows');
+});
+
+ok('chip row (owner 2026-11-13): nothing unsorted gives All, Favorites, Versions, Has tags, Needs tags, Archived; one unsorted song adds Unsorted and Mine; no Hidden link in Library', () => {
+  assert.deepEqual(chipsFor(false, 'all'), ['all', 'fire', 'grouped', 'tagged', 'untagged', 'shelved']);
+  assert.deepEqual(chipsFor(true, 'all'), ['all', 'unsorted', 'mine', 'fire', 'grouped', 'tagged', 'untagged', 'shelved']);
   // the last unsorted song sorted while I'm on Mine or Unsorted: that chip stays until I leave it, the other goes
-  assert.deepEqual(chipsFor(false, 'mine'), ['all', 'mine', 'fire', 'untagged', 'grouped', 'shelved']);
-  assert.deepEqual(chipsFor(false, 'unsorted'), ['all', 'unsorted', 'fire', 'untagged', 'grouped', 'shelved']);
+  assert.deepEqual(chipsFor(false, 'mine'), ['all', 'mine', 'fire', 'grouped', 'tagged', 'untagged', 'shelved']);
+  assert.deepEqual(chipsFor(false, 'unsorted'), ['all', 'unsorted', 'fire', 'grouped', 'tagged', 'untagged', 'shelved']);
   // what decides "something is unsorted" in Library: one song not Mine and not sorted by hand
   const library = code('./Library.tsx');
   assert.ok(library.includes("song.mine !== 'mine' && !song.sorted") && library.includes('const chips = chipsFor(anyUnsorted, only);'));
@@ -121,9 +135,9 @@ ok('calm part 1 (A): nothing unsorted gives All, Favorites, Needs tags, Versions
 });
 
 ok('a chip with no songs is an empty list with its own plain line, never a blank page or a crash', () => {
-  const none = { rating: () => null, grouped: () => false, tagged: () => true, plays: new Map(), versions: () => 1 };
+  const none = { rating: () => null, grouped: () => false, tagged: () => true, hasTag: () => false, plays: new Map() };
   const sorted = sortSongs(LIB.songs.map((song) => ({ ...song, sorted: true })), 'date');
-  for (const chip of ['fire', 'shelved', 'untagged', 'grouped', 'unsorted']) assert.deepEqual(chipSongs(sorted, chip, none), [], chip);
+  for (const chip of ['fire', 'shelved', 'tagged', 'untagged', 'grouped', 'unsorted']) assert.deepEqual(chipSongs(sorted, chip, none), [], chip);
   assert.deepEqual(chipSongs([], 'all', none), []);
   const library = source('./Library.tsx');
   const words = library.slice(library.indexOf('const CHIP_EMPTY'), library.indexOf('const SORT_WORD'));
@@ -213,7 +227,7 @@ const page = (day = DAY, lists = ALL_LISTS) => homePage(lists, day);
 const ROWS = page();
 
 ok('each new Home row follows its rule, holds at most 12, and has no Archived song', () => {
-  assert.deepEqual(HOME_ROWS.map((row) => row.title), ['Recently added', 'Most played', 'Favorites', 'Needs tags', 'Versions to compare']);
+  assert.deepEqual(HOME_ROWS.map((row) => row.title), ['Recently added', 'Most played', 'Favorites', 'Needs tags'], 'owner 2026-11-13: Versions to compare left Home');
   for (const row of HOME_ROWS) {
     const list = ROWS[row.key];
     assert.ok(list.length > 0 && list.length <= HOME_ROW, `${row.title}: ${list.length}`);
@@ -224,7 +238,7 @@ ok('each new Home row follows its rule, holds at most 12, and has no Archived so
   assert.ok(ROWS.most.every((song) => LIB.plays.get(song.id).n >= MOST_PLAYED_FROM), 'Most played: 2 plays or more');
   assert.ok(ROWS.favorites.every((song) => LIB.ratings.get(song.id) === 'fire'));
   assert.ok(ROWS.untagged.every((song) => song.mine === 'mine' && !LIB.lines.has(song.id)), 'Needs tags: Mine, no line tagged');
-  assert.ok(ROWS.versions.every((song) => LIB.families.get(song.id) >= 2), 'Versions to compare: groups of 2 or more');
+  assert.ok(!('versions' in ROWS), 'no Versions to compare row');
 });
 
 // LESSONS 2026-11-11: three rows opened with the same songs and read as one list
@@ -267,9 +281,9 @@ ok('the top row wins, and the rows whose order means something keep it: Recently
   assert.ok(!ids(rows.most).includes('top') && !ids(rows.added).includes('top'));
 });
 
-ok('the rows with no order of their own (Not played in a while, Favorites, Needs tags, Versions) are the same all day and change the next day', () => {
+ok('the rows with no order of their own (Not played in a while, Favorites, Needs tags) are the same all day and change the next day', () => {
   const tomorrow = page('2026-11-12');
-  for (const key of ['forgotten', 'favorites', 'untagged', 'versions']) {
+  for (const key of ['forgotten', 'favorites', 'untagged']) {
     assert.deepEqual(ids(page()[key]), ids(ROWS[key]), `${key}: the same all day`);
     assert.notDeepEqual(ids(tomorrow[key]), ids(ROWS[key]), `${key}: different tomorrow`);
     assert.notDeepEqual(ids(ROWS[key]), ids(ALL_LISTS[key]).slice(0, 12), `${key}: not simply the first 12 of its list`);
@@ -325,13 +339,13 @@ ok('"See all" lands on the row\'s own list: every card is in the chip and order 
     assert.ok(take.includes(step), `a chip asked from Home: ${step}`);
 });
 
-ok('a fresh install (no plays, no Favorites, no lines, no groups, no dates): Recently added, Most played, Favorites and Versions hide; nothing to show at all hides every row', () => {
-  const bare = { rating: () => null, grouped: () => false, tagged: () => false, plays: new Map(), versions: () => 1 };
+ok('a fresh install (no plays, no Favorites, no lines, no groups, no dates): Recently added, Most played and Favorites hide; nothing to show at all hides every row', () => {
+  const bare = { rating: () => null, grouped: () => false, tagged: () => false, plays: new Map() };
   const fresh = homePage(homeRows(LIB.songs.map((song) => ({ ...song, date: null })), bare), DAY);
-  assert.deepEqual([fresh.added.length, fresh.most.length, fresh.favorites.length, fresh.versions.length], [0, 0, 0, 0]);
+  assert.deepEqual([fresh.added.length, fresh.most.length, fresh.favorites.length], [0, 0, 0]);
   assert.equal(fresh.untagged.length, 12, 'Needs tags is the one row a fresh library can fill (Mine songs, none tagged)');
   const empty = homePage(homeRows([], bare), DAY);
-  assert.deepEqual(Object.values(empty).map((list) => list.length), [0, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual(Object.values(empty).map((list) => list.length), [0, 0, 0, 0, 0, 0]);
   const home = code('./Home.tsx');
   assert.ok(/function Row\([^)]*\) \{\s*if \(!songs\.length\) return null;/.test(home), 'a row with nothing in it draws nothing, heading included');
   assert.ok(home.includes('{HOME_ROWS.map((row) => (') && home.includes('songs={rows[row.key]}'), 'Home draws the tested rows');

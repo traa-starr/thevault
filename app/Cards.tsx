@@ -14,8 +14,10 @@ import { player, usePlayer } from './playerStore';
 import type { SortSong, SortView } from './sortData';
 import { C, R, S, T } from './theme';
 import { tileOf } from './tileColor';
+import { HOLD_MS } from './songActions';
+import { openSongSheet } from './SongSheet';
 import { startLink } from './Versions';
-import { members, undo as undoLink, type Sent } from './versionStore';
+import { undo as undoLink, type Sent } from './versionStore';
 
 type Undo = { song: SortSong; choice: Choice; at: number | undefined; link?: Sent };
 /** A judged card on its way off the screen. Each has its own flight, so a fast second swipe never cuts the first short. */
@@ -154,6 +156,17 @@ export default function Cards({ url, view, scope, pile, notSure, onNotSure, onDo
   const width = useWindowDimensions().width - 2 * S.side;
   // the same as cardsCore liftY(): half the finger, never under the header
   const lift = xy.y.interpolate({ inputRange: [-2 * LIFT_MAX, 0], outputRange: [-LIFT_MAX, 0], extrapolate: 'clamp' });
+  // hold the card: the song sheet. Its Mine / Not mine are the card's own verdicts (the deck moves on, one Undo), and
+  // "Add as a version of…" is the old "+ Version": linked and Mine, the Undo taking back both
+  const holdCard = (held: SortSong) =>
+    openSongSheet(held, 'cards', {
+      handle: (action) => {
+        if (action === 'mine' || action === 'not_mine') latest.current.decide(action === 'mine' ? 'mine' : 'not mine', { x: 0, y: 0 });
+        else if (action === 'add_version') startLink(url, held, (sent) => setUndo((old) => old && { ...old, link: sent }), () => latest.current.decide('mine', { x: 0, y: 0 }));
+        else return false;
+        return true;
+      },
+    });
   const liveTransform = [
     { translateX: xy.x },
     { translateY: Animated.add(lift, enter.interpolate({ inputRange: [0, 1], outputRange: [14, 0] })) },
@@ -189,7 +202,10 @@ export default function Cards({ url, view, scope, pile, notSure, onNotSure, onDo
               </View>
             ) : null}
             <Animated.View {...pan.panHandlers} style={[StyleSheet.absoluteFill, { transform: liveTransform }]}>
-              <Card song={song} width={width} stamps={liveStamps} />
+              {/* no tap; a still hold opens the song sheet (a drag takes the touch first, so a swipe never does) */}
+              <Pressable style={s.fill} onLongPress={() => holdCard(song)} delayLongPress={HOLD_MS} accessibilityLabel={`${song.title}: hold for more`}>
+                <Card song={song} width={width} stamps={liveStamps} />
+              </Pressable>
             </Animated.View>
             {ghosts.map((ghost) => (
               <Animated.View
@@ -215,26 +231,13 @@ export default function Cards({ url, view, scope, pile, notSure, onNotSure, onDo
             <Round word="Not sure" onPress={() => latest.current.decide('not sure', { x: 0, y: 0 })} />
             <Round word="Mine" accent onPress={() => latest.current.decide('mine', { x: 0, y: 0 })} />
           </View>
-          {/* Mine and linked: the card moves on as Mine, and its Undo takes back both. Already in a group: hidden */}
-          {members(song.id).length > 1 ? (
-            <View style={s.versionSpot} />
-          ) : (
-            <Pressable
-              style={s.versionSpot}
-              onPress={() =>
-                startLink(url, song, (sent) => setUndo((old) => old && { ...old, link: sent }), () => latest.current.decide('mine', { x: 0, y: 0 }))
-              }
-            >
-              <Text style={s.versionLink}>+ Version</Text>
-            </Pressable>
-          )}
+          {/* the Undo toast's spot; "+ Version" moved to the card's hold (Add as a version of…) */}
+          <View style={s.versionSpot} />
         </>
       ) : (
+        // the header's Back is the one way out
         <View style={s.middle}>
           <Text style={s.doneTitle}>{pile ? 'Not sure pile done' : 'All done here'}</Text>
-          <Pressable style={s.back} onPress={onDone}>
-            <Text style={s.backWord}>Back to Sort</Text>
-          </Pressable>
         </View>
       )}
       {undo ? (
@@ -321,7 +324,7 @@ const s = StyleSheet.create({
   roundWord: { ...T.action, color: C.text },
   roundAccent: { color: C.accent, fontWeight: '700' },
   versionSpot: { height: BOTTOM_ROW, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
-  versionLink: { color: C.dim, fontSize: 15 },
+  fill: { flex: 1 },
   middle: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   doneTitle: { ...T.heading },
   // always the same spot: over the "+ Version" row, never over the buttons or the card

@@ -35,6 +35,7 @@ const LIB = "app.goTab('library')";
 const SORT = "app.openSort()";
 const CARDS = "app.tapText('Cards · 15 left')";
 const HOME = "app.goTab('home')";
+const LIB_MORE = "app.tapLabel('More: Shuffle, Order, Select songs')";
 // play data for Home's rows: five songs heard lately, three not for a long while, the rest never. Dates spread over
 // the years, so tiles run from dark (old) to bright (new)
 const daysAgo = (n) => new Date(Date.now() - n * 864e5).toISOString();
@@ -176,6 +177,8 @@ export const fixtures = [
   { name: 'cards-mid-swipe-left', ...whole({ player: { sheet: 'none' } }, [SORT, CARDS]), drag: [195, 400, 85, 410] },
   { name: 'cards-mid-swipe-up', ...whole({ player: { sheet: 'none' } }, [SORT, CARDS]), drag: [195, 420, 205, 300] },
   { name: 'cards-start', ...whole({ player: { sheet: 'none' } }, [SORT, CARDS]), check: CARD_SHOWS('2025-01-10', 'No Sleep 2') },
+  // world map: hold the card for the song sheet ("+ Version" is its "Add as a version of…" now)
+  { name: 'cards-hold-sheet', ...whole({ player: { sheet: 'none' } }, [SORT, CARDS]), hold: '[aria-label$="hold for more"]' },
   { name: 'cards-after-throw', ...whole({ player: { sheet: 'none' } }, [SORT, CARDS]), drag: [195, 400, 360, 390], release: true, check: CARD_SHOWS('No Sleep 2', '2025-01-10') },
   { name: 'cards-last-song', ...whole({ player: { sheet: 'none' }, routes: { '/status': { songs: 1395 }, '/sorting': { ...SORTING, songs: SORTING.songs.slice(0, 1) } } }, [SORT, "app.tapText('Cards · 1 left')"]) },
   { name: 'cards-not-sure-pile', ...whole({ player: { sheet: 'none' }, files: { 'not-sure.json': JSON.stringify(['s2', 's5']) } }, [SORT, "app.tapText('Not sure · 2')"]) },
@@ -226,8 +229,14 @@ export const fixtures = [
   { name: 'library-chip-versions', ...rich({}, [LIB, "app.tapText('Versions')"]) },
   { name: 'library-chip-unsorted', ...rich({ songs: full.map((one, i) => (i % 5 === 1 ? { ...one, mine: 'unknown', sorted: false } : one)) }, [LIB, "app.tapText('Unsorted')"]) },
   { name: 'library-chip-empty', ...whole({ songs: played, player: NO_SONG }, [LIB, "app.tapText('Archived')"]) },
-  { name: 'library-order-a-to-z', ...rich({}, [LIB, "app.tapText('Newest')"]) },
-  { name: 'library-order-most-played', ...rich({}, [LIB, "app.tapText('Newest')", "app.tapText('A to Z')"]) },
+  { name: 'library-order-a-to-z', ...rich({}, [LIB, LIB_MORE, "app.tapText('Order')", "app.tapText('A to Z')"]) },
+  { name: 'library-order-most-played', ...rich({}, [LIB, LIB_MORE, "app.tapText('Order')", "app.tapText('Most played')"]) },
+  // world map goal 2: Library's "...", the order menu inside it, a real hold on a row, Has tags
+  { name: 'library-menu', ...rich({}, [LIB, LIB_MORE]) },
+  { name: 'library-menu-order', ...rich({}, [LIB, LIB_MORE, "app.tapText('Order')"]) },
+  { name: 'library-chip-has-tags', ...rich({}, [LIB, "app.tapText('Has tags')"]) },
+  { name: 'sheet-from-library-hold', ...rich({ player: NO_SONG }, [LIB]), hold: '[data-testid="song-row"]' },
+  { name: 'library-select-from-sheet', ...rich({ player: NO_SONG }, [LIB]), hold: '[data-testid="song-row"]', then: ["app.tapText('Select')"] },
   { name: 'library-select-mode', ...rich({}, [LIB, "app.openLibrarySelect('s4')"]) },
   { name: 'library-shuffle-on', ...rich({ player: { sheet: 'none', song, order: { shuffle: true }, pool: 'mine' } }, [LIB]) },
   { name: 'library-laptop-off', ...rich({ laptopOff: true }, [LIB]) },
@@ -236,10 +245,18 @@ export const fixtures = [
   { name: 'library-1395-flick', ...whole({ songs: BIG, player: NO_SONG }, [LIB]), check: 'app.scrollCheck(1395)' },
   // ---- wave 2: Home with its five new rows, top and scrolled; every row empty ----
   { name: 'home-full', ...rich({}) },
+  // world map goal 2: Home's "..." (Sort, Tag songs, Settings), Shuffle held (its pools), a card held (the song sheet)
+  { name: 'home-menu', ...rich({ player: NO_SONG }, ["app.tapLabel('More: Sort, Tag songs, Settings')"]) },
+  { name: 'home-shuffle-pool', ...rich({ player: NO_SONG }), hold: '[aria-label="Shuffle my songs"]' },
+  { name: 'sheet-from-home-card', ...rich({ player: NO_SONG }), hold: '[aria-label^="Play "]' },
   { name: 'home-full-scrolled', ...rich({}, [SCROLL(560)]) },
   { name: 'home-full-scrolled-to-end', ...rich({ player: { sheet: 'none', song } }, [SCROLL(9999)]) },
   { name: 'home-every-row-empty', ...whole({ songs: [], files: tagFile([]), player: NO_SONG }) },
   { name: 'home-versions-card-opens-group', ...rich({}, ["app.versions.openVersions('s1')"]) },
+  // world map goal 3: your lines. Home's line card, no lines yet, rows and the mini player showing a line
+  { name: 'home-line-card', ...rich({ player: NO_SONG }) },
+  { name: 'home-no-lines', ...whole({ songs: played, files: tagFile([]), player: NO_SONG }) },
+  { name: 'library-row-lines', ...rich({ player: { sheet: 'none', song } }, [LIB]) },
   // ---- wave 4 ----
   { name: 'queue-empty', ...whole({ upNext: [] }, [LIB, OPEN, QUEUE]) },
   { name: 'queue-hard-titles', ...whole({ songs: hard, upNext: hard.slice(0, 8).map((one) => one.id), player: { song: { ...song, title: HARD_TITLES[0] }, wanted: false } }, [LIB, QUEUE]) },
@@ -258,8 +275,10 @@ export const fixtures = [
   { name: 'settings-laptop-off', ...whole({ songs: played, laptopOff: true, player: NO_SONG }, [SETTINGS]) },
   { name: 'settings-then-home-tab', ...whole({ songs: played, player: NO_SONG }, [SETTINGS, HOME]) },
   { name: 'settings-then-back', ...whole({ songs: played, player: NO_SONG }, [SETTINGS, "app.tapText('Back')"]) },
+  // world map: a set's tap is its cards; its hold is the set sheet (All mine, All not mine, its songs)
   { name: 'sort-set-open', ...whole({ player: NO_SONG, routes: { '/status': { songs: 1395 }, '/sorting': SETS } }, [SORT, "app.tapText('FL Studio Projects/2025')"]) },
-  { name: 'sort-swept-undo', ...whole({ player: NO_SONG, routes: { '/status': { songs: 1395 }, '/sorting': SETS } }, [SORT, "app.tapText('FL Studio Projects/2025')", "app.tapText('All mine')"]) },
+  { name: 'sort-set-sheet', ...whole({ player: NO_SONG, routes: { '/status': { songs: 1395 }, '/sorting': SETS } }, [SORT]), hold: 'FL Studio Projects/2025' },
+  { name: 'sort-swept-undo', ...whole({ player: NO_SONG, routes: { '/status': { songs: 1395 }, '/sorting': SETS } }, [SORT]), hold: 'FL Studio Projects/2025', then: ["app.tapText('All mine')"] },
   { name: 'sort-laptop-off', ...whole({ player: NO_SONG, laptopOff: true }, [SORT]) },
   // ---- calm part 1 (2026-11-12): chips without Mine, Hidden songs in Settings (815 made-up songs, made-up folders) ----
   { name: 'calm-library-chips', ...rich({ songs: full.map((one) => ({ ...one, sorted: true, mine: 'mine' })) }, [LIB]) },
@@ -275,4 +294,13 @@ export const fixtures = [
   { name: 'home-welcome-back', ...whole({ songs: played, player: NO_SONG, restored: { savedAt: '2026-11-01T10:00:00Z', notSure: 2, changes: 3, lastSong: true, settings: true } }) },
   { name: 'library-changes-waiting', ...rich({ pending: [{ id: 'p2', kind: 'rating_set', data: { song_id: 's5', value: 'fire' } }], saveFailed: true }, [LIB]) },
   { name: 'session-version-row', ...player({ player: playing(), songs, versions: { s1: 3 }, titles: VERSION_TITLES, files: tagFile(tags(2)) }, ["app.session.start('http://laptop')"]) },
+  // ---- world map goal 1 (2026-11-19): the song sheet, the calm player (eye and Shuffle stay, Repeat added) ----
+  { name: 'player-repeat-one-shuffle-on', ...player({ player: playing({ order: { shuffle: true }, repeat: 'one' }), files: tagFile(tags(2)) }) },
+  { name: 'player-eye-shut', ...player({ player: playing({ buttonsHidden: true }), files: tagFile(tags(2)) }) },
+  { name: 'sheet-from-player', ...player({ player: playing(), songs, files: tagFile(tags(2)) }, [`app.openSongSheet(${JSON.stringify(song)}, 'player')`]) },
+  { name: 'sheet-from-player-unsorted', ...player({ player: playing({ song: { ...song, mine: 'unknown', sorted: false } }), songs, files: tagFile(tags(2)) }, [`app.openSongSheet(${JSON.stringify({ ...song, mine: 'unknown', sorted: false })}, 'player')`]) },
+  { name: 'sheet-family', ...player({ player: playing(), songs, versions: { s1: 3 }, titles: VERSION_TITLES, files: tagFile(tags(2)) }, [`app.openSongSheet(${JSON.stringify(song)}, 'player')`]) },
+  { name: 'sheet-in-session', ...player({ player: playing(), songs, versions: { s1: 3 }, titles: VERSION_TITLES, files: tagFile(tags(2)) }, ["app.session.start('http://laptop')", `app.openSongSheet(${JSON.stringify(song)}, 'player')`]) },
+  // Archive tapped in the sheet: the sheet has gone and the toast shows in its own spot, nothing over it
+  { name: 'sheet-closed-undo', ...player({ player: playing(), songs, files: tagFile(tags(2)) }, [`app.openSongSheet(${JSON.stringify(song)}, 'player')`, "app.tapText('Archive')"]) },
 ];
