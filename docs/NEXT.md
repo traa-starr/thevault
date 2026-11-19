@@ -1,11 +1,11 @@
-# NEXT: Fable builds the world map (O.6), goals 1-3
+# NEXT: Opus builds the world map (O.6), goals 1-3
 Format: goal
-Written by chat, 2026-11-13.
-Model: fable
+Written by chat, 2026-11-13; model switched to Opus 2026-11-18.
+Model: opus
 Clear between goals: yes. After each goal: checkpoint (tick STATUS plan, 2 lines), stop; I type `/clear` then `/next`.
 Effort: high
-Log: Library row hold = song sheet (owner). Home keeps Most played, drops only Versions to compare (owner). The eye stays on the player as today (owner). Shuffle stays on the player as today, and a new Repeat (Off / all / one) balances the row; both smaller than the main buttons (owner). Repeat cycles Off, all, one and is remembered after closing the app (chat-default). Library gets a Has tags chip; Needs tags moves after Versions (owner). Has tags is a chip only, no Home row: Home's line card already opens on tagged songs (chat-default). Mockup gap: the line hold menu stays as today (chat) (logged by chat)
-Size: FABLE-KIT goals 1-3, each ships on its own. Goal 4 (Versions pages, Settings Laptop status) and fresh-eyes are the next Opus NEXT. Promo ends 2026-11-16.
+Log: Library row hold = song sheet (owner). Home keeps Most played, drops only Versions to compare (owner). The eye stays on the player as today (owner). Shuffle stays on the player as today, and a new Repeat (Off / all / one) balances the row; both smaller than the main buttons (owner). Repeat cycles Off, all, one and is remembered after closing the app (chat-default). Library gets a Has tags chip; Needs tags moves after Versions (owner). Has tags is a chip only, no Home row: Home's line card already opens on tagged songs (chat-default). Mockup gap: the line hold menu stays as today (chat). Opus builds instead of Fable (owner, 2026-11-18) (logged by chat)
+Size: FABLE-KIT goals 1-3, each ships on its own. Goal 4 (Versions pages, Settings Laptop status) and fresh-eyes are the next Opus NEXT.
 Queue after this: Opus: fresh-eyes on the diff, fix-ups, FABLE-KIT goal 4, serve mockups from the Vault server (no typed command). Then my phone walk of the new app + the 4 render checks + the heat listen.
 Read: `docs/overhaul/FABLE-KIT.md` (§1, §3, §4, §5; skip §6); `docs/overhaul/WORLD-MAP.md` top block "Owner's corrections" only (it beats the kit); `docs/LESSONS.md`; files you edit. Nothing else.
 
