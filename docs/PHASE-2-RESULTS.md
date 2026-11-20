@@ -145,3 +145,9 @@ My phone results, one line each (written by chat). Measured results stay in REPO
 - Check 7 Hidden songs in Settings (count, search, chip, plays, Restore, Library): pass.
 - Check 8 Vault Desk restore, phone Library pull to refresh: pass.
 - Check 9 Hide again from the phone, back in the desk's hidden list: pass.
+
+## World map goals 1-3 review (2026-11-20)
+- Check 1 Player (song sheet, Versions/Compare over player, eye remembers, Shuffle, Repeat Off/all/one, balanced row): pass. Owner wants: Previous restarts the song first, a second Previous near the start goes back; Next on Repeat one should not move on (call open). Bug: Bluetooth / car connect starts the Vault playing even when it was swiped closed, and takes over paused YouTube.
+- Check 2 Library (row hold = sheet, no sheet while flicking, `...` Shuffle/Order/Select, chips, Has tags): pass. Unsorted and Mine also show between All and Favorites, as specified ("+ Unsorted / Mine as today").
+- Check 3 Home (`...` Sort/Tag songs/Settings, line card plays from its second, 4 rows): pass.
+- Check 4 Lines (row second line, mini player line, hold in player Lines = edit menu): pass. 4 of 4.
