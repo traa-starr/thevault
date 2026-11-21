@@ -7,7 +7,9 @@ export type Sound = { time: number; duration: number; playing: boolean; bufferin
  * start spot (both seeks if it had to try twice), and from play to the time really moving on with the volume up. */
 export type Started = { load: number; seek: number; reseek: boolean; start: number };
 /** `onStarted`: sound is really coming out now, at the spot asked for (the moment a timing stops). */
-export type Handlers = { onSound: (sound: Sound) => void; onTrack: (index: number) => void; onStarted?: (stages: Started) => void };
+/** `onIgnored`: the player started with no play from the app since launch (a car or headphones after iOS woke the app),
+ * and was stopped. */
+export type Handlers = { onSound: (sound: Sound) => void; onTrack: (index: number) => void; onStarted?: (stages: Started) => void; onIgnored?: () => void };
 /** Time, passed in so a test can run a pretend clock. */
 export type Clock = { now: () => number; later: (ms: number, fn: () => void) => void };
 export const realClock: Clock = { now: () => Date.now(), later: (ms, fn) => void setTimeout(fn, ms) };
@@ -229,16 +231,27 @@ export function startGate(
   };
 }
 
-export function playlistEngine(list: List, { onSound, onTrack, onStarted }: Handlers, clock: Clock = realClock): Engine {
+export function playlistEngine(list: List, { onSound, onTrack, onStarted, onIgnored }: Handlers, clock: Clock = realClock): Engine {
   let locked = false;
   let shownTitle = '';
   let skips = LOCK_SCREEN;
+  // Car autoplay (2026-11-20): the lock screen is where a car or headphone "play" lands, and expo-audio plays it natively
+  // with no word from here. So it is taken only once the app itself has played something since launch: a launch iOS
+  // made in the background (a car connecting) brings the last song back paused and stays silent.
+  let asked = false;
   const gate = startGate(list, onStarted, clock);
   // Always the full call, never updateLockScreenMetadata: that one blanks the lock screen before refilling it, and does
   // nothing at all once another player took the lock screen (Compare from Library) while we still think we hold it.
   const claim = () => {
+    if (!asked) return;
     list.setActiveForLockScreen(true, { title: shownTitle }, skips);
     locked = true;
+  };
+  /** The app asked for sound: from now on the lock screen, car and headphones may drive this player. */
+  const ask = () => {
+    if (asked) return;
+    asked = true;
+    claim();
   };
 
   // Reads the player's live answer in settle: an event can be from before.
@@ -252,6 +265,11 @@ export function playlistEngine(list: List, { onSound, onTrack, onStarted }: Hand
     list.setUpdateInterval(want);
   };
   list.addListener('playlistStatusUpdate', (status) => {
+    if (status.playing && !asked) {
+      list.pause(); // something outside the app started it: never sound the app didn't ask for
+      onIgnored?.();
+      status = { ...status, playing: false };
+    }
     gate.settle();
     pace(); // the start spot was found: back to the screen's rate, or the slow one if nobody is looking
     const waiting = gate.now();
@@ -269,6 +287,7 @@ export function playlistEngine(list: List, { onSound, onTrack, onStarted }: Hand
   const engine: Engine = {
     windowed: true,
     load: (uris, index, at, play) => {
+      if (play) asked = true; // the setTitle that follows every load takes the lock screen, with the new song's title
       gate.drop();
       list.clear();
       uris.forEach((uri) => list.add({ uri }));
@@ -303,6 +322,7 @@ export function playlistEngine(list: List, { onSound, onTrack, onStarted }: Hand
     next: () => list.next(),
     previous: () => list.previous(),
     skip: (step, at) => {
+      ask();
       if (at <= 0) {
         gate.drop();
         if (step > 0) list.next();
@@ -320,6 +340,7 @@ export function playlistEngine(list: List, { onSound, onTrack, onStarted }: Hand
       gate.hold(at, true, volume);
     },
     play: () => {
+      ask();
       const waiting = gate.now();
       if (waiting) {
         waiting.play = true;

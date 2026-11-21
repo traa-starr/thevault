@@ -1,6 +1,6 @@
 // Self-test for the play order: node --experimental-strip-types app/playOrder.test.mjs
 import assert from 'node:assert/strict';
-import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere, dialTarget, tagsWithPending, setFlag, listAfterTap, listIsOpen, shuffleAfterTap, shuffleWords, tickWordsAfter, noTickWords, songStartWords, tagTapped, TICK_SHOW_MS, TAP_BOUNCE_MS, seekRelease, tagEdit, tagRemoval, tagUndoLine, rowOrder, sessionPool, sessionLap, sessionCount, draftGoesOnChange, draftLine, libraryShuffleTap, startSpot, moveBy, SESSION_START_SEC, SORT_START_SEC, sessionLine, sessionBack, repeatAfterTap, repeatFrom, withRepeat, afterSongEnds } from './playOrder.ts';
+import { currentId, jumpTo, moveInOrder, nextInOrder, previousInOrder, removeFromOrder, setShuffle, startOrder, upNext, walkAhead, walkBack, withPending, withoutRestored, playHere, dialTarget, tagsWithPending, setFlag, listAfterTap, listIsOpen, shuffleAfterTap, shuffleWords, tickWordsAfter, noTickWords, songStartWords, tagTapped, TICK_SHOW_MS, TAP_BOUNCE_MS, seekRelease, tagEdit, tagRemoval, tagUndoLine, rowOrder, sessionPool, sessionLap, sessionCount, draftGoesOnChange, draftLine, libraryShuffleTap, startSpot, moveBy, SESSION_START_SEC, SORT_START_SEC, sessionLine, sessionBack, repeatAfterTap, repeatFrom, withRepeat, afterSongEnds, previousDoes, RESTART_AFTER_SEC } from './playOrder.ts';
 import { applyEdit, applyPicks, groupEdit, groupLead, linkEdit, makeMainEdit, membersOf, removeEdit, reverse, settle } from './family.ts';
 
 const fams = (pairs) => new Map(Object.entries(pairs));
@@ -807,6 +807,30 @@ for (const [name, test] of Object.entries(tests)) {
       const o = withRepeat(list('b'), 'one');
       assert.equal(currentId(nextInOrder(o)), 'c');
       assert.equal(currentId(previousInOrder(o)), 'a');
+    },
+    'repeat one: Next plays the next song, and Repeat one stays on for it (it loops the new song)': () => {
+      const o = withRepeat(list('b'), 'one');
+      const moved = nextInOrder(o);
+      assert.equal(currentId(moved), 'c');
+      assert.equal(currentId(afterSongEnds(moved, 'one')), 'c', 'the new song loops: Repeat one is still on');
+    },
+    'previous: over 3 s in starts the song again; within 3 s it goes to the song before (lock screen the same)': () => {
+      assert.equal(RESTART_AFTER_SEC, 3);
+      assert.equal(previousDoes(10, 0), 'restart', '10 s in');
+      assert.equal(previousDoes(3.5, 0), 'restart');
+      assert.equal(previousDoes(3, 0), 'back', 'exactly 3 s: still the song before');
+      assert.equal(previousDoes(1, 0), 'back');
+      assert.equal(previousDoes(0, 0), 'back');
+    },
+    'previous: twice fast goes back a song (the restart lands at 0:00, so the second press is within 3 s)': () => {
+      const first = previousDoes(10, 0);
+      const second = previousDoes(0.4, 0);
+      assert.deepEqual([first, second], ['restart', 'back']);
+    },
+    'previous: a song with a start point (session 0:15) counts its 3 s from there, and restarts there': () => {
+      assert.equal(previousDoes(16, SESSION_START_SEC), 'back');
+      assert.equal(previousDoes(25, SESSION_START_SEC), 'restart');
+      assert.equal(previousDoes(31, SORT_START_SEC), 'back');
     },
     'repeat off: as today (list order wraps, a shuffle ends after its last song)': () => {
       assert.equal(currentId(afterSongEnds(withRepeat(list('d'), 'off'), 'off')), 'a');

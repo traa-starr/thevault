@@ -2,16 +2,17 @@
 // opens in place. One sheet, one set of rows (songActions.ts), every screen. Drawn by the app like the tag hold menu
 // (Tagging.tsx), never an iOS dialog. It closes on the first tap, before any Undo toast shows (WORLD-MAP rule 5).
 import { useRef, useSyncExternalStore, type ReactNode } from 'react';
-import { FlatList, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Tile } from './Art';
 import { compare, useCompare } from './compareStore';
-import { openLibrarySelect } from './nav';
 import { player, usePlayerPick, type PlayerSong } from './playerStore';
 import { ratingStore, useRating } from './ratingStore';
 import { useSession } from './sessionStore';
+import { SheetFrame, setBack } from './SheetFrame';
 import { actionLabel, songActions, type SheetFrom, type SongAction, type SongContext } from './songActions';
 import { ROW_HEIGHT, tint } from './Tagging';
 import { C, R, S, T } from './theme';
+import { startLink } from './Versions';
 import * as versions from './versionStore';
 
 type More = {
@@ -40,14 +41,18 @@ const subscribe = (listener: () => void) => {
   };
 };
 
+/** A page (Versions, Add as a version of…) gives way to the sheet: one sheet on screen at a time. */
+const closePages = () => {
+  setBack(null);
+  versions.openVersions(null);
+  versions.closePicker();
+};
 /** Opens the sheet on this song. `onSelect`: Library and Home's Select row (select mode starting on this song). */
-export const openSongSheet = (song: PlayerSong, from: SheetFrom, more: More = {}) => set({ kind: 'song', song, from, ...more, n: ++opened });
+export const openSongSheet = (song: PlayerSong, from: SheetFrom, more: More = {}) => (closePages(), set({ kind: 'song', song, from, ...more, n: ++opened }));
 /** Opens a small menu drawn like the song sheet: a tap on a row closes it, then does the row. */
-export const openMenu = (rows: MenuRow[], title?: string, note?: string) => set({ kind: 'menu', rows, title, note, n: ++opened });
+export const openMenu = (rows: MenuRow[], title?: string, note?: string) => (closePages(), set({ kind: 'menu', rows, title, note, n: ++opened }));
 export const closeSongSheet = () => set(null);
 export const useSongSheet = () => useSyncExternalStore(subscribe, () => open);
-
-const PULL_CLOSES = 60; // a pull down this far closes it, like a tap outside
 
 /** Mine / Not mine on a song that isn't the one playing: sent like the player's, with an Undo on the toast. */
 function verdict(song: PlayerSong, value: 'mine' | 'not mine') {
@@ -72,6 +77,8 @@ function verdict(song: PlayerSong, value: 'mine' | 'not mine') {
 
 function run(action: SongAction, now: SongOpen) {
   const { song, from } = now;
+  // the two rows that open a page inside the sheet: its Back comes here again (a Sort card's too, with its own rows)
+  if (action === 'versions' || action === 'add_version') setBack(() => openSongSheet(song, from, now));
   if (now.handle?.(action)) return;
   const playing = player.current()?.id === song.id;
   const url = player.url();
@@ -87,12 +94,12 @@ function run(action: SongAction, now: SongOpen) {
     case 'not_mine':
       return playing ? player.tapNotMine() : verdict(song, 'not mine');
     case 'versions':
-      return versions.openVersions(song.id); // over whatever is open, the player too
+      return versions.openVersions(song.id); // a page inside the sheet, over whatever is open, the player too
     case 'compare':
       return from === 'player' && playing ? compare.openFromPlayer(url) : compare.openFromLibrary(url, song.id);
     case 'add_version':
-      // Library's select mode, started on this song: a screen, so the player gets out of the way first
-      return player.closeThen(() => openLibrarySelect(song.id));
+      // the Add as a version page (world map goal 4): search, rows, a tap links. In place, never leaves the player
+      return startLink(url, song);
     case 'queue':
       return player.open('queue');
     case 'select':
@@ -107,32 +114,8 @@ export function SongSheetLayer() {
   return now.kind === 'menu' ? <MenuSheet key={now.n} now={now} /> : <SongSheet key={now.n} now={now} />;
 }
 
-/** The half sheet's frame: the dimmed screen behind (a tap closes), the grab mark, a pull down closes. */
-function Frame({ children }: { children: ReactNode }) {
-  const pull = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx),
-      onPanResponderRelease: (_, g) => {
-        if (g.dy > PULL_CLOSES) closeSongSheet();
-      },
-    }),
-  ).current.panHandlers;
-  return (
-    <View style={s.layer}>
-      <Pressable style={s.scrim} onPress={closeSongSheet} accessibilityLabel="Close" />
-      <View style={s.sheet} {...pull}>
-        <View style={s.grab}>
-          <View style={s.grabMark} />
-        </View>
-        {children}
-        <View style={s.gap} />
-        <Pressable style={(p) => [s.row, tint(p)]} onPress={closeSongSheet} accessibilityLabel="Cancel">
-          <Text style={[s.rowText, s.cancel]}>Cancel</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
+/** The half sheet's frame (SheetFrame.tsx): the dimmed screen behind, the grab mark, pull down or Cancel closes. */
+const Frame = ({ children }: { children: ReactNode }) => <SheetFrame onClose={closeSongSheet}>{children}</SheetFrame>;
 
 /** One tap and it closes, before the row runs: a second tap can't flip a choice back. */
 const useOnce = () => {
@@ -217,20 +200,12 @@ function SongSheet({ now }: { now: SongOpen }) {
 const useVersions = () => versions.useVersions(); // family sizes and dates come in with the song list
 
 const s = StyleSheet.create({
-  // over the player sheet (zIndex 10) and every screen
-  layer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 11, justifyContent: 'flex-end' },
-  scrim: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)' },
-  sheet: { backgroundColor: C.raised, borderTopLeftRadius: R.sheet, borderTopRightRadius: R.sheet, paddingHorizontal: S.side, paddingBottom: S.homeBar + 8 },
-  grab: { height: 20, alignItems: 'center', justifyContent: 'center' },
-  grabMark: { width: 40, height: 5, borderRadius: 3, backgroundColor: C.faint },
   about: { height: S.row, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomColor: C.line, borderBottomWidth: 1 },
   aboutWords: { flex: 1, minWidth: 0, justifyContent: 'center' },
   title: { ...T.row },
   second: { ...T.meta, marginTop: 2 },
   row: { height: ROW_HEIGHT, justifyContent: 'center' },
   rowText: { ...T.row },
-  cancel: { color: C.dim },
-  gap: { height: 1, backgroundColor: C.line, marginTop: 8, marginBottom: 8 },
   menuHead: { minHeight: S.row, justifyContent: 'center', borderBottomColor: C.line, borderBottomWidth: 1 },
   menuRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   tick: { color: C.text, fontSize: 17, fontWeight: '700' },

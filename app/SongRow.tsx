@@ -68,8 +68,12 @@ function Row<S extends { id: string; title: string; date?: string | null }>({ so
     <Pressable
       testID="song-row"
       style={(p) => [s.row, tint(p)]}
-      disabled={disabled}
-      onPress={() => onPress(song)}
+      // a row that can't play still holds (Favorite, Archive, Select with the laptop off): only the tap does nothing
+      disabled={disabled && !onLongPress}
+      accessibilityState={{ disabled: !!disabled }}
+      onPress={() => {
+        if (!disabled) onPress(song);
+      }}
       onLongPress={onLongPress ? () => onLongPress(song) : undefined}
       // the tested hold rule (songActions.ts holdFires): 0.4 s still; a scroll takes the touch, so it never fires
       delayLongPress={HOLD_MS}

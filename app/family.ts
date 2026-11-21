@@ -174,3 +174,5 @@ export const versionMenu = (isMain: boolean, picked: boolean): VersionChoice[] =
   ...(isMain ? [] : ['Not mine' as const]),
   'Cancel',
 ];
+/** World map: on the Versions page a tap plays the version, so its hold menu is the same list without Play. */
+export const versionHoldMenu = (isMain: boolean, picked: boolean) => versionMenu(isMain, picked).filter((choice) => choice !== 'Play');

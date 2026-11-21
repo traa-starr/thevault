@@ -42,6 +42,20 @@ export function homeLine(tags: readonly LineTag[], seed: number): { song_id: str
   return { song_id, text, at_sec };
 }
 
+type HomePick = { song_id: string; text: string; at_sec: number; seed: number };
+
+/** Home's line, held while I look (fresh-eyes 1-2): the same seed keeps the held line while its song can still play
+ * and the line is still there (new words if edited); a new seed, or a held song that can't play, picks again from the
+ * lines on songs that `canOffer` allows. null: none to offer. */
+export function pickHomeLine(tags: readonly LineTag[], seed: number, canOffer: (songId: string) => boolean, held: HomePick | null): HomePick | null {
+  if (held && held.seed === seed && canOffer(held.song_id)) {
+    const still = tags.find((tag) => tag.song_id === held.song_id && tag.at_sec === held.at_sec && hasWords(tag));
+    if (still) return still.text.trim() === held.text ? held : { ...held, text: still.text.trim() };
+  }
+  const line = homeLine(tags.filter((tag) => canOffer(tag.song_id)), seed);
+  return line ? { ...line, seed } : null;
+}
+
 /** A row's second line: the line, else "3 versions", else null (the row shows its date and the rest as today). */
 export function secondLine(line: string | null | undefined, familySize: number): string | null {
   if (line) return line;

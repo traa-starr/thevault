@@ -1,17 +1,19 @@
-// "+ Version" picker, the Versions view and their toast. Sheets over whatever screen is open, so the music
-// never stops. The rules are in family.ts; sending and Undo are in versions.ts.
-// Look (overhaul wave 4): the list row every screen uses (60 high, a tile), theme colours only, and a version's menu
-// as a half sheet drawn inside the Versions sheet (the tag hold menu's style) instead of an iOS alert box. What each
-// choice does is unchanged.
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Keyboard, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+// The Add as a version page (the old "+ Version" picker), the Versions page and their toast. World map goal 4: both
+// are pages inside the song sheet (SheetFrame.tsx), drawn by the app over whatever is open, the player too, so the
+// music never stops. Back returns to the song sheet; a pull down closes it all. The rules are in family.ts; sending
+// and Undo are in versionStore.ts.
+// Versions page: a tap plays the version, a hold shows its choices in place (Make main, Remove, Not mine, Cancel).
+// Look (overhaul wave 4): the list row every screen uses (60 high, a tile), theme colours only.
+import { useEffect, useMemo, useState } from 'react';
+import { FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Tile } from './Art';
-import { compare } from './compareStore';
-import { versionMenu, type VersionChoice } from './family';
-import { hang } from './hangWatch';
+import { versionHoldMenu, type VersionChoice } from './family';
+import { Icon } from './Icon';
 import { useOutbox } from './outbox';
 import { player, usePlayerPick, type PlayerSong } from './playerStore';
 import { withPending } from './playOrder';
+import { pageBack, SheetFrame } from './SheetFrame';
+import { HOLD_MS } from './songActions';
 import { tint } from './Tagging';
 import { C, coveredBelow, R, S, T } from './theme';
 import * as versions from './versionStore';
@@ -19,19 +21,8 @@ import { useVersions, type LibSong } from './versionStore';
 
 const SHORT_LIST = 40;
 const ROW_HEIGHT = S.row;
-const MENU_ROW = 52; // a row of the half-sheet menu, as in the tag hold menu
-const AFTER_CLOSE_MS = 700;
-
-/** These two are still iOS pop-up sheets. If iOS never shows one that was asked for, the hang watch says so. */
-function useShownWatch(open: boolean, what: string) {
-  const shown = useRef<(() => void) | null>(null);
-  useEffect(() => {
-    if (!open) return;
-    shown.current = hang.expect(what);
-    return () => shown.current?.();
-  }, [open, what]);
-  return () => shown.current?.();
-}
+const MENU_ROW = 52; // a row of a version's menu, as in the tag hold menu
+const PICKER_TALL = 0.85; // of the screen: the list has room, the dimmed screen above still shows where I was
 
 /** The song on screen, as the picker needs it. */
 export type LinkSong = PlayerSong & { folder?: string | null };
@@ -95,10 +86,37 @@ export function VersionsChip({ id, style, textStyle, onPress }: { id: string; st
 
 const ago = (date: string | null) => date ?? '';
 
-function Picker({ url }: { url: string }) {
+/** A page's head: the Back arrow top left (44 to touch), then its name. */
+function PageHead({ title, onBack, note }: { title: string; onBack: () => void; note?: string }) {
+  return (
+    <View style={s.sheetHeader}>
+      <Pressable style={(p) => [s.headWord, tint(p)]} onPress={onBack} accessibilityLabel="Back">
+        <Icon name="back" size={20} color={C.dim} />
+      </Pressable>
+      <View style={s.headWords}>
+        <Text style={s.sheetTitle} numberOfLines={1}>{title}</Text>
+        {note ? <Text style={s.headNote} numberOfLines={1}>{note}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
+/** Back: this page goes, and the song sheet it was opened from comes again (none: it just closes). */
+const backFrom = (closePage: () => void) => () => {
+  closePage();
+  pageBack()?.();
+};
+/** Pull down, a tap on the dimmed screen: the whole sheet closes to where it opened. */
+const closeAll = (closePage: () => void) => () => {
+  pageBack();
+  closePage();
+};
+
+function Picker() {
   const { picker, songs, families } = useVersions();
   const { pending } = useOutbox();
   const [query, setQuery] = useState('');
+  const { height } = useWindowDimensions();
   useEffect(() => setQuery(''), [picker?.id]);
 
   const all = useMemo(() => {
@@ -128,18 +146,11 @@ function Picker({ url }: { url: string }) {
     return out.slice(0, SHORT_LIST);
   }, [all, query, picker, families, songs]);
 
-  const onShow = useShownWatch(!!picker, 'version picker');
   if (!picker) return null;
   return (
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={versions.closePicker} onShow={onShow}>
-      <View style={s.sheet}>
-        <View style={s.sheetHeader}>
-          <Pressable style={(p) => [s.headWord, tint(p)]} onPress={versions.closePicker}>
-            <Text style={s.link}>Cancel</Text>
-          </Pressable>
-          <Text style={s.sheetTitle} numberOfLines={1}>+ Version</Text>
-        </View>
-        <Text style={s.sheetNote} numberOfLines={2}>Linking “{picker.title}”. Pick its Main.</Text>
+    // a page inside the sheet (world map goal 4): tall enough for the list, the keyboard pushes the list up, not off
+    <SheetFrame onClose={closeAll(versions.closePicker)} cancel={false} style={{ height: Math.round(height * PICKER_TALL) }}>
+        <PageHead title="Add as a version of…" note={`“${picker.title}”: pick its Main`} onBack={backFrom(versions.closePicker)} />
         <TextInput
           style={s.input}
           value={query}
@@ -156,6 +167,7 @@ function Picker({ url }: { url: string }) {
           <Text style={s.empty}>Loading songs…</Text>
         ) : (
           <FlatList
+            style={s.grow}
             data={shown}
             keyExtractor={(song) => song.id}
             keyboardShouldPersistTaps="handled"
@@ -180,22 +192,20 @@ function Picker({ url }: { url: string }) {
             )}
           />
         )}
-      </View>
-      <VersionsToast />
-    </Modal>
+    </SheetFrame>
   );
 }
 
 function VersionsView({ url }: { url: string }) {
   const { versionsOf, songs } = useVersions();
   const { song: playing } = usePlayerPick('song');
-  const onShow = useShownWatch(!!versionsOf && versions.members(versionsOf).length > 1, 'versions');
-  // the version whose menu is up (a half sheet inside this one: never a second iOS sheet)
+  // the version whose menu is up: the page shows its choices in place of the list, Back returns to the list
   const [menuFor, setMenuFor] = useState<string | null>(null);
   useEffect(() => setMenuFor(null), [versionsOf]);
   if (!versionsOf) return null;
   const list = versions.members(versionsOf);
-  const close = () => versions.openVersions(null);
+  const shut = () => versions.openVersions(null);
+  const close = closeAll(shut);
   if (list.length < 2) {
     // the family is gone (the last version left): nothing to show
     setTimeout(close, 0);
@@ -203,12 +213,16 @@ function VersionsView({ url }: { url: string }) {
   }
   const info = (id: string) => songs?.find((song) => song.id === id);
 
+  // a tap plays the version (world map: it was a menu); the one already playing goes on as it is
+  const play = (id: string) => {
+    if (playing?.id === id) return;
+    const lib = info(id);
+    player.playNow(url, { id, title: versions.songTitle(id), mine: lib?.mine ?? 'mine', sorted: lib?.sorted ?? true });
+  };
   const run = (id: string, choice: VersionChoice) => {
     setMenuFor(null);
     const title = versions.songTitle(id);
-    const lib = info(id);
-    if (choice === 'Play') player.playNow(url, { id, title, mine: lib?.mine ?? 'mine', sorted: lib?.sorted ?? true });
-    else if (choice === 'Make main' || choice === 'Keep as Main') makeMainWithToast(id);
+    if (choice === 'Make main' || choice === 'Keep as Main') makeMainWithToast(id);
     else if (choice === 'Remove from Versions') {
       const sent = versions.remove(id);
       if (sent) versions.showToast({ text: `Removed: ${title}`, undo: () => versions.undo(sent) });
@@ -217,36 +231,34 @@ function VersionsView({ url }: { url: string }) {
 
   const menuOpen = menuFor && list.includes(menuFor) ? menuFor : null;
   const menuIsMain = menuOpen === list[0];
+  if (menuOpen) {
+    // a held version's choices, in place of the list (no second sheet); Cancel under a gap, where a slip does nothing
+    return (
+      <SheetFrame onClose={close} cancel={false}>
+        <PageHead
+          title={versions.songTitle(menuOpen)}
+          note={menuIsMain ? `Main${versions.isPicked(menuOpen) ? ' (your pick)' : ' (newest)'}: plays in shuffle` : undefined}
+          onBack={() => setMenuFor(null)}
+        />
+        {versionHoldMenu(menuIsMain, versions.isPicked(menuOpen)).map((choice) => (
+          <View key={choice}>
+            {choice === 'Cancel' ? <View style={s.menuGap} /> : null}
+            <Pressable style={(p) => [s.menuItem, tint(p)]} onPress={() => run(menuOpen, choice)} accessibilityLabel={choice}>
+              <Text style={[s.menuText, choice === 'Cancel' && s.menuCancel]} numberOfLines={1}>{choice}</Text>
+            </Pressable>
+          </View>
+        ))}
+      </SheetFrame>
+    );
+  }
   return (
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={close} onShow={onShow}>
-      <View style={s.sheet}>
-        <View style={s.sheetHeader}>
-          <Pressable style={(p) => [s.headWord, tint(p)]} onPress={close}>
-            <Text style={s.link}>Done</Text>
-          </Pressable>
-          <Text style={s.sheetTitle}>Versions · {list.length}</Text>
-          <View style={s.grow} />
-          {/* one sheet at a time on iOS: this one goes first, then Compare opens */}
-          <Pressable
-            style={s.compareTap}
-            onPress={() => {
-              close();
-              // over the player, on the family playing: Compare borrows the song as it plays
-              const fromPlayer = player.now().sheet !== 'none' && !!playing && list.includes(playing.id);
-              setTimeout(() => (fromPlayer ? compare.openFromPlayer(url) : compare.openFromLibrary(url, versionsOf)), AFTER_CLOSE_MS);
-            }}
-          >
-            {({ pressed }) => (
-              <View style={[s.comparePill, pressed && s.comparePressed]}>
-                <Text style={s.compareWord}>Compare</Text>
-              </View>
-            )}
-          </Pressable>
-        </View>
+    // a page inside the song sheet (world map goal 4); Compare is the song sheet's own row now
+    <SheetFrame onClose={close} cancel={false}>
+        <PageHead title={`Versions · ${list.length}`} note="Tap to play, hold for more" onBack={backFrom(shut)} />
         {list.map((id, i) => {
           const title = versions.songTitle(id);
           return (
-            <Pressable key={id} style={(p) => [s.row, menuOpen === id && s.rowHeld, tint(p)]} onPress={() => setMenuFor(id)}>
+            <Pressable key={id} style={(p) => [s.row, tint(p)]} onPress={() => play(id)} onLongPress={() => setMenuFor(id)} delayLongPress={HOLD_MS} accessibilityLabel={title} accessibilityHint="Hold for Make main, Remove, Not mine">
               <Tile title={title} date={info(id)?.date} size={S.rowTile} radius={R.rowTile} plain />
               <View style={s.rowWords}>
                 {/* the version playing: its title in amber, as in every list */}
@@ -264,28 +276,7 @@ function VersionsView({ url }: { url: string }) {
             </Pressable>
           );
         })}
-      </View>
-      <VersionsToast />
-      {menuOpen ? (
-        <View style={s.menuLayer}>
-          <Pressable style={s.menuScrim} onPress={() => setMenuFor(null)} accessibilityLabel="Cancel" />
-          <View style={s.menuSheet}>
-            <View style={s.menuAbout}>
-              <Text style={s.menuTitle} numberOfLines={1}>{versions.songTitle(menuOpen)}</Text>
-              {menuIsMain ? <Text style={s.menuNote} numberOfLines={1}>Main{versions.isPicked(menuOpen) ? ' (your pick)' : ' (newest)'}: plays in shuffle</Text> : null}
-            </View>
-            {versionMenu(menuIsMain, versions.isPicked(menuOpen)).map((choice) => (
-              <View key={choice}>
-                {choice === 'Cancel' ? <View style={s.menuGap} /> : null}
-                <Pressable style={(p) => [s.menuItem, tint(p)]} onPress={() => run(menuOpen, choice)} accessibilityLabel={choice}>
-                  <Text style={[s.menuText, choice === 'Cancel' && s.menuCancel]} numberOfLines={1}>{choice}</Text>
-                </Pressable>
-              </View>
-            ))}
-          </View>
-        </View>
-      ) : null}
-    </Modal>
+    </SheetFrame>
   );
 }
 
@@ -332,14 +323,12 @@ export function VersionsToast() {
   );
 }
 
-/** Mounted once, above every screen and the player sheet. */
+/** Mounted once, above every screen and the player sheet: both pages are drawn by the app (world map goal 4), so they
+ * open over the player in place and the music never stops. */
 export function VersionsLayer({ url }: { url: string }) {
-  // The player sheet is a layer inside the app (Player.tsx), not an iOS sheet, so Versions opens over it as the one iOS
-  // sheet (world map goal 1: from the song sheet, over the player). The picker still waits for the player to close.
-  const { sheet } = usePlayerPick('sheet');
   return (
     <>
-      {sheet === 'none' ? <Picker url={url} /> : null}
+      <Picker />
       <VersionsView url={url} />
       <VersionsToast />
     </>
@@ -350,43 +339,32 @@ const s = StyleSheet.create({
   grow: { flex: 1 },
   // "Versions · 3" in the player: a quiet word like "+ Version" and Compare beside it, 44 to touch
   chip: { color: C.dim, fontSize: 15, paddingHorizontal: 8, paddingVertical: 13 },
-  sheet: { flex: 1, backgroundColor: C.surface, paddingTop: 12, paddingHorizontal: S.side },
-  sheetHeader: { height: S.tap, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  headWord: { height: S.tap, minWidth: S.tap, justifyContent: 'center', marginLeft: -8 },
-  sheetTitle: { ...T.heading, flexShrink: 1 },
-  sheetNote: { ...T.meta, fontSize: 15, marginBottom: 12 },
-  link: { color: C.dim, fontSize: 15, paddingHorizontal: 8 },
-  // Compare: a 36 pill in a 44 touch, quiet (white on raised), never amber
-  compareTap: { height: S.tap, justifyContent: 'center' },
-  comparePill: { height: 36, paddingHorizontal: 16, borderRadius: 18, backgroundColor: C.raised, justifyContent: 'center' },
-  comparePressed: { backgroundColor: C.line },
-  compareWord: { color: C.text, fontSize: 15, fontWeight: '600' },
-  input: { height: 48, color: C.text, fontSize: 16, backgroundColor: C.raised, borderRadius: R.field, paddingHorizontal: 12, marginBottom: 8 },
+  // a page's head inside the sheet: Back (44 to touch), its name, a quiet note under it
+  sheetHeader: { minHeight: S.row, flexDirection: 'row', alignItems: 'center', gap: 4, borderBottomColor: C.line, borderBottomWidth: 1, marginBottom: 4 },
+  headWord: { height: S.tap, minWidth: S.tap, alignItems: 'center', justifyContent: 'center', marginLeft: -10, borderRadius: 22 },
+  headWords: { flex: 1, minWidth: 0, justifyContent: 'center' },
+  sheetTitle: { ...T.row, fontWeight: '600' },
+  headNote: { ...T.meta, marginTop: 2 },
+  // the sheet is the raised colour: the field and the Main mark sit a step darker, so they still show
+  input: { height: 48, color: C.text, fontSize: 16, backgroundColor: C.surface, borderRadius: R.field, paddingHorizontal: 12, marginTop: 8, marginBottom: 8 },
   label: { ...T.meta, paddingVertical: 8 },
   empty: { ...T.meta, fontSize: 15, textAlign: 'center', paddingTop: 32 },
   row: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomColor: C.line, borderBottomWidth: StyleSheet.hairlineWidth },
-  rowHeld: { backgroundColor: C.raised, borderRadius: R.rowTile },
   rowWords: { flex: 1, minWidth: 0, justifyContent: 'center' },
   rowTitle: { ...T.row },
   rowPlaying: { color: C.accent },
   rowDetail: { ...T.meta, marginTop: 2, fontVariant: ['tabular-nums'] },
-  mainMark: { height: 28, paddingHorizontal: 10, borderRadius: 14, backgroundColor: C.raised, justifyContent: 'center' },
+  mainMark: { height: 28, paddingHorizontal: 10, borderRadius: 14, backgroundColor: C.surface, justifyContent: 'center' },
   mainWord: { color: C.text, fontSize: 12, fontWeight: '600' },
-  // a version's menu: a half sheet at the bottom of the Versions sheet, the rest darkened (the tag hold menu's look)
-  menuLayer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'flex-end' },
-  menuScrim: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)' },
-  menuSheet: { backgroundColor: C.raised, borderTopLeftRadius: R.sheet, borderTopRightRadius: R.sheet, paddingHorizontal: S.side, paddingTop: 8, paddingBottom: S.homeBar + 8 },
-  menuAbout: { height: MENU_ROW, justifyContent: 'center', borderBottomColor: C.line, borderBottomWidth: 1 },
-  menuTitle: { ...T.meta, fontSize: 15, color: C.text },
-  menuNote: { ...T.meta, marginTop: 2 },
+  // a held version's choices, in place of the list (the tag hold menu's rows)
   menuItem: { height: MENU_ROW, justifyContent: 'center' },
   menuText: { ...T.row },
   menuGap: { height: 1, backgroundColor: C.line, marginTop: 8, marginBottom: 8 },
   menuCancel: { color: C.dim },
-  // the same toast as the player's Undo: above the tab bar and the mini player
+  // the same toast as the player's Undo: above the tab bar and the mini player, and over the sheet's pages
   toast: {
     position: 'absolute', left: 16, right: 16, bottom: coveredBelow(true, true) + 4, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: C.toast, borderRadius: R.toast, paddingVertical: 10, paddingHorizontal: 14,
+    backgroundColor: C.toast, borderRadius: R.toast, paddingVertical: 10, paddingHorizontal: 14, zIndex: 12,
   },
   toastText: { flex: 1, ...T.toast },
   toastTap: { minHeight: 28, justifyContent: 'center' },

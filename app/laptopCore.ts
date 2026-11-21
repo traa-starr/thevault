@@ -144,3 +144,12 @@ export const backupDidntSave = (failure: CallFailure, answersNow: boolean, waiti
 /** How long the one small call after a backup timeout may take: short, so a laptop that's really off doesn't hold the
  * next backup up for another 10 s. */
 export const ANSWERS_NOW_MS = 3000;
+
+/** World map (goal 4): what Settings' Laptop status row says when it needs a look, and puts a dot on Home's "...".
+ * Null when all is well, or when the laptop doesn't answer at all ("Laptop not reachable" has its own line). */
+export function laptopNeedsLook(s: { outOfDate: boolean; saveFailed: boolean; reachable: boolean | null }): string | null {
+  if (s.reachable === false) return null;
+  if (s.outOfDate) return 'Laptop server is out of date: restart it (Stop the server, then Start the server). Tap to check again.';
+  if (s.saveFailed) return "This phone's backup didn't save on the laptop. Tap to try again.";
+  return null;
+}

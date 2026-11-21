@@ -272,7 +272,8 @@ export const fixtures = [
   { name: 'settings', ...whole({ songs: played, player: NO_SONG }, [SETTINGS]) },
   { name: 'settings-mini-player', ...whole({ songs: played }, [SETTINGS]) },
   { name: 'settings-editing', ...whole({ songs: played, player: NO_SONG }, [SETTINGS, "app.tapText('Change laptop address')", 'app.keyboard()']) },
-  { name: 'settings-laptop-off', ...whole({ songs: played, laptopOff: true, player: NO_SONG }, [SETTINGS]) },
+  { name: 'settings-laptop-status', ...whole({ songs: played, outOfDate: true, player: NO_SONG }, [SETTINGS]) },
+  { name: 'settings-laptop-off',...whole({ songs: played, laptopOff: true, player: NO_SONG }, [SETTINGS]) },
   { name: 'settings-then-home-tab', ...whole({ songs: played, player: NO_SONG }, [SETTINGS, HOME]) },
   { name: 'settings-then-back', ...whole({ songs: played, player: NO_SONG }, [SETTINGS, "app.tapText('Back')"]) },
   // world map: a set's tap is its cards; its hold is the set sheet (All mine, All not mine, its songs)

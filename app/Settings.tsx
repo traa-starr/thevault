@@ -7,7 +7,10 @@ import { Alert, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'rea
 import Hidden from './Hidden';
 import { hiddenRowCount, restoresOnTheirWay } from './hiddenCore';
 import { Icon } from './Icon';
+import { laptopNeedsLook } from './laptopCore';
+import { useOffline } from './offline';
 import { useOutbox } from './outbox';
+import { phoneBackup, usePhoneBackup } from './phoneBackup';
 import { logText } from './pressLog';
 import { Tap } from './Tap';
 import { C, coveredBelow, R, S, T } from './theme';
@@ -40,6 +43,9 @@ export default function Settings({ address, line, off, stamp, build, mini, url, 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(address);
   const [showHidden, setShowHidden] = useState(false);
+  const { outOfDate, saveFailed } = usePhoneBackup();
+  const { reachable } = useOffline();
+  const look = laptopNeedsLook({ outOfDate, saveFailed, reachable: off ? false : reachable });
   // restores still on their way come off the count at once; once the laptop has them all, it's asked again (catch 1)
   const onTheirWay = restoresOnTheirWay(useOutbox().pending);
   const was = useRef(onTheirWay);
@@ -68,9 +74,18 @@ export default function Settings({ address, line, off, stamp, build, mini, url, 
           <Text style={s.rowValue} numberOfLines={1}>{address}</Text>
         </View>
         <View style={s.rowLine} />
-        <View style={s.row}>
-          <Text style={[s.rowNote, off && s.rowWarn]} numberOfLines={1}>{line || ' '}</Text>
-        </View>
+        {/* the Laptop status row (world map goal 4): what the laptop said, a dot and the reason when it needs a look
+            (server out of date, backup didn't save: once a line on Home and Library). A tap asks the laptop again. */}
+        <Tap style={s.status} radius={R.cardTile} onPress={() => (phoneBackup.retry(), onRecount())} accessibilityLabel="Laptop status">
+          <View style={s.row}>
+            <Text style={s.rowWord}>Status</Text>
+            <View style={s.rowEnd}>
+              {look ? <View style={s.lookDot} /> : null}
+              <Text style={[s.rowValue, off && s.rowWarn]} numberOfLines={1}>{line || ' '}</Text>
+            </View>
+          </View>
+          {look ? <Text style={s.lookText}>{look}</Text> : null}
+        </Tap>
         <View style={s.rowLine} />
         {editing ? (
           <View style={s.edit}>
@@ -167,8 +182,10 @@ const s = StyleSheet.create({
   rowWord: { ...T.row },
   rowValue: { ...T.meta, fontSize: 15, flexShrink: 1, fontVariant: ['tabular-nums'] },
   rowEnd: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  rowNote: { ...T.meta, fontSize: 15, flex: 1 },
   rowWarn: { color: C.warnText },
+  status: { overflow: 'hidden' },
+  lookDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.warnText },
+  lookText: { ...T.meta, fontSize: 14, lineHeight: 20, color: C.warnText, paddingHorizontal: 14, paddingBottom: 14, marginTop: -6 },
   arrow: { transform: [{ rotate: '180deg' }] },
   edit: { padding: 14, gap: 12 },
   input: { height: 48, color: C.text, fontSize: 16, backgroundColor: C.raised, borderRadius: R.field, paddingHorizontal: 12 },

@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { HOME_ROWS } from './libraryCore.ts';
-import { homeLine, lineFor, secondLine } from './yourLines.ts';
+import { homeLine, lineFor, pickHomeLine, secondLine } from './yourLines.ts';
 
 let n = 0;
 const ok = (name, fn) => {
@@ -60,6 +60,25 @@ ok('Home with no lines yet: null (the card says "Tag your first line")', () => {
   assert.equal(homeLine([tag('x', 'a', 1, '')], 3), null);
 });
 
+ok('Home keeps its line while I look: a new tag or a late list never swaps it (fresh-eyes 1)', () => {
+  const held = pickHomeLine(TAGS, 7, () => true, null);
+  assert.ok(held);
+  const more = [...TAGS, tag('n1', 'aaa', 1, 'a brand new line'), tag('n2', 'zzz', 2, 'another')];
+  assert.deepEqual(pickHomeLine(more, 7, () => true, held), held, 'same seed, new tags: the same line');
+  assert.notDeepEqual(pickHomeLine(more, 8, () => true, held), held, 'a new seed (Home back in view) picks again');
+  const edited = TAGS.map((t) => (t.song_id === held.song_id && t.at_sec === held.at_sec ? { ...t, text: 'edited words' } : t));
+  assert.equal(pickHomeLine(edited, 7, () => true, held).text, 'edited words', 'an edited line keeps its place, new words');
+});
+
+ok('Home only offers a line it can play: a song that cannot play or is gone is never the card (fresh-eyes 2)', () => {
+  const okOnly = (id) => id === 'c';
+  assert.equal(pickHomeLine(TAGS, 7, okOnly, null).song_id, 'c');
+  const held = pickHomeLine(TAGS, 1, () => true, null);
+  const others = (id) => id !== held.song_id;
+  assert.notEqual(pickHomeLine(TAGS, 1, others, held).song_id, held.song_id, 'a held line whose song stopped playing is dropped');
+  assert.equal(pickHomeLine(TAGS, 1, () => false, held), null, 'nothing playable: no line');
+});
+
 ok('a row second line: the line, else the versions count, else nothing', () => {
   assert.equal(secondLine('cold open, nobody waiting', 3), 'cold open, nobody waiting');
   assert.equal(secondLine(null, 3), '3 versions');
@@ -71,10 +90,11 @@ ok('Home keeps three lower rows: Most played and Versions to compare move to Lib
 });
 
 ok('the screens use it: Home has the line card, rows and the mini player show lines', () => {
-  assert.ok(/homeLine\(/.test(code('./Home.tsx')), 'Home.tsx opens on homeLine');
+  assert.ok(/pickHomeLine\(/.test(code('./Home.tsx')), 'Home.tsx opens on pickHomeLine (homeLine, held while I look)');
   assert.ok(/Tag your first line/.test(code('./Home.tsx')), 'Home says what to do with no lines');
   assert.ok(/secondLine\(/.test(code('./SongRow.tsx')), 'Library rows use secondLine');
   assert.ok(/lineFor\(/.test(code('./Player.tsx')), 'the mini player shows a line');
+  assert.ok(/linesForRows\(/.test(code('./SearchScreen.tsx')) && /<SongRow[^>]*\bline=/.test(code('./SearchScreen.tsx')), 'search title rows show the line like Library rows');
 });
 
 console.log(`\n${n} your-lines checks passed`);

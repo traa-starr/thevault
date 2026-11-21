@@ -16,7 +16,7 @@ import { timing, type Path } from './timings';
 import { changedKeys, redrawFor, SPOT_EVERY_MS } from './energy';
 import { hang } from './hangWatch';
 import { closeQueue, openSheet, type Sheet } from './sheetCore';
-import { afterSongEnds, currentId, eyeSetting, jumpTo, moveBy, repeatAfterTap, repeatFrom, shownLength, SORT_START_SEC, startSpot, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setFlag, setShuffle, startOrder, upNext, walkAhead, walkBack, withRepeat, type Order, type Repeat } from './playOrder';
+import { afterSongEnds, currentId, eyeSetting, previousDoes, jumpTo, moveBy, repeatAfterTap, repeatFrom, shownLength, SORT_START_SEC, startSpot, moveInOrder, nextInOrder, playHere, previousInOrder, removeFromOrder, setFlag, setShuffle, startOrder, upNext, walkAhead, walkBack, withRepeat, type Order, type Repeat } from './playOrder';
 import { isVersion, members, removeEditFor, sendEdit, showToast, songTitle, undo as undoVersions, type Sent } from './versionStore';
 
 /** `length`: seconds, measured on the laptop (NEXT C), so the length shows at the tap; null or missing: not known yet. */
@@ -113,6 +113,7 @@ let beforeCompare: { spot: Spot | null } | null = null; // the queue's place whi
 let engine: Engine | null = null;
 let modeSet: Promise<unknown> | null = null;
 let track: { id: string; order: Order | null }[] = []; // what the playlist player holds, one per position; null: chosen before a shuffle change
+let shownIndex = 0; // the place in `track` of the song shown now: a move to one place lower is the lock screen's Previous
 let settleUntil = 0;
 let holdPausedUntil = 0;
 let afterClose: (() => void) | null = null;
@@ -309,6 +310,17 @@ function onTrack(index: number) {
   // never loaded moved on by itself (a bad song): not a tap either
   const length = phoneLength || state.duration;
   const ended = !everLoaded || (length > 0 && state.time >= length - 2.5);
+  // the lock screen's, car's or headphones' Previous (expo-audio moves back natively, no word first) more than 3 s into
+  // the song: straight back onto it, fresh from its start, playing or paused as it was (owner, 2026-11-20)
+  const before = shownIndex;
+  if (!own && !ended && index === before - 1 && previousDoes(player.positionNow(), startPoint) === 'restart') {
+    note('Player: lock-screen Previous restarts the song');
+    engine?.next(); // a fresh copy of the song: from 0:00
+    if (startPoint > 0) engine?.startHere(startPoint);
+    timeStampedAt = Date.now();
+    update({ time: startPoint });
+    return; // its own report finds the same song and order: nothing else moves
+  }
   if (!own && !ended) tapFor('lockscreen', entry.id);
   meter.play(sourceOf(entry.id).src);
   // play first: the silence and the start spot go to the player before the screen catches up
@@ -334,6 +346,7 @@ function onTrack(index: number) {
       restarted = true;
     }
   }
+  shownIndex = restarted ? index + 1 : index;
   // the lock screen or a song's end moved on: the player began it at 0:00, so it goes silent and finds its start point.
   // A Next or Previous tap already did that on its way (skip), so its own report never seeks twice.
   if (startPoint > 0 && (index === 0 ? !own || restarted : restarted)) engine?.startHere(startPoint);
@@ -375,7 +388,12 @@ function stopForBadSongs() {
 const nextPath = (): Path => (state.sorting ? 'sort' : startPoint > 0 ? 'session' : 'library');
 const ensureEngine = () => {
   if (engine) return engine;
-  engine = createEngine(ENGINE, { onSound, onTrack, onStarted: (stages) => timing.heard(stages) });
+  engine = createEngine(ENGINE, {
+    onSound,
+    onTrack,
+    onStarted: (stages) => timing.heard(stages),
+    onIgnored: () => note('Player: ignored a play with none from me since launch (car, headphones or another app letting go)'),
+  });
   engine.setQuiet(!appOpen); // made while locked (a lock-screen Play after a restart): quiet from the start
   return engine;
 };
@@ -422,6 +440,7 @@ function loadOrder(order: Order, asked: number | undefined, play: boolean) {
       const behind = walkBack(now, BEHIND);
       const ahead = walkAhead(now, AHEAD, avoid());
       track = [...behind, now, ...ahead].map((one) => ({ id: currentId(one), order: one }));
+      shownIndex = behind.length;
       sound.load(track.map((one) => audioUrl(one.id)), behind.length, at, play);
     } else {
       sound.load([audioUrl(id)], 0, at, play);
@@ -519,6 +538,15 @@ const queueHolds = (step: 1 | -1, moved: Order) => {
   return index >= 0 && index < track.length && track[index].id === currentId(moved);
 };
 
+/** Previous more than 3 s in: this song again from where it starts, playing or paused as it was. */
+function restartSong() {
+  hang.note('previous: restart');
+  note('Player: Previous restarts the song');
+  engine?.seek(startPoint, state.wanted).catch(() => {});
+  timeStampedAt = Date.now();
+  update({ time: startPoint });
+}
+
 /** One step through the player's own queue, where the song is already loaded: the fast path for Next, Previous and the
  * next Sort card. With a start point it stays silent until it gets there; the seek bar shows the spot at once. */
 function stepQueue(step: 1 | -1, moved: Order) {
@@ -612,11 +640,10 @@ export const player = {
   previous() {
     settleHandOff();
     if (!state.order || state.comparing) return;
+    // over 3 s in: the song starts again where it starts (owner, 2026-11-20); within 3 s: the song before
+    if (!ahead && previousDoes(player.positionNow(), startPoint) === 'restart') return restartSong();
     const moved = previousInOrder(ahead ?? state.order);
-    if (!moved) {
-      engine?.seek(0).catch(() => {});
-      return;
-    }
+    if (!moved) return restartSong();
     badInARow = 0;
     tapFor('previous', currentId(moved));
     hang.note('previous');

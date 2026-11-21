@@ -302,4 +302,51 @@ const make = (lengths = {}, startPoint = 0) => {
   console.log('ok  reports every 2 s locked (30 a minute, was 120) and every 1 s on screen (60, was 120), full rate while a song finds its start spot; old build unchanged');
 }
 
+// Car autoplay (2026-11-20): iOS wakes the swiped-away app in the background when a car or headphones connect, the
+// launch brings the last song back paused, and if that claims the lock screen, the car's "play" lands on expo-audio's
+// own play handler, which plays with no word from the app. Pass: nothing claims the lock screen, and nothing sounds,
+// until the app itself has played something since launch.
+{
+  const claims = [];
+  const ignored = [];
+  const list = fakeList({});
+  list.setActiveForLockScreen = (on, meta) => claims.push(meta.title);
+  list.clearLockScreenControls = () => claims.push('released');
+  const engine = playlistEngine(list, { onSound: () => {}, onTrack: () => {}, onIgnored: () => ignored.push(list.currentTime) });
+  // the launch's restore: last song back, paused, its title handed over
+  engine.load(['a', 'b'], 0, 40, false);
+  engine.setTitle('Fake Song A');
+  engine.refreshLockScreen();
+  engine.lockScreenSkips(true);
+  assert.deepEqual(claims, [], 'a restore never takes the lock screen (no car or headphone play can reach it)');
+  // the car's play reaches the player anyway (an old claim, an interruption ending): the app stops it at once
+  await list.load();
+  list.play();
+  list.emit();
+  assert.equal(list.playing, false, 'a play with none from the app since launch is stopped');
+  assert.equal(ignored.length, 1, 'and logged');
+  // my own Play: the lock screen is ours from now on, with the title it was given
+  engine.play();
+  assert.equal(list.playing, true, 'my Play plays');
+  assert.deepEqual(claims, ['Fake Song A'], 'my Play takes the lock screen with the song shown');
+  list.pause();
+  list.emit();
+  list.play(); // the car's play after mine: the Vault was the last thing played and is still open
+  list.emit();
+  assert.equal(list.playing, true, 'after my own play, a car or lock-screen play resumes it');
+  assert.equal(ignored.length, 1, 'nothing more ignored');
+  console.log('ok  car autoplay: a launch never takes the lock screen or plays before my own Play; after it, the car resumes');
+}
+{
+  // a fresh list started by a tap (Library, Home, a session) takes the lock screen as before
+  const claims = [];
+  const list = fakeList({});
+  list.setActiveForLockScreen = (on, meta) => claims.push(meta.title);
+  const engine = playlistEngine(list, { onSound: () => {}, onTrack: () => {} });
+  engine.load(['a'], 0, 0, true);
+  engine.setTitle('Fake Song B');
+  assert.deepEqual(claims, ['Fake Song B'], 'a tapped song is on the lock screen');
+  console.log('ok  a song started by a tap is on the lock screen at once');
+}
+
 console.log('playlistCore: all start-spot checks pass');

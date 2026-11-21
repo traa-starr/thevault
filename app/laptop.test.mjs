@@ -275,7 +275,7 @@ ok('catch 5: the phone runs this: its own timeout is named, and one small call t
   assert.ok(/if \(failure === 'timeout' && !state\.waiting\) \{\s*try \{\s*await call\('\/health', undefined, ANSWERS_NOW_MS\);\s*answersNow = true;/.test(caught), 'something only the laptop answers');
   assert.ok(/if \(!backupDidntSave\(failure, answersNow, state\.waiting\)\) \{\s*healthAt = 0;\s*return;/.test(caught));
   assert.ok(caught.includes('update({ saveFailed: true })'));
-  assert.ok(code('./Notices.tsx').includes("This phone's backup didn't save on the laptop. Tap to try again."));
+  assert.ok(code('./laptopCore.ts').includes("This phone's backup didn't save on the laptop. Tap to try again."), 'said on Settings\' Laptop status row (world map goal 4)');
 });
 
 console.log(`\n${n} laptop checks passed`);

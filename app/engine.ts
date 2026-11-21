@@ -13,7 +13,9 @@ function singleEngine({ onSound, onStarted }: Handlers): Engine {
   let locked = false;
   let shownTitle = '';
   const gate = startGate(player, onStarted);
+  let asked = false; // as the playlist player: no lock screen before the app's own first play (car autoplay)
   const claim = () => {
+    if (!asked) return;
     player.setActiveForLockScreen(true, { title: shownTitle });
     locked = true;
   };
@@ -34,6 +36,7 @@ function singleEngine({ onSound, onStarted }: Handlers): Engine {
   const engine: Engine = {
     windowed: false,
     load: (uris, index, at, play) => {
+      if (play) asked = true;
       gate.drop();
       player.pause(); // replacing keeps a playing player playing
       player.replace({ uri: uris[index] });
@@ -53,6 +56,10 @@ function singleEngine({ onSound, onStarted }: Handlers): Engine {
     previous: () => {},
     skip: () => {}, // never asked: it isn't windowed
     play: () => {
+      if (!asked) {
+        asked = true;
+        claim();
+      }
       const waiting = gate.now();
       if (waiting) {
         waiting.play = true;

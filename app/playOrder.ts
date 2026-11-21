@@ -60,6 +60,12 @@ export const withRepeat = (order: Order, r: Repeat): Order => {
 /** A song played to its end: Repeat one plays it again (the player loops it); otherwise the next song, as Next finds it. */
 export const afterSongEnds = (order: Order, r: Repeat, avoid: Avoid = []): Order | null => (r === 'one' ? order : nextInOrder(order, avoid));
 
+/** Previous (owner, 2026-11-20): more than 3 s past where the song starts (0:00; a session card 0:15, a Sort card 0:30)
+ * it starts the song again there; within those 3 s, the song before. Lock screen, car and headphones the same. */
+export const RESTART_AFTER_SEC = 3;
+export const previousDoes = (time: number, startPoint: number): 'restart' | 'back' =>
+  time - startPoint > RESTART_AFTER_SEC ? 'restart' : 'back';
+
 /** The song before, or null when there isn't one. List order wraps round to the bottom. */
 export function previousInOrder(order: Order): Order | null {
   const count = order.sequence.length;

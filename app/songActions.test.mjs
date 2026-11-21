@@ -10,6 +10,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { actionLabel, HOLD_MS, HOLD_SLOP, HOME_MENU, holdFires, LIBRARY_MENU, playerFace, SET_ACTIONS, SHUFFLE_POOLS, songActions } from './songActions.ts';
+import { versionHoldMenu } from './family.ts';
+import { laptopNeedsLook } from './laptopCore.ts';
 
 let n = 0;
 const ok = (name, fn) => {
@@ -140,6 +142,49 @@ ok('goal 2, a hold opens the same sheet on every screen', () => {
   for (const screen of ['./Library.tsx', './Home.tsx', './SearchScreen.tsx', './Cards.tsx'])
     assert.ok(/SongSheet|openSongSheet/.test(code(screen)), `${screen} opens the song sheet on a hold`);
   assert.ok(/holdFires\(|HOLD_MS/.test(code('./SongRow.tsx') + code('./Library.tsx')), 'Library rows use the tested hold rule');
+});
+
+ok('a row that cannot play still opens its sheet on a hold (fresh-eyes 5: laptop off, cloud-only)', () => {
+  const row = code('./SongRow.tsx');
+  assert.ok(!/disabled=\{disabled\}/.test(row), 'the Pressable is not switched off whole: that kills the hold too');
+  assert.ok(/disabled=\{disabled && !onLongPress\}/.test(row), 'only a row with no hold is switched off');
+  assert.ok(/if \(!disabled\) onPress\(song\)/.test(row), 'a tap on a row that cannot play does nothing');
+});
+
+// ---------- goal 4 (2026-11-20): Versions and "Add as a version of…" as pages inside the sheet; the Laptop status row ----
+ok('goal 4, a version tapped plays; held, its menu has no Play (WORLD-MAP Versions 4, 5)', () => {
+  assert.deepEqual(versionHoldMenu(false, false), ['Make main', 'Remove from Versions', 'Not mine', 'Cancel']);
+  assert.deepEqual(versionHoldMenu(true, false), ['Keep as Main', 'Remove from Versions', 'Cancel']);
+  assert.deepEqual(versionHoldMenu(true, true), ['Remove from Versions', 'Cancel']);
+  const page = code('./Versions.tsx');
+  assert.ok(/onPress=\{\(\) => play\(id\)\}/.test(page) && /onLongPress=\{\(\) => setMenuFor\(id\)\}/.test(page), 'tap plays, hold opens the menu');
+  assert.ok(/delayLongPress=\{HOLD_MS\}/.test(page), 'the tested hold time: a scroll never opens it');
+});
+
+ok('goal 4, Versions and the picker are pages inside the sheet, never iOS pop-up sheets', () => {
+  const page = code('./Versions.tsx');
+  assert.ok(!/<Modal\b/.test(page), 'no iOS sheet: the app draws them, over the player too');
+  assert.ok(!/sheet === 'none' \? <Picker/.test(page), 'the picker no longer waits for the player to close');
+  assert.equal((page.match(/<SheetFrame\b/g) ?? []).length, 3, 'the Versions page, a held version\'s choices and the Add as a version page');
+  assert.ok(/accessibilityLabel="Back"/.test(page), 'a Back arrow top left');
+  const frame = code('./SheetFrame.tsx');
+  assert.ok(/onPanResponderRelease[\s\S]{0,120}close\.current\(\)/.test(frame) && /close\.current = onClose;/.test(frame), 'pull down closes the whole sheet');
+  // Back on a page goes back to the song sheet it came from; with none (opened some other way) it closes
+  assert.ok(/export const pageBack = \(\) => \{/.test(frame));
+  const sheet = code('./SongSheet.tsx');
+  assert.ok(/case 'add_version':[\s\S]{0,200}startLink\(/.test(sheet), 'Add as a version of… opens the picker page, not Library');
+  assert.ok(/setBack\(\(\) => openSongSheet\(/.test(sheet), 'the page knows the song sheet to go back to');
+});
+
+ok('goal 4, Laptop status: a dot when the server is out of date or the backup did not save, never a line on Home', () => {
+  assert.equal(laptopNeedsLook({ outOfDate: false, saveFailed: false, reachable: true }), null);
+  assert.match(laptopNeedsLook({ outOfDate: true, saveFailed: false, reachable: true }), /out of date/);
+  assert.match(laptopNeedsLook({ outOfDate: false, saveFailed: true, reachable: true }), /backup didn't save/);
+  assert.equal(laptopNeedsLook({ outOfDate: true, saveFailed: true, reachable: false }), null, 'unreachable has its own line');
+  for (const screen of ['./Home.tsx', './Library.tsx']) assert.ok(!/<LaptopLine/.test(code(screen)), `${screen}: the line moved to Settings`);
+  const settings = code('./Settings.tsx');
+  assert.ok(/laptopNeedsLook\(/.test(settings) && /accessibilityLabel="Laptop status"/.test(settings), 'the Laptop status row');
+  assert.ok(/laptopNeedsLook\(/.test(code('./Home.tsx')), "the dot on Home's ...");
 });
 
 console.log(`\n${n} song sheet checks passed`);

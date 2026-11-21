@@ -1,6 +1,6 @@
 // Notices that must never be missed (board meeting 5): changes still waiting to reach the laptop, and what came
-// back after a reinstall, shown at the top of Library, Sort and the home page. Library also says when the laptop server
-// is out of date or didn't save the phone's backup.
+// back after a reinstall, shown at the top of Library, Sort and the home page. A laptop server that's out of date or
+// didn't save the phone's backup is Settings' Laptop status row now (world map goal 4), with a dot on Home's "...".
 // Look (overhaul wave 4, the whole-app pass): the warn colour of "Laptop not reachable", left-aligned like it; the
 // Welcome back card on the app's own surface.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -28,22 +28,6 @@ export function WaitingLine() {
     <Pressable onPress={() => flush()}>
       <Text style={s.waiting}>
         {[changes ? count(changes, 'change', 'changes') : '', played ? count(played, 'play', 'plays') : ''].filter(Boolean).join(' and ')} waiting to send{reachable === false ? ' · Laptop not reachable' : ''}
-      </Text>
-    </Pressable>
-  );
-}
-
-/** The laptop runs older code than this app, or didn't save the phone's backup: one plain line. Tap: ask again. */
-export function LaptopLine() {
-  const { outOfDate, saveFailed } = usePhoneBackup();
-  const { reachable } = useOffline();
-  if (reachable === false || (!outOfDate && !saveFailed)) return null; // unreachable has its own line
-  return (
-    <Pressable onPress={phoneBackup.retry}>
-      <Text style={s.waiting}>
-        {outOfDate
-          ? 'Laptop server is out of date: restart it (Stop the server, then Start the server). Tap to check again.'
-          : "This phone's backup didn't save on the laptop. Tap to try again."}
       </Text>
     </Pressable>
   );

@@ -189,8 +189,9 @@ export function undoMine(changes: Change[], songId: string) {
 }
 
 export const openPicker = (picker: State['picker']) => update({ picker });
-export const closePicker = () => update({ picker: null });
-export const openVersions = (id: string | null) => update({ versionsOf: id });
+// no change, no update: the song sheet closes these on every opening, and an update redraws every list that reads the store
+export const closePicker = () => state.picker && update({ picker: null });
+export const openVersions = (id: string | null) => state.versionsOf !== id && update({ versionsOf: id });
 
 export const members = (id: string) => membersOf(state.families, id);
 export const isPicked = (id: string) => state.picks.has(id);

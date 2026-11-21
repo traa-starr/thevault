@@ -27,6 +27,7 @@ import { C, coveredBelow, R, S, T } from './theme';
 import { timing } from './timings';
 import * as versions from './versionStore';
 import { useVersions, type LibSong } from './versionStore';
+import { linesForRows } from './yourLines';
 
 type Song = LibSong;
 const WHERE: Record<string, string> = { laptop: 'On the laptop', cloud: 'Cloud only', gone: 'File missing' };
@@ -88,6 +89,8 @@ export default function SearchScreen({ url, showing }: { url: string; showing: b
     () => (searching && base ? findSongs(base, allTags, (id) => families.get(id) ?? id, query) : null),
     [searching, query, base, allTags, families],
   );
+  // a title-matched row shows its line like Library's row (one pass over the tags, not one per row)
+  const rowLines = useMemo(() => linesForRows(allTags, (id) => families.get(id) ?? id), [allTags, families]);
   // the phone's own search time, sent to the laptop with the other timings (numbers only)
   useEffect(() => {
     if (found) timing.search(found.ms, found.tags);
@@ -224,7 +227,7 @@ export default function SearchScreen({ url, showing }: { url: string; showing: b
             return hit ? (
               <LineRow song={item} hit={hit} stems={found.stems} typed={found.typed} rating={ratings.get(item.id)} off={off} disabled={disabled} onPress={() => play(item, hit, text)} onLongPress={() => hold(item)} />
             ) : (
-              <SongRow song={item} meta={detail(item)} onPhone={offline.has(item.id)} bold={found} rating={ratings.get(item.id)} off={off} disabled={disabled} playing={playingSong?.id === item.id} onPress={(song) => play(song, undefined, text)} onLongPress={hold} />
+              <SongRow song={item} meta={detail(item)} onPhone={offline.has(item.id)} bold={found} rating={ratings.get(item.id)} off={off} disabled={disabled} playing={playingSong?.id === item.id} line={rowLines.get(item.id)} onPress={(song) => play(song, undefined, text)} onLongPress={hold} />
             );
           }}
         />

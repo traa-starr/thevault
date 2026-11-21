@@ -9,8 +9,10 @@ import { Tile } from './Art';
 import { Icon } from './Icon';
 import { HOME_ROWS, homePage, homeRows, keepIfSame, linesByRow, taggedOnceKnown, type HomeRowKey } from './libraryCore';
 import { openLibrary, openLibrarySelect, openSort } from './nav';
-import { LaptopLine, RestoreNotice, WaitingLine } from './Notices';
+import { laptopNeedsLook } from './laptopCore';
+import { RestoreNotice, WaitingLine } from './Notices';
 import { loadSongList, offline, useOffline } from './offline';
+import { usePhoneBackup } from './phoneBackup';
 import { useOutbox } from './outbox';
 import { NOT_HERE, player, usePlayerPick } from './playerStore';
 import { A_WHILE_DAYS, dayOf, notPlayedInAWhile, recentlyPlayed, rediscoverStart, ROW_SONGS, type PlayMap } from './playLog';
@@ -21,7 +23,7 @@ import { session } from './sessionStore';
 import { HOLD_MS, HOME_MENU, SHUFFLE_POOLS } from './songActions';
 import { openMenu, openSongSheet, type MenuRow } from './SongSheet';
 import { clock, useAllTags, useTagsKnown } from './tagStore';
-import { homeLine } from './yourLines';
+import { pickHomeLine } from './yourLines';
 import { tint } from './Tagging';
 import { Tap } from './Tap';
 import { C, coveredBelow, R, S, T } from './theme';
@@ -140,6 +142,9 @@ export default function Home({ url, setup, onSettings, showing }: Props) {
   const all = useMemo(() => (listed ? withPending(listed, waitingAll.filter((change) => change.kind !== 'play_add')) : []), [listed, choiceKey]);
   const ratings = useRatings();
   const { reachable, stored } = useOffline();
+  // a small dot on the "..." while Settings' Laptop status row needs a look (server out of date, backup didn't save)
+  const { outOfDate, saveFailed } = usePhoneBackup();
+  const needsLook = !!laptopNeedsLook({ outOfDate, saveFailed, reachable });
   const { song: playing, sheet } = usePlayerPick('song', 'sheet');
   // The rows never change under my thumb: a song reaching 0:30 while I look at Home moves nothing. They catch up
   // each time Home comes back into view (a tab tap, the player closing, the song list arriving).
@@ -228,12 +233,16 @@ export default function Home({ url, setup, onSettings, showing }: Props) {
     if (inView && !wasInView.current) setSeed((n) => n + 1);
     wasInView.current = inView;
   }, [inView]);
-  // only lines on songs in the list (a hidden song's line would be a card that can't play); before the list, all of them
+  // a line on a song that can play now and isn't Archived, held while I look (yourLines.ts pickHomeLine); with none
+  // playable (laptop off) a listed song's line, whose tap says why. Nothing before the list: no swap when it lands.
+  const heldLine = useRef<ReturnType<typeof pickHomeLine>>(null);
   const picked = useMemo(() => {
-    if (!all.length) return homeLine(allTags, seed);
+    if (!listed) return null;
+    const ok = new Set(all.filter((song) => canPlay(song) && ratings.get(song.id) !== 'shelved').map((song) => song.id));
     const listedIds = new Set(all.map((song) => song.id));
-    return homeLine(allTags.filter((tag) => listedIds.has(tag.song_id)), seed);
-  }, [allTags, all, seed]);
+    const line = pickHomeLine(allTags, seed, (id) => ok.has(id), heldLine.current) ?? pickHomeLine(allTags, seed, (id) => listedIds.has(id), heldLine.current);
+    return (heldLine.current = line);
+  }, [allTags, all, listed, seed, laptopOff, stored, ratings]);
   const lineSong = picked ? all.find((song) => song.id === picked.song_id) ?? null : null;
   const playLine = () => {
     if (!picked) return session.start(url);
@@ -253,18 +262,19 @@ export default function Home({ url, setup, onSettings, showing }: Props) {
         <Text style={s.title}>The Vault</Text>
         {/* no "..." until there's a laptop: first run shows the address box below instead */}
         {url ? (
-          <Tap style={s.gear} radius={22} onPress={homeMenu} accessibilityLabel="More: Sort, Tag songs, Settings">
+          <Tap style={s.gear} radius={22} onPress={homeMenu} accessibilityLabel={needsLook ? 'More: Sort, Tag songs, Settings (the laptop needs a look)' : 'More: Sort, Tag songs, Settings'}>
             <Icon name="more" size={22} color={C.text} />
+            {needsLook ? <View style={s.lookDot} pointerEvents="none" /> : null}
           </Tap>
         ) : null}
       </View>
       <RestoreNotice />
       <WaitingLine />
-      <LaptopLine />
       {!url ? setup : (
         <>
           {/* waits for the laptop's tags on a fresh install, so "Tag your first line" never shows over lines still on their way */}
-          {picked || tagsKnown ? <LineCard line={picked} title={lineSong?.title ?? ''} onPress={playLine} /> : null}
+          {/* until then a blank card the same size holds its place, so Shuffle never jumps down when it lands */}
+          {picked || (listed && tagsKnown) ? <LineCard line={picked} title={lineSong?.title ?? ''} onPress={playLine} /> : <View style={s.lineCard} accessible={false} />}
           {/* Search is the round button by the tabs; Favorites is a hold on Shuffle (WORLD-MAP Home 2, 4) */}
           <View style={s.pair}>
             <Tap filled style={[s.big, s.shuffle]} radius={24} onPress={() => shuffle()} onLongPress={pools} delayLongPress={HOLD_MS} accessibilityLabel="Shuffle my songs" accessibilityHint="Hold for Favorites or Unsorted">
@@ -303,6 +313,8 @@ const s = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 34, marginBottom: 16 },
   title: { ...T.title },
   gear: { width: S.tap, height: S.tap, marginRight: -10, alignItems: 'center', justifyContent: 'center' },
+  // drawn over the icon's corner, so the "..." never moves when it comes and goes
+  lookDot: { position: 'absolute', top: 9, right: 7, width: 8, height: 8, borderRadius: 4, backgroundColor: C.warnText },
   lineCard: { backgroundColor: C.raised, borderRadius: R.cardTile, paddingHorizontal: 18, paddingVertical: 16, marginBottom: 14, minHeight: 96, justifyContent: 'center' },
   lineWords: { color: C.text, fontSize: 22, lineHeight: 28, fontWeight: '700' },
   lineSong: { ...T.meta, marginTop: 8 },

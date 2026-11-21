@@ -93,18 +93,19 @@ ok('A: Make main still makes that version the Main of its whole family and keeps
   const joined = settle(after, picks, { songs: { d: 'a' }, before: { d: null } }, dateOf);
   assert.equal(applyEdit(after, joined).get('d'), 'a');
   const versions = code('./Versions.tsx');
-  assert.ok(versions.includes("else if (choice === 'Make main' || choice === 'Keep as Main') makeMainWithToast(id);"));
+  assert.ok(versions.includes("if (choice === 'Make main' || choice === 'Keep as Main') makeMainWithToast(id);"));
   assert.ok(/function makeMainWithToast\(id: string\) \{\s*const sent = versions\.makeMain\(id\);/.test(versions) && versions.includes('is Main now`, undo: () => versions.undo(sent)'), 'through the same store call, with its Undo');
-  assert.ok(versions.includes("if (choice === 'Play') player.playNow(url,") && versions.includes('const sent = versions.remove(id);') && versions.includes("else if (choice === 'Not mine') notMine(url, id);"));
-  assert.ok(!/\bAlert\b/.test(versions), 'the menu is the app\'s own half sheet, no iOS alert box');
-  assert.ok(versions.includes('versionMenu(menuIsMain, versions.isPicked(menuOpen))'));
+  // world map goal 4: a tap on a version plays it (Play left the menu); the menu is on a hold
+  assert.ok(/const play = \(id: string\) => \{[\s\S]{0,200}player\.playNow\(url,/.test(versions) && versions.includes('const sent = versions.remove(id);') && versions.includes("else if (choice === 'Not mine') notMine(url, id);"));
+  assert.ok(!/\bAlert\b/.test(versions), 'the menu is the app\'s own, no iOS alert box');
+  assert.ok(versions.includes('versionHoldMenu(menuIsMain, versions.isPicked(menuOpen))'));
 });
 
 // ---------- A: compare ---------------------------------------------------------------------------------------------------
 ok('A: Compare is opened the same two ways, and its wheel keeps its size, snap and rules', () => {
-  const versions = code('./Versions.tsx');
-  // world map goal 1: Versions can open over the player; on the family playing, Compare borrows the player's song
-  assert.ok(/close\(\);[\s\S]{0,300}setTimeout\(\(\) => \(fromPlayer \? compare\.openFromPlayer\(url\) : compare\.openFromLibrary\(url, versionsOf\)\), AFTER_CLOSE_MS\)/.test(versions), 'from the Versions sheet: the sheet goes first');
+  // world map goal 4: Compare left the Versions page; it is the song sheet's own row, which borrows the playing song
+  assert.ok(!/compare\./.test(code('./Versions.tsx')), 'no Compare on the Versions page');
+  assert.ok(code('./SongSheet.tsx').includes("return from === 'player' && playing ? compare.openFromPlayer(url) : compare.openFromLibrary(url, song.id);"), 'from the song sheet');
   assert.ok(code('./Player.tsx').includes('onPress={() => compare.openFromPlayer(player.url())}'), 'from the player');
   const wheel = code('./Compare.tsx');
   assert.ok(/WHEEL_ROW = 32;/.test(wheel) && /WHEEL_WIDTH = 168;/.test(wheel), 'the same slot: nothing beside it moves');
@@ -128,7 +129,7 @@ ok('A: Queue, Versions and the picker use the list row every screen uses: 60 hig
   const versions = code('./Versions.tsx');
   assert.ok(/const ROW_HEIGHT = S\.row;/.test(versions) && /height: ROW_HEIGHT/.test(style('./Versions.tsx', 'row')));
   assert.equal((versions.match(/<Tile [^>]*size=\{S\.rowTile\}/g) ?? []).length, 2, 'the picker and the Versions sheet');
-  assert.ok(/height: S\.tap\b/.test(style('./Versions.tsx', 'headWord')) && /height: S\.tap\b/.test(style('./Versions.tsx', 'compareTap')));
+  assert.ok(/height: S\.tap\b/.test(style('./Versions.tsx', 'headWord')) && /minWidth: S\.tap\b/.test(style('./Versions.tsx', 'headWord')), 'Back on a page is 44');
   assert.ok(/MENU_ROW = 52;/.test(versions) && /height: MENU_ROW/.test(style('./Versions.tsx', 'menuItem')));
   assert.ok(/paddingVertical: 13/.test(style('./Versions.tsx', 'chip')), '"Versions · 3" in the player is 44 to touch');
   // the playing song, in Queue and in Versions: amber, as in every list

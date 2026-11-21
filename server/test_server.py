@@ -1007,6 +1007,29 @@ def main():
     r, _ = ask("/songs", host="evil.example.com")
     check("an unknown address name is refused", r.status == 403)
 
+    # the mockups (spike/mockups), served so the phone opens them from the address it already knows
+    for bare in ("/mockups", "/mockups/world"):
+        r, _ = ask(bare)
+        check(f"mockups: {bare} moves to {bare}/ so its own links work", r.status == 301 and r.getheader("Location") == bare + "/")
+    r, body = ask("/mockups/")
+    check("mockups: the directions page opens", r.status == 200 and r.getheader("Content-Type").startswith("text/html")
+          and body == (server.MOCKUPS_DIR / "index.html").read_bytes())
+    r, body = ask("/mockups/world/")
+    check("mockups: the world map opens", r.status == 200 and body == (server.MOCKUPS_DIR / "world" / "index.html").read_bytes())
+    r, body = ask("/mockups/world/app.js")
+    check("mockups: scripts come as JavaScript", r.status == 200 and r.getheader("Content-Type").startswith("text/javascript"))
+    r, _ = ask("/mockups/app.css")
+    check("mockups: styles come as CSS", r.status == 200 and r.getheader("Content-Type").startswith("text/css"))
+    r, _ = ask("/mockups/world/index.html", "HEAD")
+    check("mockups: HEAD works", r.status == 200)
+    for bad in ("/mockups/../server/vault_server/server.py", "/mockups/..%2F..%2Fserver%2Fvault_server%2Fserver.py",
+                "/mockups/%2e%2e/%2e%2e/CLAUDE.md", "/mockups/check.mjs", "/mockups/world/..\\..\\..\\CLAUDE.md",
+                "/mockups/C:/Windows/win.ini", "/mockups/nothing.html", f"/mockups/{music / 'local.mp3'}"):
+        r, _ = ask(bad.replace(" ", "%20"))
+        check(f"mockups: refused {bad[:40]}", r.status == 404, str(r.status))
+    r, _ = ask("/mockups/", host="evil.example.com")
+    check("mockups: an unknown address name is refused", r.status == 403)
+
     # library goes away: nothing recreated
     (root / MARKER_NAME).rename(root / "marker-away")
     r, body = ask("/songs")

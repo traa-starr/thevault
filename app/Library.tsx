@@ -15,7 +15,7 @@ import { takeLibraryAsk, takeSeed, useLibraryAsk, useSeed } from './nav';
 import { inSongList } from './energy';
 import { loadSongList, offline, saveSongList, useOffline } from './offline';
 import { flush, useOutbox } from './outbox';
-import { LaptopLine, RestoreNotice, WaitingLine } from './Notices';
+import { RestoreNotice, WaitingLine } from './Notices';
 import { NOT_HERE, player, usePlayerWith, type Pool } from './playerStore';
 import { playStore } from './playStore';
 import { ratingStore, useRatings } from './ratingStore';
@@ -392,7 +392,6 @@ export default function Library({ url }: { url: string }) {
       {!selecting ? <SavedLine /> : null}
       {!selecting ? <RestoreNotice /> : null}
       <WaitingLine />
-      <LaptopLine />
       {(failed || laptopOff) && songs ? (
         <Pressable onPress={() => setAttempt(attempt + 1)}>
           <Text style={s.offline}>Laptop not reachable: songs on this phone still play. Tap to try again.</Text>

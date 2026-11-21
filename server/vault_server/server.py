@@ -20,7 +20,7 @@ import threading
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 from .autocopy import AutoCopy
 from .backup import BACKUP_DIR, last_backup_age
@@ -54,7 +54,11 @@ MAX_BODY = 1024 * 1024
 # 1: phone backup (6.2). 2: this number in /health (6.3). 3: app updates at /update (6.5). 4: tags (GET /tags, tag_add/tag_remove).
 # 6: the laptop desk (/desk, /desk-status) and `hidden` in /status (calm part 1). The phone copes without either (no
 # count on Settings' Hidden row), so NEEDS_SERVER stays 5: this number is for doctor and the desk icon to say "restart".
-SERVER_LEVEL = 6
+# 7: the mockups at /mockups/ (spike/mockups), for the phone's Safari. The app never asks, so NEEDS_SERVER stays 5.
+SERVER_LEVEL = 7
+MOCKUPS_DIR = Path(__file__).resolve().parents[2] / "spike" / "mockups"
+MOCKUP_TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8",
+                ".png": "image/png", ".svg": "image/svg+xml", ".jpg": "image/jpeg", ".json": "application/json; charset=utf-8"}
 PHONE_BACKUP_NAME = "phone-backup.json"  # in the library folder; not the record, so the journal never sees it
 MINE_VALUES = ("mine", "not mine")
 MIN_FOLDER_SET = 2
@@ -201,6 +205,22 @@ def desk_status(conn, root):
 DESK_HEADERS = {"Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; "
                                            "media-src 'self'; frame-ancestors 'none'; form-action 'none'; base-uri 'none'",
                 "X-Frame-Options": "DENY"}
+
+
+def mockup_file(rel):
+    """A mockup page or its css / js / picture under spike/mockups, or None. A folder answers with its index.html; a
+    folder named without its last slash answers "redirect" (its pages link to their neighbours by bare name). Never
+    leaves that folder, and serves only page files (not check.mjs)."""
+    rel = unquote(rel)
+    if "\\" in rel or ":" in rel or "\0" in rel:
+        return None
+    base = MOCKUPS_DIR.resolve()
+    path = (base / rel).resolve()
+    if path != base and base not in path.parents:
+        return None
+    if path.is_dir():
+        return "redirect" if rel and not rel.endswith("/") else mockup_file(rel + "index.html")
+    return path if path.suffix.lower() in MOCKUP_TYPES and path.is_file() else None
 
 
 def on_desk(client, host):
@@ -473,6 +493,13 @@ def make_handler(root, allowed_hosts, backup_dir=BACKUP_DIR, on_mine=None):
                         return self._json(200, desk_status(conn, root))
                     finally:
                         conn.close()
+                if route == "/mockups" or route.startswith("/mockups/"):  # spike/mockups, for the phone's Safari
+                    found = mockup_file(route[len("/mockups/"):]) if route != "/mockups" else "redirect"
+                    if found == "redirect":
+                        return self._raw(301, {"Location": route + "/", "Cache-Control": "no-store"}, b"")
+                    if not found:
+                        return self._error(404, "Nothing here.")
+                    return self._send(200, found.read_bytes(), MOCKUP_TYPES[found.suffix.lower()])
                 if route == "/phone-backup":
                     return self._json(200, {"backup": read_phone_backup(root)})
                 if route == "/health":

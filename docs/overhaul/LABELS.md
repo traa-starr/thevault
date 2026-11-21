@@ -72,6 +72,7 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Mine
 - Mine or not mine, one card at a time
 - More: Sort, Tag songs, Settings
+- More: Sort, Tag songs, Settings (the laptop needs a look)
 - My songs one by one, to mark their lines
 - No Favorites yet: tap Favorite in the player
 - No Mine songs can play right now.
@@ -171,14 +172,12 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Also back{…}: {…}.
 - Fresh install: connect to your laptop to get everything back
 - Fresh install: getting your things back from the laptop…
-- Laptop server is out of date: restart it (Stop the server, then Start the server). Tap to check again.
 - last song and spot
 - Not sure pile ({…})
 - Nothing else was waiting on the old install.
 - player settings
 - Songs save to this phone again from 0.
 - Songs, Mine, groups and Hidden come from the laptop.
-- This phone's backup didn't save on the laptop. Tap to try again.
 - waiting to send
 - Welcome back
 
@@ -263,11 +262,17 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Hidden songs
 - Laptop
 - Laptop address
+- Laptop status
 - Lock-screen log
 - Save
 - Settings
 - Songs
+- Status
 - This phone
+
+## SheetFrame.tsx
+- Cancel
+- Close
 
 ## SongRow.tsx
 - Archived
@@ -276,8 +281,6 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 
 ## SongSheet.tsx
 - {…} versions
-- Cancel
-- Close
 - Hidden
 - Mine
 - not mine
@@ -327,20 +330,18 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Undo
 
 ## Versions.tsx
-- : plays in shuffle
-- ”. Pick its Main.
+- “{…}”: pick its Main
 - (newest)
 - (your pick)
 - {…} is Main now
-- + Version
-- Cancel
-- Compare
-- Done
+- Add as a version of…
+- Back
 - Hidden: {…}
+- Hold for Make main, Remove, Not mine
 - Linked to {…}
-- Linking “
 - Loading songs…
 - Main
+- Main{…}: plays in shuffle
 - Make main
 - Newest
 - No Mine song matches
@@ -349,9 +350,10 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Recently played, then the same folder
 - Removed: {…}
 - Search Mine songs
+- Tap to play, hold for more
 - Undo
-- version picker
 - Versions ·
+- Versions · {…}
 - Your pick
 
 ## cardsCore.ts
@@ -388,6 +390,8 @@ The owner's rule (2026-11-10): plain music-app words, no slogans. The test fails
 - Nothing hidden
 
 ## laptopCore.ts
+- Laptop server is out of date: restart it (Stop the server, then Start the server). Tap to check again.
+- This phone's backup didn't save on the laptop. Tap to try again.
 - Timed out
 
 ## libraryCore.ts
